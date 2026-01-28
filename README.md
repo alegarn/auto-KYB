@@ -1,6 +1,6 @@
 # quick-kyb
 
-Quick KYB is a Rails application with a Svelte + Vite frontend (integrated
+Quick KYB is a client onboarding tool built for payment providers. The application uses Ruby on Rails with a Svelte + Vite frontend (integrated
 via Inertia/Vite). It provides the scaffolding for a modern web app combining
 Ruby on Rails back-end conventions with a fast Svelte frontend.
 
@@ -90,6 +90,26 @@ Further improvements (suggested)
 Files changed
 --
 - Updated the top-level README with setup and usage instructions.
+
+App goal
+--
+This project demonstrates a simple merchant onboarding flow for a payment
+company.
+
+Use case (merchant onboarding):
+
+- **Input:** Put the onboard forms online with a login component so merchants
+	can submit their business and contact information.
+- **Output:** Export collected information via email or an API so it can be
+	imported into a CRM or downstream system.
+- **Unique / value:** Verify submitted information by checking public
+	sources (e.g., business registries, public profiles) to reduce manual review
+	and improve trustworthiness of onboarding data.
+
+The repository includes example frontend pages and components (forms, hero,
+pricing, footer) that illustrate how to wire UI inputs to back-end export and
+verification flows. Use these as a starting point to integrate real APIs or
+connect to your CRM.
 
 License
 --
