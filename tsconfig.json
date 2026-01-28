@@ -19,7 +19,12 @@
     /* Aliases */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./app/frontend/*"]
+      "@/*": ["./app/frontend/*"],
+      "/lib/*": ["./app/frontend/lib/*"],
+      "/components/*": ["./app/frontend/components/*"],
+      "/pages/*": ["./app/frontend/pages/*"],
+      "/entrypoints/*": ["./app/frontend/entrypoints/*"],
+      "/utils": ["./app/frontend/utils.ts"]
     }
   },
 
