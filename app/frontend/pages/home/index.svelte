@@ -100,11 +100,10 @@
             <h1
               class="mt-8 text-balance text-6xl md:text-7xl lg:mt-16 xl:text-[5.25rem]"
             >
-              Modern Solutions for Customer Engagement
+              Modern Solutions for Customer Onboarding
             </h1>
             <p class="mx-auto mt-8 max-w-2xl text-balance text-lg">
-              Highly customizable components for building modern websites and
-              applications that look and feel the way you mean it.
+              Cut friction, not compliance — seamless KYC/KYB that keeps payments moving.
             </p>
 
             <div
