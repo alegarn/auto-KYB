@@ -9,9 +9,9 @@ project layout highlights, and quick commands for development and testing.
 
 Prerequisites
 --
-- Ruby 3.x (use rbenv/rvm as preferred)
-- Node.js 18+ (or current LTS)
-- Yarn or npm
+- Ruby 3.x (use mise/rvm as preferred)
+- Rails 8.1+ (bundled via `Gemfile`)
+- npm
 - PostgreSQL (or the DB configured in `config/database.yml`)
 
 Quickstart (development)
@@ -20,7 +20,7 @@ Quickstart (development)
 
 ```bash
 bundle install
-yarn install # or `npm install`
+npm install
 ```
 
 2. Create and prepare the database:
@@ -84,6 +84,8 @@ Further improvements (suggested)
 - Add a `Makefile` or more robust `bin/dev` orchestration for local setup
 - Add explicit development environment notes (exact Ruby/Node versions)
 - Add CI job examples and prettier/linting config for frontend code
+- Add Node.js 18+ for SSR and Vite
+
 
 Files changed
 --
