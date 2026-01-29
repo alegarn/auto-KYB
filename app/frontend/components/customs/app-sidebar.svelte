@@ -2,39 +2,42 @@
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import CalendarIcon from "@lucide/svelte/icons/calendar";
   import HouseIcon from "@lucide/svelte/icons/house";
-  import InboxIcon from "@lucide/svelte/icons/inbox";
-  import SearchIcon from "@lucide/svelte/icons/search";
   import SettingsIcon from "@lucide/svelte/icons/settings";
-  import { Link } from "@inertiajs/svelte";
+  import { Link, page } from "@inertiajs/svelte";
+  import { dashboard_path } from "/routes/index";
 
   // Menu items.
   const items = [
     {
-      title: "Home",
-      url: "#",
+      title: "Dashboard",
+      url: dashboard_path(),
       icon: HouseIcon,
     },
     {
-      title: "Clients",
-      url: "#",
-      icon: InboxIcon,
-    },
-    {
-      title: "Forms",
-      url: "#",
+      title: "My Forms",
+      url: "/forms",
       icon: CalendarIcon,
     },
     {
-      title: "CRM",
-      url: "#",
-      icon: SearchIcon,
-    },
-    {
       title: "Settings",
-      url: "#",
+      url: "/settings",
       icon: SettingsIcon,
     },
   ];
+
+  const currentPath = $derived.by(() => {
+    const url = $page?.url ?? "";
+    try {
+      return new URL(url, "http://localhost").pathname;
+    } catch {
+      return url;
+    }
+  });
+
+  const isActiveRoute = (url: string) => {
+    if (!url || url === "#") return false;
+    return currentPath === url || currentPath.startsWith(`${url}/`);
+  };
 
   let { session_id } = $props();
 </script>
@@ -47,12 +50,12 @@
         <Sidebar.Menu>
           {#each items as item (item.title)}
             <Sidebar.MenuItem>
-              <Sidebar.MenuButton>
-                {#snippet child({ props })}
-                  <a href={item.url} {...props}>
+              <Sidebar.MenuButton isActive={isActiveRoute(item.url)}>
+                {#snippet child({ props }: { props: Record<string, unknown> })}
+                  <Link href={item.url} {...props} viewTransition>
                     <item.icon />
                     <span>{item.title}</span>
-                  </a>
+                  </Link>
                 {/snippet}
               </Sidebar.MenuButton>
             </Sidebar.MenuItem>

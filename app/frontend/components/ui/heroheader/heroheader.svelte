@@ -142,13 +142,13 @@
                 variant="outline"
                 size="sm"
                 class={cn(isScrolled && "lg:hidden")}
-                href={sign_in_path}
+                href={sign_in_path()}
                 useInertia={false}
               >
                 Login
               </Button>
               <Button 
-                href={sign_up_path}
+                href={sign_up_path()}
                 size="sm" 
                 class={cn(isScrolled && "lg:hidden")}
                 useInertia={false}
