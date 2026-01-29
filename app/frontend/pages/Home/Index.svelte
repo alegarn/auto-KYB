@@ -4,7 +4,7 @@
   import Button from "/components/ui/button/button.svelte";
   import Pricing from '@/components/ui/pricing/pricing.svelte';
   import Footer from "/components/ui/footer/footer.svelte";
-
+  import dashboardPng from '/assets/dashboard.png'; 
   import { page } from '@inertiajs/svelte'
   import { sign_in_path, sign_up_path } from '@/routes';
 
@@ -108,14 +108,14 @@
           >
             <img
               class="bg-background aspect-15/8 relative hidden rounded-2xl dark:block"
-              src="/dashboard.png"
+              src={dashboardPng}
               alt="app screen"
               width="2700"
               height="1440"
             />
             <img
               class="z-2 border-border/25 aspect-15/8 relative rounded-2xl border dark:hidden"
-              src="/dashboard-light.png"
+              src={dashboardPng}
               alt="app screen"
               width="2700"
               height="1440"
