@@ -24,7 +24,8 @@
       "/components/*": ["./app/frontend/components/*"],
       "/pages/*": ["./app/frontend/pages/*"],
       "/entrypoints/*": ["./app/frontend/entrypoints/*"],
-      "/utils": ["./app/frontend/utils.ts"]
+      "/utils": ["./app/frontend/utils.ts"],
+      "/routes/*": ["./app/frontend/routes/*"]
     }
   },
 
