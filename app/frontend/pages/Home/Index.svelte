@@ -6,12 +6,16 @@
   import Footer from "/components/ui/footer/footer.svelte";
 
   import { page } from '@inertiajs/svelte'
-
+  import { sign_in_path, sign_up_path } from '@/routes';
 
 </script>
 
 <div>
-  <Heroheader user={$page?.props?.user} />
+  <Heroheader 
+    sign_in_path={sign_in_path} 
+    sign_up_path={sign_up_path} 
+    user={$page?.props?.user} 
+  />
   <main class="overflow-hidden">
     <div
       class="absolute isolate hidden opacity-65 contain-strict lg:block"

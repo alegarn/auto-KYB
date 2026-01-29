@@ -3,10 +3,7 @@
   import Button from "/components/ui/button/button.svelte";
   import Input from "/components/ui/input/input.svelte";
   import Label from "/components/ui/label/label.svelte";
-
-
-  console.log($page) // inspect keys sent by server
-
+  import { sign_up_path } from '/routes/index';
 </script>
 
 {#if $page.flash?.alert}
@@ -150,7 +147,7 @@
     <div class="p-3">
       <p class="text-accent-foreground text-center text-sm">
         Don't have an account ?
-        <Button href="/sign_up" variant="link" class="px-2">Create account</Button>
+        <Button href={sign_up_path} variant="link" class="px-2">Create account</Button>
       </p>
     </div>
   </Form>
