@@ -6,6 +6,7 @@
   import SearchIcon from "@lucide/svelte/icons/search";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import { Link } from "@inertiajs/svelte";
+
   // Menu items.
   const items = [
     {
