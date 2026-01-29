@@ -1,23 +1,16 @@
 <script lang="ts">
-  import { VERSION } from 'svelte/compiler'
-  let { rails_version, rack_version, ruby_version, inertia_rails_version }:
-    { rails_version: string, rack_version: string, ruby_version: string, inertia_rails_version: string } = $props()
   import Heroheader from '@/components/ui/heroheader/heroheader.svelte';
   /* import ArrowRight from "@lucide/svelte/icons/arrow-right"; */
   import Button from "/components/ui/button/button.svelte";
   import Pricing from '@/components/ui/pricing/pricing.svelte';
   import Footer from "/components/ui/footer/footer.svelte";
-
-
-
 </script>
-
 
 <div>
   <Heroheader />
   <main class="overflow-hidden">
     <div
-      class="absolute inset-0 isolate hidden opacity-65 contain-strict lg:block"
+      class="absolute isolate hidden opacity-65 contain-strict lg:block"
     >
       <div
         class="w-140 h-320 -translate-y-87.5 absolute left-0 top-0 -rotate-45 rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,hsla(0,0%,85%,.08)_0,hsla(0,0%,55%,.02)_50%,hsla(0,0%,45%,0)_80%)]"

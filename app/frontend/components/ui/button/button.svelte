@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import { cn, type WithElementRef } from "@/lib/utils.js";
+  import { inertia } from "@inertiajs/svelte";
 	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from "svelte/elements";
 	import { type VariantProps, tv } from "tailwind-variants";
 
@@ -58,6 +59,7 @@
 {#if href}
 	<a
 		bind:this={ref}
+		use:inertia
 		data-slot="button"
 		class={cn(buttonVariants({ variant, size }), className)}
 		href={disabled ? undefined : href}

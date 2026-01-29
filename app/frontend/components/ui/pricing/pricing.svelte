@@ -35,7 +35,7 @@
   };
 </script>
 
-<section class="py-16 md:py-32">
+<section id="pricing" class="py-16 md:py-32">
   <div class="mx-auto max-w-6xl px-6">
     <div class="mx-auto max-w-2xl space-y-6 text-center">
       <h1 class="text-center text-4xl font-semibold lg:text-5xl">

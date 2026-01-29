@@ -3,20 +3,19 @@
   import { cn } from "/lib/utils";
   import Menu from "@lucide/svelte/icons/menu";
   import X from "@lucide/svelte/icons/x";
-  import ArrowRight from "@lucide/svelte/icons/arrow-right";
-  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import { scrollY } from "svelte/reactivity/window";
   import Button from "../button/button.svelte";
-  
+  import { inertia, Link } from '@inertiajs/svelte'
+
   type MenuItem = {
     name: string;
     href: string;
   };
 
   let menuItems: MenuItem[] = [
-    { name: "Features", href: "#a" },
+    { name: "Features", href: "#a",  },
     { name: "Solution", href: "#a" },
-    { name: "Pricing", href: "#a" },
+    { name: "Pricing", href: "#pricing" },
     { name: "About", href: "#a" },
   ];
 
@@ -104,6 +103,7 @@
                 <a
                   href={item.href}
                   class="text-muted-foreground hover:text-accent-foreground block duration-150"
+                  use:inertia
                 >
                   <span>{item.name}</span>
                 </a>
@@ -124,6 +124,7 @@
                   <a
                     href={item.href}
                     class="text-muted-foreground hover:text-accent-foreground block duration-150"
+                    use:inertia
                   >
                     <span>{item.name}</span>
                   </a>
@@ -138,19 +139,19 @@
               variant="outline"
               size="sm"
               class={cn(isScrolled && "lg:hidden")}
-              href="#"
+              href="/sign_in"
             >
               Login
             </Button>
-            <Button href="#" size="sm" class={cn(isScrolled && "lg:hidden")}>
+            <Button href="/sign_up" size="sm" class={cn(isScrolled && "lg:hidden")}>
               Sign Up
             </Button>
             <Button
               size="sm"
-              href="#"
+              href="/sign_up"
               class={cn(isScrolled ? "lg:inline-flex" : "hidden")}
             >
-              Get Strated
+              Get Started
             </Button>
           </div>
         </div>
