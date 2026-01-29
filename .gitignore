@@ -83,3 +83,7 @@ bower.json
 .vscode/*
 .roo/
 .cache/
+
+# Ignore automatically generated js-routes files.
+/app/frontend/routes/index.js
+/app/frontend/routes/index.d.ts

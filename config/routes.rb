@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   end
 
   root "home#index"
+  
   get "dashboard", to: "dashboard#index"
 
   get  "sign_in", to: "sessions#new"

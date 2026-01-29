@@ -4,10 +4,14 @@
   import Button from "/components/ui/button/button.svelte";
   import Pricing from '@/components/ui/pricing/pricing.svelte';
   import Footer from "/components/ui/footer/footer.svelte";
+
+  import { page } from '@inertiajs/svelte'
+
+
 </script>
 
 <div>
-  <Heroheader />
+  <Heroheader user={$page?.props?.user} />
   <main class="overflow-hidden">
     <div
       class="absolute isolate hidden opacity-65 contain-strict lg:block"

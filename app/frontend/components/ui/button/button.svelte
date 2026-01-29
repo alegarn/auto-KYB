@@ -3,7 +3,8 @@
   import { inertia } from "@inertiajs/svelte";
 	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from "svelte/elements";
 	import { type VariantProps, tv } from "tailwind-variants";
-
+  import { Link } from "@inertiajs/svelte";
+  
 	export const buttonVariants = tv({
 		base: "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 		variants: {
@@ -52,6 +53,7 @@
 		type = "button",
 		disabled,
 		children,
+    useInertia = true,
 		...restProps
 	}: ButtonProps = $props();
 </script>
@@ -66,6 +68,7 @@
 		aria-disabled={disabled}
 		role={disabled ? "link" : undefined}
 		tabindex={disabled ? -1 : undefined}
+		viewTransition
 		{...restProps}
 	>
 		{@render children?.()}
@@ -77,6 +80,7 @@
 		class={cn(buttonVariants({ variant, size }), className)}
 		{type}
 		{disabled}
+    viewTransition
 		{...restProps}
 	>
 		{@render children?.()}

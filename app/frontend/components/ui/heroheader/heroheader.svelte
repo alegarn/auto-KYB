@@ -7,6 +7,8 @@
   import Button from "../button/button.svelte";
   import { inertia, Link } from '@inertiajs/svelte'
 
+  let { user } = $props();
+
   type MenuItem = {
     name: string;
     href: string;
@@ -135,17 +137,25 @@
           <div
             class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit"
           >
+          {#if !user}
             <Button
               variant="outline"
               size="sm"
               class={cn(isScrolled && "lg:hidden")}
               href="/sign_in"
+              useInertia={false}
             >
               Login
             </Button>
-            <Button href="/sign_up" size="sm" class={cn(isScrolled && "lg:hidden")}>
+            <Button 
+              href="/sign_up" 
+              size="sm" 
+              class={cn(isScrolled && "lg:hidden")}
+              useInertia={false}
+            >
               Sign Up
             </Button>
+          {:else}
             <Button
               size="sm"
               href="/sign_up"
@@ -153,7 +163,7 @@
             >
               Get Started
             </Button>
-          </div>
+          {/if}
         </div>
       </div>
     </div>
