@@ -1,10 +1,11 @@
 <script lang="ts">
-  import Heroheader from '@/components/ui/heroheader/heroheader.svelte';
+  //import Heroheader from '@/components/ui/heroheader/heroheader.svelte';
   import Button from "/components/ui/button/button.svelte";
   import { page } from '@inertiajs/svelte'
   import { sign_in_path, sign_up_path } from '@/routes';
 
   // Lazy load heavy components
+  const Heroheader = import('/components/ui/heroheader/heroheader.svelte');
   const Features = import('/components/customs/features.svelte');
   const Pricing = import('/components/customs/pricing.svelte');
   const Footer = import("/components/ui/footer/footer.svelte");
@@ -30,11 +31,13 @@
 </script>
 
 <div>
-  <Heroheader 
-    sign_in_path={sign_in_path} 
-    sign_up_path={sign_up_path} 
-    user={$page?.props?.user} 
-  />
+  {#await Heroheader then module}
+    <module.default 
+      sign_in_path={sign_in_path} 
+      sign_up_path={sign_up_path} 
+      user={$page?.props?.user} 
+    />
+  {/await}
   <main class="overflow-hidden">
     <div
       class="absolute isolate hidden opacity-65 contain-strict lg:block"
