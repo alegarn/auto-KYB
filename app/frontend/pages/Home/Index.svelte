@@ -2,7 +2,8 @@
   import Heroheader from '@/components/ui/heroheader/heroheader.svelte';
   /* import ArrowRight from "@lucide/svelte/icons/arrow-right"; */
   import Button from "/components/ui/button/button.svelte";
-  import Pricing from '@/components/ui/pricing/pricing.svelte';
+  import Features from '/components/customs/features.svelte';
+  import Pricing from '/components/customs/pricing.svelte';
   import Footer from "/components/ui/footer/footer.svelte";
   import dashboardPng from '/assets/dashboard.png'; 
   import { page } from '@inertiajs/svelte'
@@ -215,6 +216,7 @@
       </div>
     </section> -->
   </main>
+  <Features />
   <Pricing />
   <Footer />
 </div>
