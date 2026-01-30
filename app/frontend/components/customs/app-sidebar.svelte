@@ -4,7 +4,7 @@
   import HouseIcon from "@lucide/svelte/icons/house";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import { Link, page } from "@inertiajs/svelte";
-  import { dashboard_path } from "/routes/index";
+  import { dashboard_path, forms_path } from "/routes/index";
 
   // Menu items.
   const items = [
@@ -15,7 +15,7 @@
     },
     {
       title: "My Forms",
-      url: "/forms",
+      url: forms_path(),
       icon: CalendarIcon,
     },
     {

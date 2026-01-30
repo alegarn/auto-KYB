@@ -8,6 +8,9 @@ Rails.application.routes.draw do
   
   get "dashboard", to: "dashboard#index"
 
+  get "forms", to: "forms#index"
+  get "settings", to: "settings#index"
+  
   get  "sign_in", to: "sessions#new"
   post "sign_in", to: "sessions#create"
   get  "sign_up", to: "registrations#new"
