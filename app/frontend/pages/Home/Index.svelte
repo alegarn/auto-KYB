@@ -1,21 +1,43 @@
 <script lang="ts">
-  import Heroheader from '@/components/ui/heroheader/heroheader.svelte';
-  /* import ArrowRight from "@lucide/svelte/icons/arrow-right"; */
+  //import Heroheader from '@/components/ui/heroheader/heroheader.svelte';
   import Button from "/components/ui/button/button.svelte";
-  import Pricing from '@/components/ui/pricing/pricing.svelte';
-  import Footer from "/components/ui/footer/footer.svelte";
-
   import { page } from '@inertiajs/svelte'
   import { sign_in_path, sign_up_path } from '@/routes';
 
+  // Lazy load heavy components
+  const Heroheader = import('/components/ui/heroheader/heroheader.svelte');
+  const Features = import('/components/customs/features.svelte');
+  const Pricing = import('/components/customs/pricing.svelte');
+  const Footer = import("/components/ui/footer/footer.svelte");
+
+  // Lazy load the dashboard image
+  let dashboardImage = $state<string | null>(null);
+  let imageLoaded = $state(false);
+
+  $effect(() => {
+    // Defer image loading after initial render
+    const loadImage = async () => {
+      const module = await import('/assets/dashboard.png');
+      dashboardImage = module.default;
+    };
+    
+    // Use requestIdleCallback or setTimeout to defer loading
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(() => loadImage());
+    } else {
+      setTimeout(() => loadImage(), 100);
+    }
+  });
 </script>
 
 <div>
-  <Heroheader 
-    sign_in_path={sign_in_path} 
-    sign_up_path={sign_up_path} 
-    user={$page?.props?.user} 
-  />
+  {#await Heroheader then module}
+    <module.default 
+      sign_in_path={sign_in_path} 
+      sign_up_path={sign_up_path} 
+      user={$page?.props?.user} 
+    />
+  {/await}
   <main class="overflow-hidden">
     <div
       class="absolute isolate hidden opacity-65 contain-strict lg:block"
@@ -36,40 +58,11 @@
           class="absolute inset-0 -z-10 size-full [background:radial-gradient(125%_125%_at_50%_100%,transparent_0%,var(--color-background)_75%)]"
         ></div>
         <div class="mx-auto max-w-7xl px-6">
-          <div class="text-center sm:mx-auto lg:mr-auto lg:mt-0">
-            <!-- <div>
-              <a
-                href="#link"
-                class="hover:bg-background dark:hover:border-t-border bg-muted group mx-auto flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-zinc-950/5 transition-colors duration-300 dark:border-t-white/5 dark:shadow-zinc-950"
-              >
-                <span class="text-foreground text-sm"
-                  >Introducing Support for AI Models</span
-                >
-                <span
-                  class="dark:border-background block h-4 w-0.5 border-l bg-white dark:bg-zinc-700"
-                ></span>
-
-                <div
-                  class="bg-background group-hover:bg-muted size-6 overflow-hidden rounded-full duration-500"
-                >
-                  <div
-                    class="flex w-12 -translate-x-1/2 duration-500 ease-in-out group-hover:translate-x-0"
-                  >
-                    <span class="flex size-6">
-                      <ArrowRight class="m-auto size-3" />
-                    </span>
-                    <span class="flex size-6">
-                      <ArrowRight class="m-auto size-3" />
-                    </span>
-                  </div>
-                </div>
-              </a>
-            </div> -->
-
+          <div class="text-center mx-auto lg:mx-auto lg:mt-0 pb-20 md:pb-32 lg:pb-40">
             <h1
               class="mt-8 text-balance text-6xl md:text-7xl lg:mt-16 xl:text-[5.25rem]"
             >
-              Swift Customer Onboarding
+              Fast KYC
             </h1>
             <p class="mx-auto mt-8 max-w-2xl text-balance text-lg">
               Cut friction, not compliance — seamless KYC/KYB that keeps payments moving.
@@ -97,6 +90,7 @@
           </div>
         </div>
 
+        <!-- Image section with reserved space to prevent layout shift -->
         <div
           class="relative -mr-56 mt-8 overflow-hidden px-2 sm:mr-0 sm:mt-12 md:mt-20"
         >
@@ -106,115 +100,54 @@
           <div
             class="inset-shadow-2xs ring-background dark:inset-shadow-white/20 bg-background relative mx-auto max-w-6xl overflow-hidden rounded-2xl border p-4 shadow-lg shadow-zinc-950/15"
           >
-            <img
-              class="bg-background aspect-15/8 relative hidden rounded-2xl dark:block"
-              src="/dashboard.png"
-              alt="app screen"
-              width="2700"
-              height="1440"
-            />
-            <img
-              class="z-2 border-border/25 aspect-15/8 relative rounded-2xl border dark:hidden"
-              src="/dashboard-light.png"
-              alt="app screen"
-              width="2700"
-              height="1440"
-            />
+            <!-- Reserved space container with aspect ratio to prevent layout shift -->
+            <div class="aspect-15/8 relative rounded-2xl bg-muted/50">
+              {#if dashboardImage}
+                <img
+                  class="bg-background aspect-15/8 absolute inset-0 hidden rounded-2xl transition-opacity duration-300 dark:block {imageLoaded ? 'opacity-100' : 'opacity-0'}"
+                  src={dashboardImage}
+                  alt="app screen"
+                  width="2700"
+                  height="1440"
+                  loading="lazy"
+                  decoding="async"
+                  onload={() => imageLoaded = true}
+                />
+                <img
+                  class="z-2 border-border/25 aspect-15/8 absolute inset-0 rounded-2xl border transition-opacity duration-300 dark:hidden {imageLoaded ? 'opacity-100' : 'opacity-0'}"
+                  src={dashboardImage}
+                  alt="app screen"
+                  width="2700"
+                  height="1440"
+                  loading="lazy"
+                  decoding="async"
+                  onload={() => imageLoaded = true}
+                />
+              {:else}
+                <!-- Skeleton placeholder while image loads -->
+                <div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-muted/30 animate-pulse">
+                  <svg class="w-12 h-12 text-muted-foreground/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              {/if}
+            </div>
           </div>
         </div>
       </div>
     </section>
- <!--    <section class="bg-background pb-16 pt-16 md:pb-32">
-      <div class="group relative m-auto max-w-5xl px-6">
-        <div
-          class="absolute inset-0 z-10 flex scale-95 items-center justify-center opacity-0 duration-500 group-hover:scale-100 group-hover:opacity-100"
-        >
-          <a href="/" class="block text-sm duration-150 hover:opacity-75">
-            <span> Meet Our Customers</span>
-
-            <ChevronRight class="ml-1 inline-block size-3" />
-          </a>
-        </div>
-        <div
-          class="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-50 sm:gap-x-16 sm:gap-y-14"
-        >
-          <div class="flex">
-            <img
-              class="mx-auto h-5 w-fit dark:invert"
-              src="https://html.tailus.io/blocks/customers/nvidia.svg"
-              alt="Nvidia Logo"
-              height="20"
-              width="auto"
-            />
-          </div>
-
-          <div class="flex">
-            <img
-              class="mx-auto h-4 w-fit dark:invert"
-              src="https://html.tailus.io/blocks/customers/column.svg"
-              alt="Column Logo"
-              height="16"
-              width="auto"
-            />
-          </div>
-          <div class="flex">
-            <img
-              class="mx-auto h-4 w-fit dark:invert"
-              src="https://html.tailus.io/blocks/customers/github.svg"
-              alt="GitHub Logo"
-              height="16"
-              width="auto"
-            />
-          </div>
-          <div class="flex">
-            <img
-              class="mx-auto h-5 w-fit dark:invert"
-              src="https://html.tailus.io/blocks/customers/nike.svg"
-              alt="Nike Logo"
-              height="20"
-              width="auto"
-            />
-          </div>
-          <div class="flex">
-            <img
-              class="mx-auto h-5 w-fit dark:invert"
-              src="https://html.tailus.io/blocks/customers/lemonsqueezy.svg"
-              alt="Lemon Squeezy Logo"
-              height="20"
-              width="auto"
-            />
-          </div>
-          <div class="flex">
-            <img
-              class="mx-auto h-4 w-fit dark:invert"
-              src="https://html.tailus.io/blocks/customers/laravel.svg"
-              alt="Laravel Logo"
-              height="16"
-              width="auto"
-            />
-          </div>
-          <div class="flex">
-            <img
-              class="mx-auto h-7 w-fit dark:invert"
-              src="https://html.tailus.io/blocks/customers/lilly.svg"
-              alt="Lilly Logo"
-              height="28"
-              width="auto"
-            />
-          </div>
-          <div class="flex">
-            <img
-              class="mx-auto h-6 w-fit dark:invert"
-              src="https://html.tailus.io/blocks/customers/openai.svg"
-              alt="OpenAI Logo"
-              height="24"
-              width="auto"
-            />
-          </div>
-        </div>
-      </div>
-    </section> -->
   </main>
-  <Pricing />
-  <Footer />
+  
+  <!-- Lazy loaded components with fallback -->
+  {#await Features then module}
+    <module.default />
+  {/await}
+  
+  {#await Pricing then module}
+    <module.default />
+  {/await}
+  
+  {#await Footer then module}
+    <module.default />
+  {/await}
 </div>
