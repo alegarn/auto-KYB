@@ -45,10 +45,8 @@ RSpec.configure do |config|
   # instead of true.
   config.use_transactional_fixtures = true
 
-  # Configure rails-controller-testing
-  if defined?(RailsControllerTesting)
-    config.include RailsControllerTesting::ControllerHelpers, type: :controller
-  end
+  # Make route helpers like `sign_in_path` available in examples
+  config.include Rails.application.routes.url_helpers
 
   # You can uncomment this line to turn off ActiveRecord support entirely.
   # config.use_active_record = false
@@ -67,8 +65,8 @@ RSpec.configure do |config|
   # /spec/models would pull in the same behaviour as `type: :model` but this
   # behaviour is considered legacy and will be removed in a future version.
   #
-  # To enable this behaviour uncomment the line below.
-  # config.infer_spec_type_from_file_location!
+  # Infer spec type from file location (enables `type: :controller` / `:request` automatically)
+  config.infer_spec_type_from_file_location!
 
   # Filter lines from Rails gems in backtraces.
   config.filter_rails_from_backtrace!
