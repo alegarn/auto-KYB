@@ -10,7 +10,7 @@ class FormsController < ApplicationController
       render :index, locals: { forms: forms, user: current_user }
     else
       render inertia: "Forms/Index", props: {
-        user: current_user,
+        user: current_user ? { id: current_user.id, email: current_user.email } : nil,
         session_id: current_session_id,
         forms: forms
       }
@@ -19,21 +19,21 @@ class FormsController < ApplicationController
 
   def show
     form = current_user.forms.find(params[:id])
-    render json: form.as_json(only: [:id, :name, :description], include: { form_fields: { only: [:id, :label, :field_type, :required, :position] } })
+    render json: FormDetailSerializer.new(form).as_json
   end
 
   def new
     if request.format.html?
       render :new, locals: { user: current_user }
     else
-      render inertia: "Forms/New", props: { user: current_user }
+      render inertia: "Forms/New", props: { user: current_user ? { id: current_user.id, email: current_user.email } : nil }
     end
   end
 
   def create
     # convert permitted params to plain hash for service layer
     created = FormService.create_form(current_user, form_params.to_h)
-    redirect_to forms_path
+    redirect_to forms_path, status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     if request.format.html?
       render :new, locals: { errors: e.record.errors.full_messages }, status: :unprocessable_entity
