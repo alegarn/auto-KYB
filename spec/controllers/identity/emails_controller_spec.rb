@@ -66,6 +66,27 @@ RSpec.describe Identity::EmailsController, type: :controller do
       end
     end
 
+    context "with incorrect password challenge" do
+      let(:wrong_password_params) do
+        {
+          email: "new@example.com",
+          password_challenge: "wrongpassword"
+        }
+      end
+
+      it "does not update the user" do
+        expect {
+          patch :update, params: wrong_password_params
+        }.not_to change { user.reload.email }
+      end
+
+      it "renders edit with unprocessable_entity status" do
+        patch :update, params: wrong_password_params
+
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+    end
+
     context "when email does not change" do
       let(:same_email_params) do
         {
@@ -79,6 +100,12 @@ RSpec.describe Identity::EmailsController, type: :controller do
 
         expect(response).to redirect_to(root_path)
         expect(flash[:notice]).to be_nil
+      end
+
+      it "does not send email verification" do
+        expect {
+          patch :update, params: same_email_params
+        }.not_to have_enqueued_job(ActionMailer::MailDeliveryJob)
       end
     end
   end
