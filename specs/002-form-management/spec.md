@@ -18,6 +18,7 @@
 - Q: What happens when a user modifies a form's structure that already contains data? → A: Allow modifications with warnings about potential data loss
 - Q: How should file uploads be handled for the file upload field type? → A: Store files in cloud storage (e.g., S3, Cloudinary)
 - Q: What is the maximum file size allowed for file upload fields? → A: 5MB maximum file size
+- Q: Can users define if a field is mandatory to fill? → A: Yes, users can mark fields as required/mandatory during form creation and update
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -37,7 +38,7 @@ As a new user, I want to automatically have a default KYB (Know Your Business) f
 
 ### User Story 2 - Create New Form (Priority: P1)
 
-As a user, I want to create new custom forms with a name and define their structure (fields, labels, and order), so that I can manage different types of forms beyond the default KYB form.
+As a user, I want to create new custom forms with a name and define their structure (fields, labels, order, and mandatory status), so that I can manage different types of forms beyond the default KYB form.
 
 **Why this priority**: Creating custom forms is essential for users who need to manage multiple types of forms. This enables flexibility and scalability of the user's workflow.
 
@@ -47,15 +48,16 @@ As a user, I want to create new custom forms with a name and define their struct
 
 1. **Given** the user is on the "My Forms" page, **When** the user clicks the "New form" button, **Then** a form creation interface is displayed with fields for form name
 2. **Given** the form creation interface is open, **When** the user enters a form name, **Then** the "Create form" button becomes enabled
-3. **Given** the form creation interface is open, **When** the user adds a field with a label and type, **Then** the field is added to the form structure in the specified order
-4. **Given** the user has filled in the required fields and defined the form structure, **When** the user clicks "Create form", **Then** a new form is added to the user's form list with the defined structure
-5. **Given** the user has created a new form, **When** the form is created, **Then** the form list is updated and the new form is visible
+3. **Given** the form creation interface is open, **When** the user adds a field with a label, type, and mandatory status, **Then** the field is added to the form structure in the specified order
+4. **Given** the form creation interface is open, **When** the user toggles a field's mandatory status, **Then** the field's required/optional status is updated accordingly
+5. **Given** the user has filled in the required fields and defined the form structure, **When** the user clicks "Create form", **Then** a new form is added to the user's form list with the defined structure and mandatory field settings
+6. **Given** the user has created a new form, **When** the form is created, **Then** the form list is updated and the new form is visible
 
 ---
 
 ### User Story 3 - Update Existing Form (Priority: P2)
 
-As a user, I want to update form metadata (name) and structure (fields, labels, order) for existing forms, so that I can correct errors as business needs change.
+As a user, I want to update form metadata (name) and structure (fields, labels, order, and mandatory status) for existing forms, so that I can correct errors as business needs change.
 
 **Why this priority**: Updating forms is important for maintaining accurate information, but it's a secondary action compared to creating forms. Users can perform their primary tasks with create functionality, and updates address maintenance needs.
 
@@ -65,10 +67,11 @@ As a user, I want to update form metadata (name) and structure (fields, labels, 
 
 1. **Given** the user has an existing form in their list, **When** the user opens the form details, **Then** the form's current metadata (name) is displayed and editable
 2. **Given** the form details are open, **When** the user modifies the form name and saves, **Then** the updated name is reflected in the form list
-3. **Given** the form details are open, **When** the user adds a new field with label and type, **Then** the field is added to the form structure in the specified order
-4. **Given** the form details are open, **When** the user modifies an existing field's label or type, **Then** the changes are persisted
-5. **Given** the form details are open, **When** the user removes a field from the form structure, **Then** the field is removed from the form
-6. **Given** the form details are open, **When** the user reorders the fields, **Then** the new order is persisted
+3. **Given** the form details are open, **When** the user adds a new field with label, type, and mandatory status, **Then** the field is added to the form structure in the specified order
+4. **Given** the form details are open, **When** the user modifies an existing field's label, type, or mandatory status, **Then** the changes are persisted
+5. **Given** the form details are open, **When** the user toggles a field's mandatory status, **Then** the field's required/optional status is updated accordingly
+6. **Given** the form details are open, **When** the user removes a field from the form structure, **Then** the field is removed from the form
+7. **Given** the form details are open, **When** the user reorders the fields, **Then** the new order is persisted
 
 ---
 
@@ -107,11 +110,14 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - **FR-003**: System MUST provide a user interface for creating new forms with fields for form name
 - **FR-004**: System MUST validate that form name is provided when creating a new form (duplicate names allowed)
 - **FR-004a**: System MUST display a warning when a user creates a form with no fields but allow the creation to proceed
-- **FR-005**: System MUST provide a user interface for defining form structure during creation (adding fields with labels, types, and order)
-- **FR-006**: System MUST persist the form structure (fields, labels, types, order) when a form is created
+- **FR-005**: System MUST provide a user interface for defining form structure during creation (adding fields with labels, types, mandatory status, and order)
+- **FR-006**: System MUST persist the form structure (fields, labels, types, mandatory status, order) when a form is created
 - **FR-007**: System MUST provide a user interface for updating form metadata (name)
-- **FR-008**: System MUST provide a user interface for updating form structure (adding, modifying, removing, reordering fields)
+- **FR-008**: System MUST provide a user interface for updating form structure (adding, modifying, removing, reordering fields, and toggling mandatory status)
 - **FR-009**: System MUST persist form metadata and structure updates and reflect them in the form list
+- **FR-018**: System MUST allow users to mark individual form fields as mandatory (required) or optional
+- **FR-019**: System MUST display a visual indicator (e.g., asterisk, "required" label) for mandatory fields in the form structure interface
+- **FR-020**: System MUST persist the mandatory status of each field when the form is created or updated
 - **FR-010**: System MUST provide a delete action for all forms
 - **FR-011**: System MUST require confirmation before permanently deleting a form
 - **FR-012**: System MUST display an appropriate error message when form creation fails due to invalid input
@@ -124,7 +130,7 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 ### Key Entities
 
 - **Form**: Represents a data collection form created by a user. Key attributes include unique identifier, name, creation date, and structure (fields with labels, types, and order). Forms can be user-created or system-default (KYB). Forms are personal to each user and not shared.
-- **Form Field**: Represents a single field within a form. Key attributes include unique identifier, label, type (text, number, date, email, textarea, checkbox, select, radio, file), and position/order within the form.
+- **Form Field**: Represents a single field within a form. Key attributes include unique identifier, label, type (text, number, date, email, textarea, checkbox, select, radio, file), mandatory status (required/optional), and position/order within the form.
 - **Default KYB Form**: A system-generated form automatically created for each new user. Contains standard KYB fields (company name, registration number, business address, contact information). Users can update and delete this form like any other form.
 - **User Account**: Represents the authenticated user who manages forms. Key attributes include email and account creation date. Users can create, update, and delete forms. Forms are not shared between users.
 
@@ -145,7 +151,9 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - The default KYB form structure is defined by the system and includes standard compliance fields
 - Forms are personal to each user and not shared between users
 - Deleting a form is permanent and cannot be recovered
-- Users can define form structure (fields, labels, types, order) during form creation and update
+- Users can define form structure (fields, labels, types, mandatory status, order) during form creation and update
+- Mandatory fields must be filled out when a form is submitted (form submission validation)
+- Optional fields may be left empty without preventing form submission
 - The application is a web-based interface accessed through a browser
 
 ## Dependencies
