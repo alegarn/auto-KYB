@@ -12,8 +12,12 @@ module TestAuthHelpers
     end
 
     # For request specs we can set the test cookie jar if available
-    if respond_to?(:cookies) && cookies.respond_to?(:signed)
-      cookies.signed[:session_token] = session_record.id
+    if respond_to?(:cookies)
+      if cookies.respond_to?(:signed)
+        cookies.signed[:session_token] = session_record.id
+      else
+        cookies[:session_token] = session_record.id
+      end
     elsif defined?(request) && request.respond_to?(:cookies)
       request.cookies['session_token'] = session_record.id
     end
