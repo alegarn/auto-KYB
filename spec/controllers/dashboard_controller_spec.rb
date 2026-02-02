@@ -29,5 +29,25 @@ RSpec.describe DashboardController, type: :controller, inertia: true do
         expect(inertia.props[:session_id]).to eq(session.id)
       end
     end
+
+    context "when not authenticated" do
+      it "redirects to sign in path" do
+        get :index
+
+        expect(response).to redirect_to(sign_in_path)
+      end
+    end
+
+    context "when session token is invalid" do
+      before do
+        cookies.signed[:session_token] = "invalid_token"
+      end
+
+      it "redirects to sign in path" do
+        get :index
+
+        expect(response).to redirect_to(sign_in_path)
+      end
+    end
   end
 end
