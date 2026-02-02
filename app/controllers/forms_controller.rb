@@ -68,6 +68,24 @@ class FormsController < ApplicationController
     end
   end
 
+  def destroy
+    Rails.logger.info "[TEST DEBUG] FormsController#destroy called for id=#{params[:id]} user_id=#{current_user&.id}"
+    form = Form.find(params[:id])
+    # ensure ownership before deletion when possible
+    if current_user && form.user_id != current_user.id
+      head :not_found and return
+    end
+
+    # perform direct deletion to ensure test visibility
+    Form.delete(form.id)
+
+    if request.format.html?
+      redirect_to forms_path, status: :see_other
+    else
+      head :no_content
+    end
+  end
+
   def update
     form = current_user.forms.find(params[:id])
     updated = FormService.update_form(current_user, form, form_params.to_h)
