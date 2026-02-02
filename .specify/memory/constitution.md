@@ -1,18 +1,14 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: [NEW] → 1.0.0
-Modified Principles: N/A (initial version)
-Added Sections:
-  - Core Principles (6 principles)
-  - Quality Standards
-  - Performance Requirements
-  - Governance
+Version Change: 1.0.0 → 1.1.0
+Modified Principles: N/A (no principle changes)
+Added Sections: N/A
 Removed Sections: N/A
 Templates Status:
-  ✅ plan-template.md - Constitution Check section aligns with new principles
+  ✅ plan-template.md - Constitution Check section now includes detailed checkboxes for all 6 principles
   ✅ spec-template.md - Requirements and success criteria align with quality standards
-  ✅ tasks-template.md - Task organization supports TDD and Rails principles
+  ✅ tasks-template.md - Fixed constitutional violation: Tests are now MANDATORY (was "OPTIONAL") to align with TDD NON-NEGOTIABLE principle
   ⚠ No command templates found in .specify/templates/commands/
 Follow-up TODOs: None
 -->
@@ -107,4 +103,4 @@ All pull requests MUST verify constitutional compliance. Code reviews MUST check
 
 Any deviation from constitutional principles MUST be explicitly justified. Complexity MUST be documented with reasoning. Simpler alternatives MUST be considered and documented if rejected.
 
-**Version**: 1.0.0 | **Ratified**: 2026-01-28 | **Last Amended**: 2026-01-28
+**Version**: 1.1.0 | **Ratified**: 2026-01-28 | **Last Amended**: 2026-02-02
