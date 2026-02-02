@@ -15,6 +15,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_072735) do
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
 
+  create_table "form_fields", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "field_type", null: false
+    t.uuid "form_id", null: false
+    t.string "label", null: false
+    t.jsonb "metadata", default: {}
+    t.integer "position"
+    t.boolean "required", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.index ["form_id"], name: "index_form_fields_on_form_id"
+  end
+
+  create_table "forms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.jsonb "structure", default: {}
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["user_id"], name: "index_forms_on_user_id"
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "ip_address"
@@ -35,5 +56,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_072735) do
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 
+  add_foreign_key "form_fields", "forms"
+  add_foreign_key "forms", "users"
   add_foreign_key "sessions", "users"
 end
