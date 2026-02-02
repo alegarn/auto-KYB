@@ -31,7 +31,63 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### Code Quality (Principle I)
+- [ ] Code follows Ruby on Rails community standards
+- [ ] Code passes RuboCop linting with project-specific rules
+- [ ] Code is self-documenting with clear variable and method names
+- [ ] Complex logic is extracted into well-named methods or service objects
+- [ ] Public methods have documentation comments
+
+### DRY (Principle II)
+- [ ] Code duplication is eliminated through proper abstraction
+- [ ] Common functionality is extracted into shared modules, concerns, or service objects
+- [ ] Views use partials and components for repeated UI patterns
+- [ ] Database queries are scoped and reused
+
+### Convention Over Configuration (Principle III)
+- [ ] Ruby on Rails conventions for naming, file structure, and patterns are followed
+- [ ] Custom configurations are only used when conventions cannot meet requirements
+- [ ] Rails generators and standard directory structure are used
+- [ ] RESTful routing conventions are followed
+
+### MVC Architecture (Principle IV)
+- [ ] Models contain business logic and data access rules
+- [ ] Controllers are thin, handling only request/response orchestration
+- [ ] Views are presentation logic only, with no business logic
+- [ ] Cross-cutting concerns use concerns, services, or decorators appropriately
+
+### RESTful Design (Principle V)
+- [ ] API endpoints follow RESTful conventions with appropriate HTTP verbs
+- [ ] Resources are nouns and actions are verbs
+- [ ] Standard Rails resource routing is used
+- [ ] Responses have appropriate status codes
+- [ ] API is stateless with proper HTTP caching headers
+
+### Test-Driven Development (Principle VI) - NON-NEGOTIABLE
+- [ ] Tests are written before implementation code (Red-Green-Refactor cycle)
+- [ ] All features have corresponding tests
+- [ ] Tests cover happy paths, edge cases, and error conditions
+- [ ] Test suite runs quickly and reliably
+- [ ] Integration tests cover critical user journeys
+- [ ] Unit tests cover business logic
+
+### Quality Standards
+- [ ] User interfaces follow consistent design patterns and components
+- [ ] Shared Svelte components from `app/frontend/components/ui/` are used
+- [ ] Consistent color schemes, typography, and spacing are maintained
+- [ ] User-facing text is clear, concise, and uses consistent terminology
+- [ ] Loading states and error messages are consistent
+- [ ] UI is responsive and works across device sizes
+- [ ] Accessibility compliance (WCAG 2.1 AA minimum) is ensured
+
+### Performance Requirements
+- [ ] API endpoints respond within 200ms (p95) for standard operations
+- [ ] Page loads complete within 2 seconds on 3G connections
+- [ ] Database queries are optimized with proper indexing
+- [ ] N+1 queries are eliminated through eager loading
+- [ ] Frontend bundle size is optimized through code splitting
+- [ ] Images and assets are optimized and lazy-loaded
+- [ ] Appropriate caching is implemented at multiple levels
 
 ## Project Structure
 
