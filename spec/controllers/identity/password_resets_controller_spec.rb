@@ -75,6 +75,27 @@ RSpec.describe Identity::PasswordResetsController, type: :controller do
         expect(flash[:alert]).to eq("You can't reset your password until you verify your email")
       end
     end
+
+    context "with empty email" do
+      it "does not assign @user" do
+        post :create, params: { email: "" }
+
+        expect(assigns(:user)).to be_nil
+      end
+
+      it "does not send password reset email" do
+        expect {
+          post :create, params: { email: "" }
+        }.not_to have_enqueued_job(ActionMailer::MailDeliveryJob)
+      end
+
+      it "redirects to new_identity_password_reset_path with alert" do
+        post :create, params: { email: "" }
+
+        expect(response).to redirect_to(new_identity_password_reset_path)
+        expect(flash[:alert]).to eq("You can't reset your password until you verify your email")
+      end
+    end
   end
 
   describe "GET #edit" do
@@ -145,6 +166,31 @@ RSpec.describe Identity::PasswordResetsController, type: :controller do
         token = user.generate_token_for(:password_reset)
 
         patch :update, params: { sid: token }.merge(invalid_params)
+
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+    end
+
+    context "with mismatched password confirmation" do
+      let(:mismatched_params) do
+        {
+          password: "newpassword123456",
+          password_confirmation: "differentpassword123456"
+        }
+      end
+
+      it "does not update the user password" do
+        token = user.generate_token_for(:password_reset)
+
+        expect {
+          patch :update, params: { sid: token }.merge(mismatched_params)
+        }.not_to change { user.reload.password_digest }
+      end
+
+      it "renders edit with unprocessable_entity status" do
+        token = user.generate_token_for(:password_reset)
+
+        patch :update, params: { sid: token }.merge(mismatched_params)
 
         expect(response).to have_http_status(:unprocessable_entity)
       end
