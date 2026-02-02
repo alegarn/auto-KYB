@@ -18,6 +18,8 @@
 	};
 
 	let { children, user, session_id } = $props();
+ 	let showModal = $state(false);
+ 	let selectedToDelete = $state(null as Form | null);
 
 	const mockForms: Form[] = [
 		{
@@ -218,7 +220,7 @@
 								<Button
 									size="sm"
 									variant={selectedStatus === status ? "default" : "secondary"}
-									on:click={() => (selectedStatus = status)}
+									onclick={() => (selectedStatus = status)}
 								>
 									{labelForStatus(status)}
 								</Button>
