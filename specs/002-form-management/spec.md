@@ -58,6 +58,7 @@ As a user, I want to create new custom forms with a name and define their struct
 4. **Given** the form creation interface is open, **When** the user toggles a field's mandatory status, **Then** the field's required/optional status is updated accordingly
 5. **Given** the user has filled in the required fields and defined the form structure, **When** the user clicks "Create form", **Then** a new form is added to the user's form list with the defined structure and mandatory field settings
 6. **Given** the user has created a new form, **When** the form is created, **Then** the form list is updated and the new form is visible
+7. **Given** the form creation interface is open and no fields have been added, **When** the user clicks "Create form", **Then** an inline warning message is displayed near the button stating "This form has no fields. You can add fields later." but the form is still created
 
 ---
 
@@ -78,6 +79,10 @@ As a user, I want to update form metadata (name) and structure (fields, labels, 
 5. **Given** the form details are open, **When** the user toggles a field's mandatory status, **Then** the field's required/optional status is updated accordingly
 6. **Given** the form details are open, **When** the user removes a field from the form structure, **Then** the field is removed from the form
 7. **Given** the form details are open, **When** the user reorders the fields, **Then** the new order is persisted
+8. **Given** the form details are open and the form contains existing data, **When** the user attempts to remove a field that has data, **Then** a modal dialog is displayed warning about data loss and listing the affected field
+9. **Given** the form details are open and the form contains existing data, **When** the user attempts to change a field type that may cause data loss, **Then** a modal dialog is displayed warning about potential data loss and requiring confirmation
+10. **Given** the data loss warning modal is displayed, **When** the user confirms the change, **Then** the form structure is updated and data loss occurs as expected
+11. **Given** the data loss warning modal is displayed, **When** the user cancels the change, **Then** the form structure remains unchanged and no data is lost
 
 ---
 
@@ -132,7 +137,7 @@ As a user, I want to click on a form in my form list to view a full web form pre
 - **FR-002**: System MUST initialize the default KYB form with standard KYB fields (company name, registration number, business address, contact information)
 - **FR-003**: System MUST provide a user interface for creating new forms with fields for form name
 - **FR-004**: System MUST validate that form name is provided when creating a new form (duplicate names allowed)
-- **FR-004a**: System MUST display a warning when a user creates a form with no fields but allow the creation to proceed
+- **FR-004a**: System MUST display an inline warning message near the form creation button when a user attempts to create a form with no fields; the warning must clearly state "This form has no fields. You can add fields later." but allow the creation to proceed
 - **FR-005**: System MUST provide a user interface for defining form structure during creation (adding fields with labels, types, mandatory status, and order)
 - **FR-006**: System MUST persist the form structure (fields, labels, types, mandatory status, order) when a form is created
 - **FR-007**: System MUST provide a user interface for updating form metadata (name)
@@ -145,7 +150,7 @@ As a user, I want to click on a form in my form list to view a full web form pre
 - **FR-011**: System MUST require confirmation before permanently deleting a form
 - **FR-012**: System MUST display an appropriate error message when form creation fails due to invalid input
 - **FR-013**: System MUST allow users to cancel form creation, update, or delete actions without making changes
-- **FR-014**: System MUST display a warning when a user modifies a form structure that contains data and the change may result in data loss
+- **FR-014**: System MUST display a modal confirmation dialog when a user modifies a form structure that contains data and the change may result in data loss; the dialog must list specific changes that could cause data loss (e.g., "Removing field 'Company Name' will delete existing data", "Changing field type from 'Number' to 'Text' may cause data loss"), and require explicit confirmation before proceeding
 - **FR-015**: System MUST display the form list with all forms (including default) immediately upon page load
 - **FR-016**: System MUST provide a clickable form item in the form list that navigates to a form view page
 - **FR-017**: System MUST render a full web form preview on the form view page with all fields displayed in their appropriate input types (text, number, date, email, textarea, checkbox, select, radio)
