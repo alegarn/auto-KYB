@@ -5,6 +5,16 @@ class ApplicationController < ActionController::Base
   before_action :set_current_request_details
   before_action :authenticate
 
+  helper_method :current_user, :current_session_id
+
+  def current_user
+    Current.session&.user
+  end
+
+  def current_session_id
+    Current.session&.id
+  end
+
   private
     def authenticate
       # Allow tests that set Current.session directly to bypass cookie-based lookup

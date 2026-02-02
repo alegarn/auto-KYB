@@ -7,12 +7,5 @@ class DashboardController < ApplicationController
   end
 
   private
-
-  def current_user
-    Current.session&.user
-  end
-
-  def current_session_id
-    Current.session&.id
-  end
+  # `current_user` and `current_session_id` provided by ApplicationController
 end

@@ -23,7 +23,7 @@ class User < ApplicationRecord
   end
 
   after_update if: :password_digest_previously_changed? do
-    sessions.where.not(id: Current.session).delete_all
+    sessions.where.not(id: Current.session&.id).delete_all
   end
 
   after_create :initialize_default_forms

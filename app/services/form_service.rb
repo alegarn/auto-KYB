@@ -6,7 +6,7 @@ class FormService
     return if user.forms.exists?(name: "Default KYB Form")
 
     FormInitializer.default_for_user(user)
-  rescue => e
+  rescue ActiveRecord::RecordInvalid => e
     Rails.logger.error("FormService: failed to initialize default form for user=#{user.id} - #{e.message}")
     nil
   end
@@ -14,16 +14,18 @@ class FormService
   def self.create_form(user, params)
     # Normalize structure to a plain Hash so we can access string or symbol keys
     struct = params[:structure].respond_to?(:to_h) ? params[:structure].to_h : (params[:structure] || {})
-    form = user.forms.create!(name: params[:name], structure: struct)
-    (struct["fields"] || struct[:fields] || []).each_with_index do |f, idx|
-      label = f["label"] || f[:label]
-      field_type = f["field_type"] || f[:field_type] || "text"
-      required = f.key?("required") ? f["required"] : (f.key?(:required) ? f[:required] : false)
-      position = f["position"] || f[:position] || idx + 1
-      metadata = f["metadata"] || f[:metadata] || {}
-      form.form_fields.create!(label: label, field_type: field_type, required: required, position: position, metadata: metadata)
+    ActiveRecord::Base.transaction do
+      form = user.forms.create!(name: params[:name], structure: struct)
+      (struct["fields"] || struct[:fields] || []).each_with_index do |f, idx|
+        label = f["label"] || f[:label]
+        field_type = f["field_type"] || f[:field_type] || "text"
+        required = f.key?("required") ? f["required"] : (f.key?(:required) ? f[:required] : false)
+        position = f["position"] || f[:position] || idx + 1
+        metadata = f["metadata"] || f[:metadata] || {}
+        form.form_fields.create!(label: label, field_type: field_type, required: required, position: position, metadata: metadata)
+      end
+      form
     end
-    form
   end
 
   def self.update_form(user, form, params)
@@ -45,16 +47,32 @@ class FormService
     ActiveRecord::Base.transaction do
       form.update!(name: params[:name]) if params.key?(:name)
       if params[:structure]
-        # simplistic replacement strategy for now
-        form.form_fields.destroy_all
-        (params[:structure][:fields] || []).each_with_index do |f, idx|
-          label = f["label"] || f[:label]
-          field_type = f["field_type"] || f[:field_type]
-          required = f["required"] || f[:required] || false
-          position = f["position"] || f[:position] || idx + 1
-          metadata = f["metadata"] || f[:metadata] || {}
-          form.form_fields.create!(label: label, field_type: field_type, required: required, position: position, metadata: metadata)
+        new_fields = (params[:structure][:fields] || []).map.with_index(1) do |f, idx|
+          {
+            label: f["label"] || f[:label],
+            field_type: f["field_type"] || f[:field_type],
+            required: f.key?("required") ? f["required"] : (f.key?(:required) ? f[:required] : false),
+            position: f["position"] || f[:position] || idx,
+            metadata: f["metadata"] || f[:metadata] || {}
+          }
         end
+
+        existing = form.form_fields.index_by { |ff| ff.label.to_s }
+        processed = []
+
+        new_fields.each do |nf|
+          label = nf[:label].to_s
+          processed << label
+          if existing_field = existing[label]
+            existing_field.update!(field_type: nf[:field_type], required: nf[:required], position: nf[:position], metadata: nf[:metadata])
+          else
+            form.form_fields.create!(label: nf[:label], field_type: nf[:field_type], required: nf[:required], position: nf[:position], metadata: nf[:metadata])
+          end
+        end
+
+        to_remove = existing.keys - processed
+        form.form_fields.where(label: to_remove).destroy_all if to_remove.any?
+
         form.update!(structure: params[:structure])
       end
     end

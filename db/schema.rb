@@ -24,6 +24,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_072735) do
     t.integer "position"
     t.boolean "required", default: false, null: false
     t.datetime "updated_at", null: false
+    t.index ["form_id", "position"], name: "index_form_fields_on_form_id_and_position"
     t.index ["form_id"], name: "index_form_fields_on_form_id"
   end
 
@@ -33,6 +34,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_072735) do
     t.jsonb "structure", default: {}
     t.datetime "updated_at", null: false
     t.uuid "user_id", null: false
+    t.index ["user_id", "created_at"], name: "index_forms_on_user_id_and_created_at"
     t.index ["user_id"], name: "index_forms_on_user_id"
   end
 
