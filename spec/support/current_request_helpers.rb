@@ -18,26 +18,6 @@ module ControllerRequestHelpers
 
       Current.session = Session.find_by_id(token) if token
 
-      # If the controller still has an `:authenticate` before_action in its callback chain,
-      # and there's no token, simulate the redirect that `authenticate` would perform.
-      has_auth_callback = controller.class._process_action_callbacks.any? do |cb|
-        cb.kind == :before && (cb.filter == :authenticate || cb.filter.to_s == 'authenticate')
-      end
-
-      # Some anonymous controller setups may inherit a skipped callback; as a fallback
-      # check whether controller inherits from ApplicationController which defines the
-      # `authenticate` filter in the real app.
-      has_auth_callback ||= controller.class <= ApplicationController
-
-      if has_auth_callback && token.nil?
-        # build a redirect response like `redirect_to sign_in_path`
-        redirect_location = Rails.application.routes.url_helpers.sign_in_path
-        response.status = 302
-        response.location = redirect_location
-        response.body = ""
-        return response
-      end
-
       super(*args, **kwargs, &block)
     end
   end

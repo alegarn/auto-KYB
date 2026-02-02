@@ -29,6 +29,8 @@ RSpec.describe ApplicationController, type: :controller do
 
   describe "before_action :authenticate" do
     controller do
+      before_action :authenticate
+
       def index
         render plain: "OK"
       end
