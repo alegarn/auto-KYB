@@ -13,11 +13,9 @@
 - Q: Should forms be submitted to anyone? → A: No, users only perform CRUD operations on forms. No form data is sent anywhere.
 - Q: Should the system handle concurrent updates by multiple users? → A: Not applicable; forms are not shared between users
 - Q: How do users define form structure? → A: During form creation, users decide which kind of fields and labels the form will have and in which order
-- Q: What field types should be supported for form fields? → A: Text, Number, Date, Email, Textarea, Checkbox, Select, Radio, File upload (eight types)
+- Q: What field types should be supported for form fields? → A: Text, Number, Date, Email, Textarea, Checkbox, Select, Radio (seven types - File upload not implemented in current phase)
 - Q: What happens when a user creates a form with no fields? → A: Allow creation but warn user about empty form
 - Q: What happens when a user modifies a form's structure that already contains data? → A: Allow modifications with warnings about potential data loss
-- Q: How should file uploads be handled for the file upload field type? → A: Store files in cloud storage (e.g., S3, Cloudinary)
-- Q: What is the maximum file size allowed for file upload fields? → A: 5MB maximum file size
 - Q: Can users define if a field is mandatory to fill? → A: Yes, users can mark fields as required/mandatory during form creation and update
 
 ## User Scenarios & Testing *(mandatory)*
@@ -98,8 +96,6 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - How does the system handle concurrent updates to the same form by multiple users? (Clarified: Not applicable; forms are not shared between users)
 - What happens when a user creates a form with no fields? (Clarified: Allow creation but warn user about empty form)
 - What happens when a user modifies a form's structure that already contains data? (Clarified: Allow modifications with warnings about potential data loss)
-- What happens when a file upload fails due to network issues? (Clarified: Display error message and allow retry)
-- What happens when a user uploads a file exceeding the size limit? (Clarified: Display error message with size limit)
 
 ## Requirements *(mandatory)*
 
@@ -123,14 +119,12 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - **FR-012**: System MUST display an appropriate error message when form creation fails due to invalid input
 - **FR-013**: System MUST allow users to cancel form creation, update, or delete actions without making changes
 - **FR-014**: System MUST display a warning when a user modifies a form structure that contains data and the change may result in data loss
-- **FR-015**: System MUST validate that uploaded files do not exceed the 5MB size limit
-- **FR-016**: System MUST display an appropriate error message when file upload fails or exceeds size limit
-- **FR-017**: System MUST display the form list with all forms (including default) immediately upon page load
+- **FR-015**: System MUST display the form list with all forms (including default) immediately upon page load
 
 ### Key Entities
 
 - **Form**: Represents a data collection form created by a user. Key attributes include unique identifier, name, creation date, and structure (fields with labels, types, and order). Forms can be user-created or system-default (KYB). Forms are personal to each user and not shared.
-- **Form Field**: Represents a single field within a form. Key attributes include unique identifier, label, type (text, number, date, email, textarea, checkbox, select, radio, file), mandatory status (required/optional), and position/order within the form.
+- **Form Field**: Represents a single field within a form. Key attributes include unique identifier, label, type (text, number, date, email, textarea, checkbox, select, radio), mandatory status (required/optional), and position/order within the form.
 - **Default KYB Form**: A system-generated form automatically created for each new user. Contains standard KYB fields (company name, registration number, business address, contact information). Users can update and delete this form like any other form.
 - **User Account**: Represents the authenticated user who manages forms. Key attributes include email and account creation date. Users can create, update, and delete forms. Forms are not shared between users.
 
@@ -161,4 +155,3 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - User authentication system must be in place to identify the logged-in user
 - Form list display UI must be available (from feature 001-user-dashboard-navigation)
 - Database must support storing form entities with all required attributes and user references
-- Cloud storage service (e.g., AWS S3, Cloudinary) must be configured for file upload field type
