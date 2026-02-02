@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe DashboardController, type: :controller do
+RSpec.describe DashboardController, type: :controller, inertia: true do
   let(:user) { User.create!(email: "test@example.com", password: "password123456") }
 
   describe "GET #index" do

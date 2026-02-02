@@ -2,6 +2,8 @@ require "rails_helper"
 
 RSpec.describe ApplicationController, type: :controller do
   controller do
+    skip_before_action :authenticate
+
     def index
       render plain: "OK"
     end
@@ -9,7 +11,7 @@ RSpec.describe ApplicationController, type: :controller do
 
   describe "before_action :set_current_request_details" do
     it "sets Current.user_agent" do
-      request.env["HTTP_USER_AGENT"] = "Mozilla/5.0"
+      @request.env["HTTP_USER_AGENT"] = "Mozilla/5.0"
 
       get :index
 
@@ -17,7 +19,7 @@ RSpec.describe ApplicationController, type: :controller do
     end
 
     it "sets Current.ip_address" do
-      request.remote_addr = "192.168.1.1"
+      @request.env["REMOTE_ADDR"] = "192.168.1.1"
 
       get :index
 
@@ -26,6 +28,12 @@ RSpec.describe ApplicationController, type: :controller do
   end
 
   describe "before_action :authenticate" do
+    controller do
+      def index
+        render plain: "OK"
+      end
+    end
+
     context "with valid session token" do
       it "sets Current.session" do
         user = User.create!(email: "test@example.com", password: "password123456")
