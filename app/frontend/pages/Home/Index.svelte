@@ -76,14 +76,14 @@
                 style="border-radius: calc(0.5rem + 0.125rem + 4px);"
               >
                 <Button
-                  href="#link"
+                  href={sign_up_path}
                   size="lg"
                   class="rounded-xl px-5 text-base"
                 >
                   <span class="text-nowrap">Start Onboarding</span>
                 </Button>
               </div>
-              <Button size="lg" variant="ghost" class="rounded-xl px-5">
+              <Button size="lg" variant="ghost" class="rounded-xl px-5" >
                 Request a demo
               </Button>
             </div>

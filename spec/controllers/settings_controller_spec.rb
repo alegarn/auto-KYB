@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe SettingsController, type: :controller do
+RSpec.describe SettingsController, type: :controller, inertia: true do
   let(:user) { User.create!(email: "test@example.com", password: "password123456") }
 
   describe "GET #index" do
@@ -27,6 +27,26 @@ RSpec.describe SettingsController, type: :controller do
         get :index
 
         expect(inertia.props[:session_id]).to eq(session.id)
+      end
+    end
+
+    context "when not authenticated" do
+      it "redirects to sign in path" do
+        get :index
+
+        expect(response).to redirect_to(sign_in_path)
+      end
+    end
+
+    context "when session token is invalid" do
+      before do
+        cookies.signed[:session_token] = "invalid_token"
+      end
+
+      it "redirects to sign in path" do
+        get :index
+
+        expect(response).to redirect_to(sign_in_path)
       end
     end
   end

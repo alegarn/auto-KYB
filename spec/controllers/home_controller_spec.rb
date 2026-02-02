@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe HomeController, type: :controller do
+RSpec.describe HomeController, type: :controller, inertia: true do
   describe "GET #index" do
     it "renders inertia with Home component" do
       get :index

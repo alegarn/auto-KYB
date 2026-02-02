@@ -1,6 +1,13 @@
 require "rails_helper"
 
 RSpec.describe Session, type: :model do
+  it "is valid with a user" do
+    user = User.create!(email: "test@example.com", password: "password123456")
+    session = user.sessions.build
+
+    expect(session).to be_valid
+  end
+
   describe "associations" do
     it "belongs to a user" do
       user = User.create!(email: "test@example.com", password: "password123456")

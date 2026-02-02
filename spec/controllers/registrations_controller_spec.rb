@@ -1,17 +1,17 @@
 require "rails_helper"
 
-RSpec.describe RegistrationsController, type: :controller do
+RSpec.describe RegistrationsController, type: :controller, inertia: true do
   describe "GET #new" do
-    it "assigns @user" do
+    it "renders inertia with Registrations/New component" do
       get :new
 
-      expect(assigns(:user)).to be_a_new(User)
+      expect(inertia.component).to eq("Registrations/New")
     end
 
-    it "renders the new template" do
+    it "passes user as prop" do
       get :new
 
-      expect(response).to have_http_status(:ok)
+      expect(inertia.props[:user]).to be_a_new(User)
     end
   end
 
@@ -46,7 +46,7 @@ RSpec.describe RegistrationsController, type: :controller do
       it "sends email verification" do
         expect {
           post :create, params: valid_params
-        }.to have_enqueued_job(ActionMailer::MailDeliveryJob).at_least(:once)
+        }.to have_enqueued_mail(UserMailer, :email_verification)
       end
 
       it "redirects to root_path" do

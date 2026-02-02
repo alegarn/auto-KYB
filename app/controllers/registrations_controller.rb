@@ -3,7 +3,7 @@ class RegistrationsController < ApplicationController
 
   def new
     @user = User.new
-    render inertia: true
+    render inertia: "Registrations/New", props: { user: @user }
   end
 
   def create
@@ -16,7 +16,7 @@ class RegistrationsController < ApplicationController
       send_email_verification
       redirect_to root_path, notice: "Welcome! You have signed up successfully"
     else
-      render :new, status: :unprocessable_entity
+      render inertia: "Registrations/New", props: { user: @user }, status: :unprocessable_entity
     end
   end
 
