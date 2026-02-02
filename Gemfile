@@ -62,6 +62,9 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+  # Static Ruby linter
+  gem "rubocop", require: false
+  gem "rubocop-rails", require: false
 
   # RSpec for Rails 7.2+
   gem "rspec-rails", "~> 8.0"
