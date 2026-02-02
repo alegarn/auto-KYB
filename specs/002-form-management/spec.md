@@ -12,6 +12,12 @@
 - Q: What is the uniqueness constraint for form names? → A: No uniqueness constraint (duplicates allowed even within same user)
 - Q: Should forms be submitted to anyone? → A: No, users only perform CRUD operations on forms. No form data is sent anywhere.
 - Q: Should the system handle concurrent updates by multiple users? → A: Not applicable; forms are not shared between users
+- Q: How do users define form structure? → A: During form creation, users decide which kind of fields and labels the form will have and in which order
+- Q: What field types should be supported for form fields? → A: Text, Number, Date, Email, Textarea, Checkbox, Select, Radio, File upload (eight types)
+- Q: What happens when a user creates a form with no fields? → A: Allow creation but warn user about empty form
+- Q: What happens when a user modifies a form's structure that already contains data? → A: Allow modifications with warnings about potential data loss
+- Q: How should file uploads be handled for the file upload field type? → A: Store files in cloud storage (e.g., S3, Cloudinary)
+- Q: What is the maximum file size allowed for file upload fields? → A: 5MB maximum file size
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -31,33 +37,38 @@ As a new user, I want to automatically have a default KYB (Know Your Business) f
 
 ### User Story 2 - Create New Form (Priority: P1)
 
-As a user, I want to create new custom forms with a name, so that I can manage different types of forms beyond the default KYB form.
+As a user, I want to create new custom forms with a name and define their structure (fields, labels, and order), so that I can manage different types of forms beyond the default KYB form.
 
 **Why this priority**: Creating custom forms is essential for users who need to manage multiple types of forms. This enables flexibility and scalability of the user's workflow.
 
-**Independent Test**: Can be fully tested by clicking the "New form" button, filling in the required fields, and verifying a new form appears in the form list with the provided details.
+**Independent Test**: Can be fully tested by clicking the "New form" button, filling in the required fields, defining the form structure, and verifying a new form appears in the form list with the provided details.
 
 **Acceptance Scenarios**:
 
 1. **Given** the user is on the "My Forms" page, **When** the user clicks the "New form" button, **Then** a form creation interface is displayed with fields for form name
 2. **Given** the form creation interface is open, **When** the user enters a form name, **Then** the "Create form" button becomes enabled
-3. **Given** the user has filled in the required fields, **When** the user clicks "Create form", **Then** a new form is added to the user's form list
-4. **Given** the user has created a new form, **When** the form is created, **Then** the form list is updated and the new form is visible
+3. **Given** the form creation interface is open, **When** the user adds a field with a label and type, **Then** the field is added to the form structure in the specified order
+4. **Given** the user has filled in the required fields and defined the form structure, **When** the user clicks "Create form", **Then** a new form is added to the user's form list with the defined structure
+5. **Given** the user has created a new form, **When** the form is created, **Then** the form list is updated and the new form is visible
 
 ---
 
 ### User Story 3 - Update Existing Form (Priority: P2)
 
-As a user, I want to update form metadata (name) for existing forms, so that I can correct errors as business needs change.
+As a user, I want to update form metadata (name) and structure (fields, labels, order) for existing forms, so that I can correct errors as business needs change.
 
 **Why this priority**: Updating forms is important for maintaining accurate information, but it's a secondary action compared to creating forms. Users can perform their primary tasks with create functionality, and updates address maintenance needs.
 
-**Independent Test**: Can be fully tested by opening an existing form, modifying its metadata, and verifying the changes are persisted and reflected in the form list.
+**Independent Test**: Can be fully tested by opening an existing form, modifying its metadata and structure, and verifying the changes are persisted and reflected in the form list.
 
 **Acceptance Scenarios**:
 
 1. **Given** the user has an existing form in their list, **When** the user opens the form details, **Then** the form's current metadata (name) is displayed and editable
 2. **Given** the form details are open, **When** the user modifies the form name and saves, **Then** the updated name is reflected in the form list
+3. **Given** the form details are open, **When** the user adds a new field with label and type, **Then** the field is added to the form structure in the specified order
+4. **Given** the form details are open, **When** the user modifies an existing field's label or type, **Then** the changes are persisted
+5. **Given** the form details are open, **When** the user removes a field from the form structure, **Then** the field is removed from the form
+6. **Given** the form details are open, **When** the user reorders the fields, **Then** the new order is persisted
 
 ---
 
@@ -82,6 +93,10 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 
 - What happens when a user creates multiple forms with identical names? (Clarified: Duplicates allowed)
 - How does the system handle concurrent updates to the same form by multiple users? (Clarified: Not applicable; forms are not shared between users)
+- What happens when a user creates a form with no fields? (Clarified: Allow creation but warn user about empty form)
+- What happens when a user modifies a form's structure that already contains data? (Clarified: Allow modifications with warnings about potential data loss)
+- What happens when a file upload fails due to network issues? (Clarified: Display error message and allow retry)
+- What happens when a user uploads a file exceeding the size limit? (Clarified: Display error message with size limit)
 
 ## Requirements *(mandatory)*
 
@@ -91,18 +106,26 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - **FR-002**: System MUST initialize the default KYB form with standard KYB fields (company name, registration number, business address, contact information)
 - **FR-003**: System MUST provide a user interface for creating new forms with fields for form name
 - **FR-004**: System MUST validate that form name is provided when creating a new form (duplicate names allowed)
-- **FR-005**: System MUST provide a user interface for updating form metadata (name)
-- **FR-006**: System MUST persist form metadata updates and reflect them in the form list
-- **FR-007**: System MUST provide a delete action for all forms
-- **FR-008**: System MUST require confirmation before permanently deleting a form
-- **FR-009**: System MUST display an appropriate error message when form creation fails due to invalid input
-- **FR-010**: System MUST allow users to cancel form creation, update, or delete actions without making changes
-- **FR-011**: System MUST display the form list with all forms (including default) immediately upon page load
+- **FR-004a**: System MUST display a warning when a user creates a form with no fields but allow the creation to proceed
+- **FR-005**: System MUST provide a user interface for defining form structure during creation (adding fields with labels, types, and order)
+- **FR-006**: System MUST persist the form structure (fields, labels, types, order) when a form is created
+- **FR-007**: System MUST provide a user interface for updating form metadata (name)
+- **FR-008**: System MUST provide a user interface for updating form structure (adding, modifying, removing, reordering fields)
+- **FR-009**: System MUST persist form metadata and structure updates and reflect them in the form list
+- **FR-010**: System MUST provide a delete action for all forms
+- **FR-011**: System MUST require confirmation before permanently deleting a form
+- **FR-012**: System MUST display an appropriate error message when form creation fails due to invalid input
+- **FR-013**: System MUST allow users to cancel form creation, update, or delete actions without making changes
+- **FR-014**: System MUST display a warning when a user modifies a form structure that contains data and the change may result in data loss
+- **FR-015**: System MUST validate that uploaded files do not exceed the 5MB size limit
+- **FR-016**: System MUST display an appropriate error message when file upload fails or exceeds size limit
+- **FR-017**: System MUST display the form list with all forms (including default) immediately upon page load
 
 ### Key Entities
 
-- **Form**: Represents a data collection form created by a user. Key attributes include unique identifier, name, creation date. Forms can be user-created or system-default (KYB). Forms are personal to each user and not shared.
-- **Default KYB Form**: A system-generated form automatically created for each new user. Contains standard KYB fields. Users can update and delete this form like any other form.
+- **Form**: Represents a data collection form created by a user. Key attributes include unique identifier, name, creation date, and structure (fields with labels, types, and order). Forms can be user-created or system-default (KYB). Forms are personal to each user and not shared.
+- **Form Field**: Represents a single field within a form. Key attributes include unique identifier, label, type (text, number, date, email, textarea, checkbox, select, radio, file), and position/order within the form.
+- **Default KYB Form**: A system-generated form automatically created for each new user. Contains standard KYB fields (company name, registration number, business address, contact information). Users can update and delete this form like any other form.
 - **User Account**: Represents the authenticated user who manages forms. Key attributes include email and account creation date. Users can create, update, and delete forms. Forms are not shared between users.
 
 ## Success Criteria *(mandatory)*
@@ -122,7 +145,7 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - The default KYB form structure is defined by the system and includes standard compliance fields
 - Forms are personal to each user and not shared between users
 - Deleting a form is permanent and cannot be recovered
-- Form fields/structure definition is a separate feature from form metadata management
+- Users can define form structure (fields, labels, types, order) during form creation and update
 - The application is a web-based interface accessed through a browser
 
 ## Dependencies
@@ -130,3 +153,4 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - User authentication system must be in place to identify the logged-in user
 - Form list display UI must be available (from feature 001-user-dashboard-navigation)
 - Database must support storing form entities with all required attributes and user references
+- Cloud storage service (e.g., AWS S3, Cloudinary) must be configured for file upload field type
