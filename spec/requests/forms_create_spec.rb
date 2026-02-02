@@ -17,7 +17,7 @@ RSpec.describe "Forms Create", type: :request do
     post "/forms", params: params, headers: headers
 
     user.reload
-   
+
     form = user.forms.find_by(name: 'Customer Info')
     expect(form).not_to be_nil
     expect(form.form_fields.count).to eq(1)

@@ -1,6 +1,6 @@
 # Populate Current and Current.session for controller specs from the test request
 module ControllerRequestHelpers
-  [:get, :post, :put, :patch, :delete].each do |http_method|
+  [ :get, :post, :put, :patch, :delete ].each do |http_method|
     define_method(http_method) do |*args, **kwargs, &block|
       # set Current from the request env immediately before the actual request
       req = defined?(@request) ? @request : request
@@ -16,7 +16,7 @@ module ControllerRequestHelpers
       token ||= (cookies[:session_token] rescue nil)
       token ||= (req.cookies['session_token'] rescue nil)
 
-      Current.session = Session.find_by_id(token) if token
+      Current.session = Session.find_by(id: token) if token
 
       super(*args, **kwargs, &block)
     end

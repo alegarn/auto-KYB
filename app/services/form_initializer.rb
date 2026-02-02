@@ -1,11 +1,11 @@
 class FormInitializer
   DEFAULT_KYB = {
-    name: 'Default KYB Form',
+    name: "Default KYB Form",
     fields: [
-      { label: 'Company Name', field_type: 'text', required: true, position: 1 },
-      { label: 'Registration Number', field_type: 'text', required: true, position: 2 },
-      { label: 'Business Address', field_type: 'text', required: true, position: 3 },
-      { label: 'Contact', field_type: 'email', required: true, position: 4 }
+      { label: "Company Name", field_type: "text", required: true, position: 1 },
+      { label: "Registration Number", field_type: "text", required: true, position: 2 },
+      { label: "Business Address", field_type: "text", required: true, position: 3 },
+      { label: "Contact", field_type: "email", required: true, position: 4 }
     ]
   }.freeze
 

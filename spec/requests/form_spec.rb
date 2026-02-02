@@ -6,10 +6,10 @@ RSpec.describe "Forms", type: :request do
       it "returns http success" do
         user = User.create!(email: "test@example.com", password: "password123456")
         session = user.sessions.create!
-        
+
         # Set the session token cookie properly using Rails' cookie methods
         cookies[:session_token] = session.id
-        
+
         get "/forms"
         expect(response).to have_http_status(:success)
       end
@@ -17,14 +17,14 @@ RSpec.describe "Forms", type: :request do
       it "renders the response with proper content" do
         user = User.create!(email: "test@example.com", password: "password123456")
         session = user.sessions.create!
-        
+
         cookies[:session_token] = session.id
-        
+
         get "/forms"
-        
+
         # Verify response is successful
         expect(response).to have_http_status(:success)
-        
+
         # Verify the response body contains expected content
         # Note: Inertia responses may be JSON or HTML depending on request headers
         expect(response.body).to be_present
