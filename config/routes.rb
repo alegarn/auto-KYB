@@ -10,6 +10,7 @@ Rails.application.routes.draw do
 
   get "forms", to: "forms#index"
   get "forms/new", to: "forms#new"
++  get "forms/:id", to: "forms#show", as: :form
   post "forms", to: "forms#create"
 
   get "settings", to: "settings#index"

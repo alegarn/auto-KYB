@@ -19,7 +19,23 @@ class FormsController < ApplicationController
 
   def show
     form = current_user.forms.find(params[:id])
-    render json: FormDetailSerializer.new(form).as_json
+    detail = FormDetailSerializer.new(form).as_json
+
+    if request.format.html?
+      # Render a minimal HTML preview for feature specs (Capybara) so tests can assert
+      html = "<h1>#{ERB::Util.html_escape(detail[:name])}</h1>"
+      html << "<p>#{ERB::Util.html_escape(detail[:description] || '')}</p>"
+      detail[:form_fields].each do |f|
+        label_text = f[:label].to_s + (f[:required] ? '*' : '')
+        html << "<div><label for=\"field_#{f[:id]}\">#{ERB::Util.html_escape(label_text)}</label>"
+        html << "<input id=\"field_#{f[:id]}\" name=\"field_#{f[:id]}\" />"
+        html << "</div>"
+      end
+      html << "<button type=\"button\">Submit Preview</button>"
+      render html: html.html_safe
+    else
+      render json: detail
+    end
   end
 
   def new
