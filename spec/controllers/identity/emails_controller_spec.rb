@@ -59,10 +59,10 @@ RSpec.describe Identity::EmailsController, type: :controller do
         }.not_to change { user.reload.email }
       end
 
-      it "renders edit with unprocessable_entity status" do
+      it "renders edit with unprocessable_content status" do
         patch :update, params: invalid_params
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -80,10 +80,10 @@ RSpec.describe Identity::EmailsController, type: :controller do
         }.not_to change { user.reload.email }
       end
 
-      it "renders edit with unprocessable_entity status" do
+      it "renders edit with unprocessable_content status" do
         patch :update, params: wrong_password_params
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
