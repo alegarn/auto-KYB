@@ -3,20 +3,21 @@
   import { cn } from "/lib/utils";
   import Menu from "@lucide/svelte/icons/menu";
   import X from "@lucide/svelte/icons/x";
-  import ArrowRight from "@lucide/svelte/icons/arrow-right";
-  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import { scrollY } from "svelte/reactivity/window";
   import Button from "../button/button.svelte";
-  
+  import { inertia, Link } from '@inertiajs/svelte'
+
+  let { user, sign_in_path, sign_up_path } = $props();
+
   type MenuItem = {
     name: string;
     href: string;
   };
 
   let menuItems: MenuItem[] = [
-    { name: "Features", href: "#a" },
+    { name: "Features", href: "#a",  },
     { name: "Solution", href: "#a" },
-    { name: "Pricing", href: "#a" },
+    { name: "Pricing", href: "#pricing" },
     { name: "About", href: "#a" },
   ];
 
@@ -104,6 +105,7 @@
                 <a
                   href={item.href}
                   class="text-muted-foreground hover:text-accent-foreground block duration-150"
+                  use:inertia
                 >
                   <span>{item.name}</span>
                 </a>
@@ -116,7 +118,7 @@
             "bg-background mb-6  w-full flex-wrap items-center justify-end space-y-8 rounded-3xl border p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent",
             menuState ? "block lg:flex" : "hidden lg:flex",
           ]}
-        >
+         >
           <div class="lg:hidden">
             <ul class="space-y-6 text-base">
               {#each menuItems as item, index}
@@ -124,6 +126,7 @@
                   <a
                     href={item.href}
                     class="text-muted-foreground hover:text-accent-foreground block duration-150"
+                    use:inertia
                   >
                     <span>{item.name}</span>
                   </a>
@@ -133,25 +136,34 @@
           </div>
           <div
             class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit"
-          >
-            <Button
-              variant="outline"
-              size="sm"
-              class={cn(isScrolled && "lg:hidden")}
-              href="#"
             >
-              Login
-            </Button>
-            <Button href="#" size="sm" class={cn(isScrolled && "lg:hidden")}>
-              Sign Up
-            </Button>
-            <Button
-              size="sm"
-              href="#"
-              class={cn(isScrolled ? "lg:inline-flex" : "hidden")}
-            >
-              Get Strated
-            </Button>
+            {#if !user}
+              <Button
+                variant="outline"
+                size="sm"
+                class={cn(isScrolled && "lg:hidden")}
+                href={sign_in_path()}
+                useInertia={false}
+              >
+                Login
+              </Button>
+              <Button 
+                href={sign_up_path()}
+                size="sm" 
+                class={cn(isScrolled && "lg:hidden")}
+                useInertia={false}
+              >
+                Sign Up
+              </Button>
+            {:else}
+              <Button
+                size="sm"
+                href="/dashboard"
+                class={cn(isScrolled ? "lg:inline-flex" : "hidden")}
+              >
+                Get Started
+              </Button>
+            {/if}
           </div>
         </div>
       </div>

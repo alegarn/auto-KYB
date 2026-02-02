@@ -1,9 +1,28 @@
-Rails.application.routes.draw do
+Rails.application.routes.draw do  
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server
   constraints(host: "127.0.0.1") do
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
-  root 'home#index'
+
+  root "home#index"
+  
+  get "dashboard", to: "dashboard#index"
+
+  get "forms", to: "forms#index"
+  get "settings", to: "settings#index"
+  
+  get  "sign_in", to: "sessions#new"
+  post "sign_in", to: "sessions#create"
+  get  "sign_up", to: "registrations#new"
+  post "sign_up", to: "registrations#create"
+  resources :sessions, only: [:index, :show, :destroy]
+  resource  :password, only: [:edit, :update]
+  namespace :identity do
+    resource :email,              only: [:edit, :update]
+    resource :email_verification, only: [:show, :create]
+    resource :password_reset,     only: [:new, :edit, :create, :update]
+  end
+
   get 'inertia-example', to: 'inertia_example#index'
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
