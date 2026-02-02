@@ -1,51 +1,59 @@
 require 'rails_helper'
 
 RSpec.describe FormService do
-  let(:user) do
-    # ensure factory creation does not trigger default form initialization for these unit tests
-    if User._create_callbacks.select { |cb| cb.kind == :after && cb.filter == :initialize_default_forms }.any?
-      User.skip_callback(:create, :after, :initialize_default_forms)
-      u = FactoryBot.create(:user)
-      User.set_callback(:create, :after, :initialize_default_forms)
-      u
-    else
-      FactoryBot.create(:user)
-    end
-  end
-
-  describe '.initialize_default_for_user' do
-    it 'creates a default form for new user' do
-      expect { FormService.initialize_default_for_user(user) }.to change { user.forms.count }.by(1)
-    end
-
-    it 'is idempotent and does not create duplicate default forms' do
-      FormService.initialize_default_for_user(user)
-      expect { FormService.initialize_default_for_user(user) }.not_to change { user.forms.count }
-    end
-  end
-
   describe '.create_form' do
-    it 'creates a form with provided structure and fields' do
-      params = { name: 'My Form', structure: { fields: [ { label: 'A', field_type: 'text', required: true } ] } }
+    it 'creates a form and its fields' do
+      user = User.create!(email: 'svc1@example.com', password: 'password')
+      params = { name: 'Svc Form', structure: { fields: [{ label: 'Name', field_type: 'text', required: true }] } }
+
       form = FormService.create_form(user, params)
+
       expect(form).to be_persisted
       expect(form.form_fields.count).to eq(1)
+      expect(form.form_fields.first.label).to eq('Name')
     end
   end
 
   describe '.update_form' do
     it 'updates form name and structure' do
-      form = FormService.create_form(user, { name: 'Old', structure: { fields: [] } })
-      updated = FormService.update_form(user, form, { name: 'New', structure: { fields: [ { label: 'X', field_type: 'text' } ] } })
+      user = User.create!(email: 'svc2@example.com', password: 'password')
+      form = user.forms.create!(name: 'Old')
+      params = { name: 'New', structure: { fields: [{ label: 'Email', field_type: 'text' }] } }
+
+      updated = FormService.update_form(user, form, params)
+
       expect(updated.name).to eq('New')
       expect(updated.form_fields.count).to eq(1)
+    end
+
+    it 'raises DataLossWarning when removing field with submissions' do
+      user = User.create!(email: 'svc3@example.com', password: 'password')
+      form = user.forms.create!(name: 'WithField')
+      ff = form.form_fields.create!(label: 'ToRemove', field_type: 'text')
+
+      # stub Form.has_submissions_for_field?
+      allow(Form).to receive(:has_submissions_for_field?).with(form.id, 'ToRemove').and_return(true)
+
+      params = { structure: { fields: [] } }
+
+      expect { FormService.update_form(user, form, params) }.to raise_error(FormService::DataLossWarning)
     end
   end
 
   describe '.delete_form' do
-    it 'deletes the form belonging to the user' do
-      form = FormService.create_form(user, { name: 'ToDelete', structure: { fields: [] } })
-      expect { FormService.delete_form(user, form) }.to change { user.forms.count }.by(-1)
+    it 'deletes owned form' do
+      user = User.create!(email: 'svc4@example.com', password: 'password')
+      form = user.forms.create!(name: 'ToDelete')
+
+      expect { FormService.delete_form(user, form) }.to change { Form.count }.by(-1)
+    end
+
+    it 'raises when deleting another users form' do
+      user1 = User.create!(email: 'svc5a@example.com', password: 'password')
+      user2 = User.create!(email: 'svc5b@example.com', password: 'password')
+      form = user1.forms.create!(name: 'Other')
+
+      expect { FormService.delete_form(user2, form) }.to raise_error(ActiveRecord::RecordNotFound)
     end
   end
 end

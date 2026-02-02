@@ -9,7 +9,7 @@ class FormsController < ApplicationController
     if request.format.html?
       render :index, locals: { forms: forms, user: current_user }
     else
-      render inertia: "Forms/Index", props: {
+      render inertia: 'Forms/Index', props: {
         user: current_user ? { id: current_user.id, email: current_user.email } : nil,
         session_id: current_session_id,
         forms: forms
@@ -26,12 +26,12 @@ class FormsController < ApplicationController
       html = "<h1>#{ERB::Util.html_escape(detail[:name])}</h1>"
       html << "<p>#{ERB::Util.html_escape(detail[:description] || '')}</p>"
       detail[:form_fields].each do |f|
-        label_text = f[:label].to_s + (f[:required] ? "*" : "")
+        label_text = f[:label].to_s + (f[:required] ? '*' : '')
         html << "<div><label for=\"field_#{f[:id]}\">#{ERB::Util.html_escape(label_text)}</label>"
         html << "<input id=\"field_#{f[:id]}\" name=\"field_#{f[:id]}\" />"
-        html << "</div>"
+        html << '</div>'
       end
-      html << "<button type=\"button\">Submit Preview</button>"
+      html << '<button type="button">Submit Preview</button>'
       html << "<a href=\"/forms/#{form.id}/edit\">Edit</a>"
       render html: html.html_safe
     else
@@ -43,7 +43,7 @@ class FormsController < ApplicationController
     if request.format.html?
       render :new, locals: { user: current_user }
     else
-      render inertia: "Forms/New", props: { user: current_user ? { id: current_user.id, email: current_user.email } : nil }
+      render inertia: 'Forms/New', props: { user: current_user ? { id: current_user.id, email: current_user.email } : nil }
     end
   end
 
@@ -55,7 +55,7 @@ class FormsController < ApplicationController
     if request.format.html?
       render :new, locals: { errors: e.record.errors.full_messages }, status: :unprocessable_entity
     else
-      render inertia: "Forms/New", props: { errors: e.record.errors.full_messages }, status: :unprocessable_entity
+      render inertia: 'Forms/New', props: { errors: e.record.errors.full_messages }, status: :unprocessable_entity
     end
   end
 
@@ -64,20 +64,14 @@ class FormsController < ApplicationController
     if request.format.html?
       render :edit, locals: { form: form }
     else
-      render inertia: "Forms/Edit", props: { form: FormDetailSerializer.new(form).as_json }
+      render inertia: 'Forms/Edit', props: { form: FormDetailSerializer.new(form).as_json }
     end
   end
 
   def destroy
-    Rails.logger.info "[TEST DEBUG] FormsController#destroy called for id=#{params[:id]} user_id=#{current_user&.id}"
-    form = Form.find(params[:id])
-    # ensure ownership before deletion when possible
-    if current_user && form.user_id != current_user.id
-      head :not_found and return
-    end
+    form = current_user.forms.find(params[:id])
 
-    # perform direct deletion to ensure test visibility
-    Form.delete(form.id)
+    form.destroy!
 
     if request.format.html?
       redirect_to forms_path, status: :see_other
@@ -91,7 +85,7 @@ class FormsController < ApplicationController
     updated = FormService.update_form(current_user, form, form_params.to_h)
 
     if request.format.html?
-      redirect_to form_path(form), notice: "Form updated"
+      redirect_to form_path(form), notice: 'Form updated'
     else
       render json: FormDetailSerializer.new(updated).as_json
     end

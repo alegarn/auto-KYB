@@ -11,8 +11,13 @@ class CreateFormsAndFormFields < ActiveRecord::Migration[7.0]
       end
     end
 
+    # index improvements for query performance
     unless index_exists?(:forms, :user_id)
       add_index :forms, :user_id
+    end
+
+    unless index_exists?(:forms, [:user_id, :created_at])
+      add_index :forms, [:user_id, :created_at]
     end
 
     unless table_exists?(:form_fields)
@@ -29,6 +34,10 @@ class CreateFormsAndFormFields < ActiveRecord::Migration[7.0]
 
     unless index_exists?(:form_fields, :form_id)
       add_index :form_fields, :form_id
+    end
+
+    unless index_exists?(:form_fields, [:form_id, :position])
+      add_index :form_fields, [:form_id, :position]
     end
   end
 end
