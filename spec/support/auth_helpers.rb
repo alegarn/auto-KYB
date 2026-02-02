@@ -11,6 +11,13 @@ module TestAuthHelpers
       end
     end
 
+    # For request specs we can set the test cookie jar if available
+    if respond_to?(:cookies) && cookies.respond_to?(:signed)
+      cookies.signed[:session_token] = session_record.id
+    elsif defined?(request) && request.respond_to?(:cookies)
+      request.cookies['session_token'] = session_record.id
+    end
+
     # Ensure Current is set for the current test process and initialize defaults
     Current.session = session_record
     FormService.initialize_default_for_user(user)

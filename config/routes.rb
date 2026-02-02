@@ -9,6 +9,9 @@ Rails.application.routes.draw do
   get "dashboard", to: "dashboard#index"
 
   get "forms", to: "forms#index"
+  get "forms/new", to: "forms#new"
+  post "forms", to: "forms#create"
+
   get "settings", to: "settings#index"
   
   get  "sign_in", to: "sessions#new"

@@ -10,9 +10,16 @@ class FormService
   end
 
   def self.create_form(user, params)
-    form = user.forms.create!(name: params[:name], structure: params[:structure] || {})
-    (params[:structure] || { fields: [] })[:fields].each_with_index do |f, idx|
-      form.form_fields.create!(label: f[:label], field_type: f[:field_type], required: f[:required] || false, position: f[:position] || idx + 1, metadata: f[:metadata] || {})
+    # Normalize structure to a plain Hash so we can access string or symbol keys
+    struct = params[:structure].respond_to?(:to_h) ? params[:structure].to_h : (params[:structure] || {})
+    form = user.forms.create!(name: params[:name], structure: struct)
+    (struct['fields'] || struct[:fields] || []).each_with_index do |f, idx|
+      label = f['label'] || f[:label]
+      field_type = f['field_type'] || f[:field_type] || 'text'
+      required = f.key?('required') ? f['required'] : (f.key?(:required) ? f[:required] : false)
+      position = f['position'] || f[:position] || idx + 1
+      metadata = f['metadata'] || f[:metadata] || {}
+      form.form_fields.create!(label: label, field_type: field_type, required: required, position: position, metadata: metadata)
     end
     form
   end
