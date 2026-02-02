@@ -4,8 +4,8 @@ class FormInitializer
     fields: [
       { label: 'Company Name', field_type: 'text', required: true, position: 1 },
       { label: 'Registration Number', field_type: 'text', required: true, position: 2 },
-      { label: 'Business Address', field_type: 'textarea', required: true, position: 3 },
-      { label: 'Contact Email', field_type: 'email', required: false, position: 4 }
+      { label: 'Business Address', field_type: 'text', required: true, position: 3 },
+      { label: 'Contact', field_type: 'email', required: true, position: 4 }
     ]
   }.freeze
 

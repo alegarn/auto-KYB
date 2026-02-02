@@ -1,7 +1,19 @@
 module TestAuthHelpers
   def sign_in_user(user = nil)
     user ||= FactoryBot.create(:user)
-    allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(user)
+    # Controllers rely on Current.session; create a session and set it
+    session_record = user.sessions.create!
+    # Set a cookie so requests authenticate using the session record
+    if defined?(page) && page.respond_to?(:driver)
+      # Rack::Test driver
+      if page.driver.respond_to?(:browser) && page.driver.browser.respond_to?(:set_cookie)
+        page.driver.browser.set_cookie("session_token=#{session_record.id}")
+      end
+    end
+
+    # Ensure Current is set for the current test process and initialize defaults
+    Current.session = session_record
+    FormService.initialize_default_for_user(user)
     user
   end
 

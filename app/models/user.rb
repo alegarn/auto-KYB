@@ -25,4 +25,14 @@ class User < ApplicationRecord
   after_update if: :password_digest_previously_changed? do
     sessions.where.not(id: Current.session).delete_all
   end
+
+  after_create :initialize_default_forms
+
+  private
+
+  def initialize_default_forms
+    FormService.initialize_default_for_user(self)
+  rescue => e
+    Rails.logger.error("User: failed to initialize default forms for user=#{id} - #{e.message}")
+  end
 end

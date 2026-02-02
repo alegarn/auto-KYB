@@ -1,7 +1,17 @@
 require 'rails_helper'
 
 RSpec.describe FormService do
-  let(:user) { FactoryBot.create(:user) }
+  let(:user) do
+    # ensure factory creation does not trigger default form initialization for these unit tests
+    if User._create_callbacks.select { |cb| cb.kind == :after && cb.filter == :initialize_default_forms }.any?
+      User.skip_callback(:create, :after, :initialize_default_forms)
+      u = FactoryBot.create(:user)
+      User.set_callback(:create, :after, :initialize_default_forms)
+      u
+    else
+      FactoryBot.create(:user)
+    end
+  end
 
   describe '.initialize_default_for_user' do
     it 'creates a default form for new user' do

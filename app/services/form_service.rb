@@ -1,11 +1,12 @@
 class FormService
   def self.initialize_default_for_user(user)
+    Rails.logger.info("FormService: initializing default form for user=#{user.id}")
     return if user.forms.exists?(name: 'Default KYB Form')
 
     FormInitializer.default_for_user(user)
   rescue => e
-    Rails.logger.error("FormService: failed to initialize default form for user=#{user.id} - "+e.message)
-    raise
+    Rails.logger.error("FormService: failed to initialize default form for user=#{user.id} - #{e.message}")
+    nil
   end
 
   def self.create_form(user, params)
