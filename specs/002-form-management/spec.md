@@ -18,6 +18,14 @@
 - Q: What happens when a user modifies a form's structure that already contains data? → A: Allow modifications with warnings about potential data loss
 - Q: Can users define if a field is mandatory to fill? → A: Yes, users can mark fields as required/mandatory during form creation and update
 
+### Session 2026-02-02 (Form View/Preview)
+
+- Q: Can users click on a form in the list to see how it will be displayed? → A: Yes, clicking on a form displays a full web form preview page
+- Q: Is the form view page a live form that can be submitted? → A: No, the form view page is a preview only; users can interact with fields but no data is submitted
+- Q: What should be displayed on the form view page? → A: A full web form with all fields rendered in their appropriate input types (text, number, date, email, textarea, checkbox, select, radio)
+- Q: Should mandatory fields be visually indicated on the view page? → A: Yes, mandatory fields should display visual indicators (asterisk or "required" label)
+- Q: Can users navigate back to the form list from the view page? → A: Yes, navigation back to the form list should be available
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Default KYB Form Initialization (Priority: P1)
@@ -90,6 +98,25 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 
 ---
 
+### User Story 5 - View/Preview Form (Priority: P1)
+
+As a user, I want to click on a form in my form list to view a full web form preview that displays all fields in their rendered state, so that I can see exactly how the form will appear when filled out.
+
+**Why this priority**: Viewing a form preview is essential for users to verify their form structure before using it. This is a core user experience feature that enables users to validate their form design and understand how fields will be rendered.
+
+**Independent Test**: Can be fully tested by clicking on a form in the list and verifying that a full web form is displayed with all fields rendered in their appropriate input types (text, number, date, email, textarea, checkbox, select, radio) with correct labels and mandatory indicators.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is on the "My Forms" page, **When** the user clicks on a form in the list, **Then** a form view page is displayed showing a full web form preview
+2. **Given** the form view page is displayed, **When** the form is rendered, **Then** all fields are displayed with their correct input types (text, number, date, email, textarea, checkbox, select, radio)
+3. **Given** the form view page is displayed, **When** a field is mandatory, **Then** a visual indicator (asterisk or "required" label) is displayed next to the field label
+4. **Given** the form view page is displayed, **When** the form contains a select/radio field, **Then** the options are displayed (even if empty in this phase)
+5. **Given** the form view page is displayed, **When** the user interacts with form fields, **Then** the fields behave normally (can be typed in, selected, toggled) but no submission occurs
+6. **Given** the form view page is displayed, **When** the user navigates back, **Then** the user returns to the form list
+
+---
+
 ### Edge Cases
 
 - What happens when a user creates multiple forms with identical names? (Clarified: Duplicates allowed)
@@ -120,6 +147,12 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - **FR-013**: System MUST allow users to cancel form creation, update, or delete actions without making changes
 - **FR-014**: System MUST display a warning when a user modifies a form structure that contains data and the change may result in data loss
 - **FR-015**: System MUST display the form list with all forms (including default) immediately upon page load
+- **FR-016**: System MUST provide a clickable form item in the form list that navigates to a form view page
+- **FR-017**: System MUST render a full web form preview on the form view page with all fields displayed in their appropriate input types (text, number, date, email, textarea, checkbox, select, radio)
+- **FR-021**: System MUST display visual indicators (asterisk or "required" label) for mandatory fields on the form view page
+- **FR-022**: System MUST render form fields in the order defined in the form structure
+- **FR-023**: System MUST allow users to interact with form fields on the view page (type, select, toggle) without submitting any data
+- **FR-024**: System MUST provide navigation back to the form list from the form view page
 
 ### Key Entities
 
@@ -138,6 +171,8 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - **SC-004**: 100% of accidental form deletions are prevented by the confirmation dialog
 - **SC-005**: Form list displays all forms (including default) within 1 second of page load
 - **SC-006**: 95% of users successfully create a new form on their first attempt without errors
+- **SC-007**: Form view page renders within 1 second of clicking on a form in the list
+- **SC-008**: Users can navigate back to the form list from the form view page in under 2 seconds
 
 ## Assumptions
 
@@ -149,9 +184,13 @@ As a user, I want to delete forms that are no longer needed, so that I can maint
 - Mandatory fields must be filled out when a form is submitted (form submission validation)
 - Optional fields may be left empty without preventing form submission
 - The application is a web-based interface accessed through a browser
+- Form view page is a preview-only interface; no form data is submitted or stored when viewing a form
+- Form view page renders all field types (text, number, date, email, textarea, checkbox, select, radio) in their appropriate HTML input elements
 
 ## Dependencies
 
 - User authentication system must be in place to identify the logged-in user
 - Form list display UI must be available (from feature 001-user-dashboard-navigation)
 - Database must support storing form entities with all required attributes and user references
+- Form view page UI component must be available to render form fields in their appropriate input types
+- Navigation system must support routing between form list and form view pages
