@@ -41,9 +41,21 @@ module.exports = [
   },
   {
     files: ['**/*.svelte'],
+    languageOptions: {
+      parser: require('svelte-eslint-parser'),
+      parserOptions: {
+        extraFileExtensions: ['.svelte'],
+        parser: require('@typescript-eslint/parser'),
+        ecmaVersion: 2021,
+        sourceType: 'module',
+        project: ['./tsconfig.json', './tsconfig.node.json']
+      }
+    },
     plugins: {
       svelte: require('eslint-plugin-svelte')
     },
-    processor: 'svelte/svelte'
+    rules: {
+      'svelte/no-at-html-tags': 'off'
+    }
   }
 ];
