@@ -1,8 +1,8 @@
 import { flushSync, mount, unmount } from 'svelte'
 import { test, expect, vi, beforeEach } from 'vitest'
 
-import SessionsNew from '../../../../app/frontend/pages/sessions/new.svelte'
 import { mockPageProps } from '../../mocks/inertia'
+import SessionsNew from '../../../../app/frontend/pages/sessions/new.svelte'
 
 beforeEach(() => {
   vi.clearAllMocks()
