@@ -3,7 +3,7 @@ class DashboardController < ApplicationController
     render inertia: "Dashboard/Dashboard", props: {
       user: current_user,
       session_id: current_session_id,
-      recent_forms: FormSerializer.collection(current_user.forms.order(created_at: :desc).limit(5))
+      recent_forms: FormSerializer.collection(current_user.forms.order(updated_at: :desc).limit(5))
     }
   end
 

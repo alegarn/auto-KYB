@@ -21,6 +21,7 @@
     name: string;
     status: "draft" | "submitted" | "approved" | "rejected";
     created_at: string;
+    updated_at: string;
   };
 
   let { children, user, session_id, recent_forms } = $props();
@@ -286,7 +287,7 @@
                   <Button href={form_path(form.id)} class="flex-1 no-underline" variant="ghost">
                     <div>
                       <p class="text-sm font-medium text-foreground">{form.name}</p>
-                      <p class="text-xs text-muted-foreground">{form.id} · {form.created_at}</p>
+                      <p class="text-xs text-muted-foreground">Last update {form.updated_at}</p>
                     </div>
                   </Button>
                   <span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${formStatusBadge(form.status)}`}>

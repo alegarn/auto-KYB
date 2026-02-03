@@ -16,6 +16,7 @@
 		name: string;
 		status: FormStatus;
 		created_at: string;
+    updated_at: string;
 	};
 
 	let { children, user, session_id, forms: serverForms } = $props();
@@ -206,9 +207,7 @@
 								<div class="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
 									<a use:inertia href={form_path(form.id)} class="flex-1 no-underline">
 										<p class="font-medium text-foreground">{form.name}</p>
-										<p class="text-sm text-muted-foreground">
-											{form.id} · {form.created_at}
-										</p>
+										<p class="text-sm text-muted-foreground">Last update {form.updated_at}</p>
 									</a>
 									<div class="flex items-center gap-3">
 										<span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(form.status)}`}>
