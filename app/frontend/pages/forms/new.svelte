@@ -71,8 +71,8 @@
   }
 </script>
 
-<section class="p-6">
-  <h1>Create Form</h1>
+<section class="p-6 max-w-3xl mx-auto">
+  <h1 class="text-2xl font-semibold mb-4">Create Form</h1>
   <Form action={forms_path()} method="post" on:submit={handleSubmit}>
     {#if serverErrors}
       {#if Array.isArray(serverErrors) && serverErrors.length}
@@ -88,53 +88,66 @@
     {#if clientErrors.name}
       <p class="text-red-600">{clientErrors.name}</p>
     {/if}
-    <div>
-      <label for="name">Name</label>
-      <Input id="name" bind:value={name} name="form[name]" />
+    <div class="mb-4">
+      <label for="name" class="block font-medium mb-1">Name</label>
+      <Input id="name" bind:value={name} name="form[name]" class="w-full" />
     </div>
 
     <div>
-      <h2>Fields</h2>
-      {#each fields as field, i (i)}
-        <div class="flex items-center gap-2">
+      <h2 class="text-lg font-medium mb-2">Fields</h2>
+      <div class="flex flex-col space-y-4">
+        {#each fields as field, i (i)}
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div class="flex-1">
               <Input
                 bind:value={field.label}
                 name={`form[structure][fields][${i}][label]`}
                 placeholder="Label"
                 oninput={(e: any) => { updateField(i, 'label', (e.target as HTMLInputElement).value); }}
+                class="w-full"
               />
               {#if clientErrors.fieldErrors[i] && clientErrors.fieldErrors[i].label}
-                <p class="text-red-600">{clientErrors.fieldErrors[i].label}</p>
+                <p class="text-red-600 mt-1">{clientErrors.fieldErrors[i].label}</p>
               {/if}
-              <div class="relative">
-                <BasicDropdown
-                  value={field.field_type}
-                  items={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'date', label: 'Date' }]}
-                  on:select={(e: any) => updateField(i, 'field_type', e.detail.value)}
-                />
-                <input type="hidden" name={`form[structure][fields][${i}][field_type]`} value={field.field_type} />
-                {#if clientErrors.fieldErrors[i] && clientErrors.fieldErrors[i].field_type}
-                  <p class="text-red-600">{clientErrors.fieldErrors[i].field_type}</p>
-                {/if}
-              </div>
-              <div class="flex items-center gap-2">
-                <Checkbox
-                  id={`required-${i}`}
-                  name={`form[structure][fields][${i}][required]`}
-                  checked={field.required}
-                  onchange={(e) => updateField(i, 'required', (e.target as HTMLInputElement).checked)}
-                />
-                <Label for={`required-${i}`}>Required</Label>
-              </div>
+            </div>
+
+            <div class="w-40 flex-shrink-0">
+              <BasicDropdown
+                value={field.field_type}
+                items={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'date', label: 'Date' }]}
+                on:select={(e: any) => updateField(i, 'field_type', e.detail.value)}
+              />
+              <input type="hidden" name={`form[structure][fields][${i}][field_type]`} value={field.field_type} />
+              {#if clientErrors.fieldErrors[i] && clientErrors.fieldErrors[i].field_type}
+                <p class="text-red-600 mt-1">{clientErrors.fieldErrors[i].field_type}</p>
+              {/if}
+            </div>
+
+            <div class="flex items-center gap-2">
+              <Checkbox
+                id={`required-${i}`}
+                name={`form[structure][fields][${i}][required]`}
+                checked={field.required}
+                onchange={(e) => updateField(i, 'required', (e.target as HTMLInputElement).checked)}
+              />
+              <Label for={`required-${i}`}>Required</Label>
+            </div>
+
+            <div class="flex-shrink-0">
               <Button type="button" variant="destructive" onclick={() => removeField(i)}>Remove</Button>
-        </div>
-      {/each}
-          <Button type="button" onclick={addField}>Add field</Button>
+            </div>
+          </div>
+        {/each}
+      </div>
+
+      <div class="mt-3">
+        <Button type="button" onclick={addField}>Add field</Button>
+      </div>
     </div>
 
-    <div class="mt-4">
-          <Button type="submit">Create</Button>
-          <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
+    <div class="mt-4 flex gap-2">
+      <Button type="submit">Create</Button>
+      <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
     </div>
   </Form>
 </section>
