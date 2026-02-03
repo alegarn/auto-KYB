@@ -32,7 +32,7 @@ gem "kamal", require: false
 gem "thruster", require: false
 
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
-#gem "image_processing", "~> 1.2"
+# gem "image_processing", "~> 1.2"
 
 # Use Vite in Rails and bring joy to your JavaScript experience
 gem "vite_rails", "~> 3.0"
@@ -62,6 +62,9 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+  # Static Ruby linter
+  gem "rubocop", require: false
+  gem "rubocop-rails", require: false
 
   # RSpec for Rails 7.2+
   gem "rspec-rails", "~> 8.0"
@@ -78,7 +81,7 @@ group :development do
   gem "letter_opener"
 
   # Debugging tool
-  gem "pry", '~> 0.16.0'
+  gem "pry", "~> 0.16.0"
 end
 
 group :test do

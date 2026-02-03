@@ -7,6 +7,7 @@
   import { Input } from "/components/ui/input";
   import * as Sheet from "/components/ui/sheet";
   import { Skeleton } from "/components/ui/skeleton";
+  import { new_form_path, form_path } from "@/routes";
 
   type Client = {
     id: string;
@@ -20,9 +21,10 @@
     name: string;
     status: "draft" | "submitted" | "approved" | "rejected";
     created_at: string;
+    updated_at: string;
   };
 
-  let { children, user, session_id } = $props();
+  let { children, user, session_id, recent_forms } = $props();
 
   const mockClients: Client[] = [
     { id: "CL-001", name: "Acme Logistics", status: "active", updated_at: "2026-01-27" },
@@ -32,15 +34,8 @@
     { id: "CL-005", name: "Redstone Labs", status: "active", updated_at: "2026-01-20" },
   ];
 
-  const mockForms: Form[] = [
-    { id: "FR-194", name: "Vendor Onboarding", status: "submitted", created_at: "2026-01-25" },
-    { id: "FR-195", name: "KYB Renewal", status: "approved", created_at: "2026-01-24" },
-    { id: "FR-196", name: "Risk Review", status: "draft", created_at: "2026-01-22" },
-    { id: "FR-197", name: "Partner Intake", status: "rejected", created_at: "2026-01-20" },
-  ];
-
   let clients = $state<Client[]>([]);
-  let forms = $state<Form[]>([]);
+  let forms = $derived<Form[]>(recent_forms ?? []);
   let loadingClients = $state(true);
   let loadingForms = $state(true);
   let search = $state("");
@@ -49,7 +44,7 @@
   onMount(() => {
     const timeout = setTimeout(() => {
       clients = mockClients;
-      forms = mockForms;
+      forms = recent_forms ?? [];
       loadingClients = false;
       loadingForms = false;
     }, 700);
@@ -72,6 +67,8 @@
   const activeClients = $derived.by(() => clients.filter((client) => client.status === "active").length);
   const pendingClients = $derived.by(() => clients.filter((client) => client.status === "pending").length);
   const pendingForms = $derived.by(() => forms.filter((form) => form.status === "submitted").length);
+
+  const recentForms = $derived.by(() => forms.slice(0, 5));
 
   const formStatusBadge = (status: Form["status"]) => {
     switch (status) {
@@ -111,7 +108,7 @@
         <p class="text-sm text-muted-foreground">{user?.email}</p>
       </div>
       <div class="flex flex-col gap-2 sm:flex-row">
-        <Button variant="secondary">New Form</Button>
+        <Button href={new_form_path()} variant="secondary">New Form</Button>
         <Sheet.Root>
           <Sheet.Trigger class={buttonVariants({ variant: "default" })}>
             New Client
@@ -251,7 +248,7 @@
             <Card.Description>Jump back into key workflows.</Card.Description>
           </Card.Header>
           <Card.Content class="space-y-3">
-            <Button class="w-full justify-between" variant="secondary">
+            <Button href={new_form_path()} class="w-full justify-between" variant="secondary">
               Start a new KYB form
               <span aria-hidden="true">→</span>
             </Button>
@@ -285,12 +282,14 @@
                 <p class="text-sm text-muted-foreground">Create a form to start collecting data.</p>
               </div>
             {:else}
-              {#each forms as form}
+              {#each recentForms as form}
                 <div class="flex items-center justify-between rounded-lg border border-border bg-background p-3">
-                  <div>
-                    <p class="text-sm font-medium text-foreground">{form.name}</p>
-                    <p class="text-xs text-muted-foreground">{form.id} · {form.created_at}</p>
-                  </div>
+                  <Button href={form_path(form.id)} class="flex-1 no-underline" variant="ghost">
+                    <div>
+                      <p class="text-sm font-medium text-foreground">{form.name}</p>
+                      <p class="text-xs text-muted-foreground">Last update {form.updated_at}</p>
+                    </div>
+                  </Button>
                   <span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${formStatusBadge(form.status)}`}>
                     {form.status}
                   </span>

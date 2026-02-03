@@ -76,7 +76,7 @@
                 style="border-radius: calc(0.5rem + 0.125rem + 4px);"
               >
                 <Button
-                  href={sign_up_path}
+                  href={sign_up_path()}
                   size="lg"
                   class="rounded-xl px-5 text-base"
                 >
