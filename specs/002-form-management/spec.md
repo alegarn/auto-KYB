@@ -158,6 +158,125 @@ As a user, I want to click on a form in my form list to view a full web form pre
 - **FR-022**: System MUST render form fields in the order defined in the form structure
 - **FR-023**: System MUST allow users to interact with form fields on the view page (type, select, toggle) without submitting any data
 - **FR-024**: System MUST provide navigation back to the form list from the form view page
+## Keyboard Navigation & Accessibility Requirements
+
+This section defines required keyboard interactions, focus management, ARIA expectations, and accessibility behaviors for form pages and the form builder. All interactive elements and dynamic updates MUST be operable and perceivable by keyboard and assistive technologies.
+
+### 1. Keyboard Navigation Matrix
+
+Documented keyboard interactions (behavior expectations - normative):
+
+- Tab Order
+  - MUST follow a logical, document-order sequence through form fields, toolbar buttons, actions, and modal controls.
+  - Tab order MUST prioritize primary controls (form fields) then secondary actions (save, preview, delete).
+  - SHIFT+Tab MUST move focus in reverse order.
+
+- Enter / Space
+  - Enter or Space MUST activate buttons, toggles, and controls when focused.
+  - Enter in a single-line text field SHOULD submit when focus is on a form submit button; otherwise Enter activates default action only when the control is a button.
+  - Space MUST toggle checkboxes and switches when focused.
+
+- Arrow Keys
+  - Up/Down (or Left/Right for horizontal lists) MUST move focus between list items, menu options, and select/radio groups.
+  - In the form builder, Up/Down arrow keys MUST be able to reorder selected builder items when in a dedicated reorder mode or when a reorder handle has keyboard focus.
+  - Arrow keys MUST navigate within native select controls and custom dropdowns when opened.
+
+- Escape
+  - Escape MUST close modal dialogs, cancel inline edit modes, and exit preview mode.
+  - Escape MUST clear transient overlays (tooltips, contextual menus) and return focus to the element that opened them.
+
+- Delete / Backspace
+  - Delete or Backspace (when a form builder item is selected and not focused inside an input) MUST remove the selected field after a confirmation step if the action is destructive.
+  - Inputs MUST not delete content unexpectedly when Backspace is pressed inside them.
+
+- Home / End
+  - Home MUST move focus to the first item in a list or the first focusable element within a composite widget.
+  - End MUST move focus to the last item in a list or the last focusable element within a composite widget.
+
+### 2. Focus Management Rules
+
+- Initial Focus
+  - The first meaningful focusable element on a page (e.g., the first form field or a primary action) MUST receive focus on page load when appropriate.
+
+- Focus Trap
+  - Modal dialogs and overlays MUST trap focus within the modal while open. Tab and SHIFT+Tab cycle through focusable elements inside the modal only.
+
+- Return Focus
+  - When a modal, dialog, or overlay is closed, focus MUST return to the element that triggered it (the opener).
+
+- Visible Focus
+  - All focusable interactive elements MUST have a visible focus indicator that meets WCAG contrast requirements.
+
+- Skip Links
+  - Provide a visually hidden but keyboard-accessible "Skip to content" link at the top of pages that jumps to the main content region.
+
+### 3. ARIA Expectations
+
+- Form Validation
+  - Inputs failing validation MUST include aria-invalid="true" and have aria-describedby pointing to the corresponding error message element.
+
+- Required Fields
+  - Required inputs MUST include aria-required="true" in addition to visible indicators.
+
+- Modals / Dialogs
+  - Modal elements MUST use role="dialog" and aria-modal="true" plus aria-labelledby and aria-describedby that reference the dialog title and description.
+
+- Dynamic Content
+  - Dynamic updates (validation errors, auto-save status, added/removed fields) MUST use appropriate aria-live regions to announce changes to assistive technologies.
+
+- Field Groups
+  - Logical groups of related fields (e.g., address lines, radio groups) MUST use role="group" and aria-labelledby to provide a group label.
+
+- Status Messages
+  - Success, error, and informational messages that are not modal MUST be placed in an aria-live="polite" region or announced via an accessible status region.
+
+### 4. Form Builder Keyboard Interactions
+
+Specific requirements for the form builder interface (normative):
+
+- Add Field
+  - Provide a keyboard-accessible control (button) to add a new field. A documented keyboard shortcut (recommended: Ctrl+N or Cmd+N) MAY be provided; if implemented, it MUST be listed in the UI and documented in help.
+
+- Remove Field
+  - A dedicated keyboard-accessible control (button) MUST exist to remove the selected field. The Delete key (or Backspace) MAY trigger removal when a field container has keyboard focus; destructive actions MUST require confirmation.
+
+- Reorder Fields
+  - Support keyboard reordering: when a field or its reorder handle has focus, Arrow Up / Arrow Down MUST move the field up or down. Provide a clear visual and programmatic indication when reorder mode is active.
+
+- Edit Field
+  - Pressing Enter (or an Edit action key) while a field item is focused MUST open the field properties for editing.
+
+- Preview Mode
+  - Provide a keyboard-accessible control to toggle preview mode and an optional shortcut (e.g., Ctrl+P). When entering preview mode focus management rules for a modal/overlay apply (focus trap/return focus).
+
+### 5. Error / Validation Accessibility
+
+- Error Announcements
+  - Validation errors MUST be announced to screen readers via aria-live regions (assertive for immediate blocking errors, polite for non-blocking notices) and visually presented next to the relevant field.
+
+- Error Association
+  - Each error message MUST have an id and the corresponding input MUST reference it using aria-describedby so screen readers read the message when the field receives focus.
+
+- Inline Validation
+  - Real-time validation feedback (e.g., inline format checks) MUST be accessible: use aria-live where appropriate and update aria-invalid state.
+
+- Error Recovery
+  - On form submission failure due to validation, focus MUST move to the first invalid field and an accessible summary of errors should be provided at the top of the form.
+
+### 6. Dynamic Update Accessibility
+
+- Live Regions
+  - Use aria-live regions for dynamic content updates such as auto-save status, field additions/removals, and preview updates. The politeness level (polite/assertive) MUST be chosen appropriately based on the severity of the update.
+
+- Field Addition / Removal
+  - When fields are added or removed dynamically, a short accessible announcement MUST be emitted (e.g., "Field 'Company Name' added") and focus behavior MUST be predictable (new field receives focus or focus returns to a stable element per design).
+
+- Auto-save
+  - Auto-save status changes (saving, saved, failed) MUST be announced via an aria-live region and have programmatic indicators for assistive technologies.
+
+- Preview Updates
+  - Toggling or updating preview mode MUST announce the mode change to assistive technologies and manage focus according to modal/preview focus rules.
+
 
 ### Key Entities
 
@@ -165,6 +284,7 @@ As a user, I want to click on a form in my form list to view a full web form pre
 - **Form Field**: Represents a single field within a form. Key attributes include unique identifier, label, type (text, number, date, email, textarea, checkbox, select, radio), mandatory status (required/optional), and position/order within the form.
 - **Default KYB Form**: A system-generated form automatically created for each new user. Contains standard KYB fields (company name, registration number, business address, contact information). Users can update and delete this form like any other form.
 - **User Account**: Represents the authenticated user who manages forms. Key attributes include email and account creation date. Users can create, update, and delete forms. Forms are not shared between users.
+
 
 ## Success Criteria *(mandatory)*
 

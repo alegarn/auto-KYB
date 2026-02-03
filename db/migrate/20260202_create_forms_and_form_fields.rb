@@ -1,0 +1,43 @@
+class CreateFormsAndFormFields < ActiveRecord::Migration[7.0]
+  def change
+    enable_extension 'pgcrypto' unless extension_enabled?('pgcrypto')
+
+    unless table_exists?(:forms)
+      create_table :forms, id: :uuid do |t|
+        t.references :user, type: :uuid, null: false, foreign_key: true
+        t.string :name, null: false
+        t.jsonb :structure, default: {}
+        t.timestamps
+      end
+    end
+
+    # index improvements for query performance
+    unless index_exists?(:forms, :user_id)
+      add_index :forms, :user_id
+    end
+
+    unless index_exists?(:forms, [:user_id, :created_at])
+      add_index :forms, [:user_id, :created_at]
+    end
+
+    unless table_exists?(:form_fields)
+      create_table :form_fields, id: :uuid do |t|
+        t.references :form, type: :uuid, null: false, foreign_key: true
+        t.string :label, null: false
+        t.string :field_type, null: false
+        t.boolean :required, default: false, null: false
+        t.integer :position
+        t.jsonb :metadata, default: {}
+        t.timestamps
+      end
+    end
+
+    unless index_exists?(:form_fields, :form_id)
+      add_index :form_fields, :form_id
+    end
+
+    unless index_exists?(:form_fields, [:form_id, :position])
+      add_index :form_fields, [:form_id, :position]
+    end
+  end
+end

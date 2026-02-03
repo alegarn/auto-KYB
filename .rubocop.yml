@@ -1,3 +1,25 @@
+require:
+  - rubocop-rails
+
+AllCops:
+  TargetRubyVersion: 3.2
+  Exclude:
+    - 'bin/**/*'
+    - 'db/schema.rb'
+    - 'db/**/*'
+    - 'node_modules/**/*'
+    - 'vendor/**/*'
+    - 'tmp/**/*'
+    - 'log/**/*'
+    - 'public/**/*'
+
+# Enable Rails-specific cops
+Rails:
+  Enabled: true
+
+# Keep offenses list small; enable more cops gradually
+Layout/LineLength:
+  Max: 120
 # Omakase Ruby styling for Rails
 inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 
