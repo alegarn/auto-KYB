@@ -4,17 +4,11 @@
   import { Input } from "/components/ui/input/index.js"
   import { Checkbox } from "/components/ui/checkbox/index.js"
   import { Label } from "/components/ui/label/index.js"
-  import DropdownMenu from '/components/ui/dropdown-menu/dropdown-menu.svelte'
-  import DropdownMenuTrigger from '/components/ui/dropdown-menu/dropdown-menu-trigger.svelte'
-  import DropdownMenuRadioGroup from '/components/ui/dropdown-menu/dropdown-menu-radio-group.svelte'
-  import DropdownMenuGroup from '@/components/ui/dropdown-menu/dropdown-menu-group.svelte';
-  import DropdownMenuRadioItem from '@/components/ui/dropdown-menu/dropdown-menu-radio-item.svelte';
-  import DropdownMenuContent from '@/components/ui/dropdown-menu/dropdown-menu-content.svelte';
+  import BasicDropdown from '/components/ui/dropdown/basic-dropdown.svelte'
   import { forms_path } from '@/routes';
-  
+
   let name = $state("")
   let fields = $state<Array<{ label: string; field_type: string; required: boolean }>>([])
-  let position = $state("bottom");
 
   const { errors: serverErrors } = $props()
 
@@ -113,22 +107,11 @@
                 <p class="text-red-600">{clientErrors.fieldErrors[i].label}</p>
               {/if}
               <div class="relative">
-                <DropdownMenu>
-                  <DropdownMenuTrigger>
-                    {#snippet child({props})}
-                      <Button {...props} variant="outline">{field.field_type}</Button>
-                    {/snippet}
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuGroup>
-                    <DropdownMenuRadioGroup bind:value={position}>
-                      <DropdownMenuRadioItem value="text" onclick={() => updateField(i, 'field_type', 'text')}>Text</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="number" onclick={() => updateField(i, 'field_type', 'number')}>Number</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="date" onclick={() => updateField(i, 'field_type', 'date')}>Date</DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                    </DropdownMenuGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <BasicDropdown
+                  value={field.field_type}
+                  items={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'date', label: 'Date' }]}
+                  on:select={(e: any) => updateField(i, 'field_type', e.detail.value)}
+                />
                 <input type="hidden" name={`form[structure][fields][${i}][field_type]`} value={field.field_type} />
                 {#if clientErrors.fieldErrors[i] && clientErrors.fieldErrors[i].field_type}
                   <p class="text-red-600">{clientErrors.fieldErrors[i].field_type}</p>

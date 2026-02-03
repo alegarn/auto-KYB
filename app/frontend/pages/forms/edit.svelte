@@ -2,12 +2,14 @@
   import { Form } from '@inertiajs/svelte'
   import Button from "/components/ui/button/button.svelte"
   import Input from "/components/ui/input/input.svelte"
+  import BasicDropdown from '/components/ui/dropdown/basic-dropdown.svelte'
+  import { form_path } from '@/routes';
 
   let { form: initial } = $props()
 
-  let name = $state(initial?.name || "")
-  let description = $state(initial?.description || "")
-  let fields = $state<Array<{ label: string; field_type: string; required: boolean }>>(initial?.form_fields?.map((f:any)=>({ label: f.label, field_type: f.field_type, required: f.required })) || [])
+  let name = $derived<string>(initial?.name || "")
+  let description = $derived<string>(initial?.description || "")
+  let fields = $derived<Array<{ label: string; field_type: string; required: boolean }>>(initial?.form_fields?.map((f:any)=>({ label: f.label, field_type: f.field_type, required: f.required })) || [])
 
   const unsaved = $derived.by(() => name !== (initial?.name || '') || JSON.stringify(fields) !== JSON.stringify((initial?.form_fields||[]).map((f:any)=>({ label: f.label, field_type: f.field_type, required: f.required }))))
 
@@ -40,7 +42,7 @@
 
 <section class="p-6">
   <h1>Edit Form</h1>
-  <Form action={`/forms/${initial?.id}`} method="post">
+  <Form action={form_path(initial?.id)} method="patch">
     <input type="hidden" name="_method" value="patch" />
     <div>
       <label for="name">Name</label>
@@ -61,14 +63,12 @@
             placeholder="Label"
             oninput={(e:any)=>updateField(i, 'label', (e.target as HTMLInputElement).value)}
           />
-          <select
-            name={`form[structure][fields][${i}][field_type]`}
+          <BasicDropdown
             value={field.field_type}
-            onchange={(e)=>updateField(i, 'field_type', (e.target as HTMLSelectElement).value)}>
-            <option value="text">Text</option>
-            <option value="number">Number</option>
-            <option value="date">Date</option>
-          </select>
+            items={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'date', label: 'Date' }]}
+            on:select={(e:any) => updateField(i, 'field_type', e.detail.value)}
+          />
+          <input type="hidden" name={`form[structure][fields][${i}][field_type]`} value={field.field_type} />
           <label class="flex items-center gap-2">
             <input
               type="checkbox"
@@ -78,10 +78,10 @@
             />
             Required
           </label>
-          <button type="button" onclick={()=>removeField(i)}>Remove</button>
+          <Button class="destructive" type="button" onclick={()=>removeField(i)}>Remove</Button>
         </div>
       {/each}
-      <button type="button" onclick={addField}>Add field</button>
+      <Button class="outline" type="button" onclick={addField}>Add field</Button>
     </div>
 
     <div class="mt-4">

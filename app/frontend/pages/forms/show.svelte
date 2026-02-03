@@ -29,12 +29,20 @@
     results = data
     preview = false
   }
+
+  function goBack() {
+    history.back()
+  }
 </script>
 
 <section class="flex items-center justify-center min-h-screen p-6">
   <div class="w-full max-w-3xl">
     <h1 class="text-2xl font-semibold text-center">{form.name}</h1>
     <p class="text-sm text-center mb-6">{form.description}</p>
+
+    <div class="flex justify-start mb-4">
+      <Button onclick={goBack}>← Go back</Button>
+    </div>
 
     {#if (form.form_fields || []).length === 0}
       <div class="flex items-center justify-center">

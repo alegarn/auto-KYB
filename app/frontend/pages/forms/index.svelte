@@ -8,7 +8,7 @@
 	import * as Sheet from "/components/ui/sheet";
 	import { Skeleton } from "/components/ui/skeleton";
 	import { Form as InertiaForm, inertia } from '@inertiajs/svelte'
-	import { new_form_path, form_path } from "@/routes";
+	import { new_form_path, form_path, edit_form_path } from "@/routes";
 
 	type FormStatus = "draft" | "submitted" | "approved" | "rejected";
 	type Form = {
@@ -214,6 +214,7 @@
 										<span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(form.status)}`}>
 											{form.status}
 										</span>
+										<Button href={edit_form_path(form.id)} class="no-underline" size="sm" variant="secondary">Update</Button>
 										<InertiaForm action={form_path(form.id)} method="delete">
 											<Button type="submit" variant="destructive" size="sm">Delete</Button>
 										</InertiaForm>
