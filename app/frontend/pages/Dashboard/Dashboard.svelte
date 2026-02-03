@@ -112,7 +112,7 @@
         <p class="text-sm text-muted-foreground">{user?.email}</p>
       </div>
       <div class="flex flex-col gap-2 sm:flex-row">
-        <Button variant="secondary">New Form</Button>
+        <Button href={new_form_path()} variant="secondary">New Form</Button>
         <Sheet.Root>
           <Sheet.Trigger class={buttonVariants({ variant: "default" })}>
             New Client
@@ -252,7 +252,7 @@
             <Card.Description>Jump back into key workflows.</Card.Description>
           </Card.Header>
           <Card.Content class="space-y-3">
-            <Button class="w-full justify-between" variant="secondary">
+            <Button href={new_form_path()} class="w-full justify-between" variant="secondary">
               Start a new KYB form
               <span aria-hidden="true">→</span>
             </Button>

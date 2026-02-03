@@ -10,6 +10,7 @@
   import DropdownMenuGroup from '@/components/ui/dropdown-menu/dropdown-menu-group.svelte';
   import DropdownMenuRadioItem from '@/components/ui/dropdown-menu/dropdown-menu-radio-item.svelte';
   import DropdownMenuContent from '@/components/ui/dropdown-menu/dropdown-menu-content.svelte';
+  import { forms_path } from '@/routes';
   
   let name = $state("")
   let fields = $state<Array<{ label: string; field_type: string; required: boolean }>>([])
@@ -37,7 +38,7 @@
 
 <section class="p-6">
   <h1>Create Form</h1>
-  <Form action="/forms" method="post">
+  <Form action={forms_path()} method="post">
     <div>
       <label for="name">Name</label>
       <Input id="name" bind:value={name} name="form[name]" />
