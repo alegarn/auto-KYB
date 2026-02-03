@@ -67,11 +67,7 @@
   const pendingClients = $derived.by(() => clients.filter((client) => client.status === "pending").length);
   const pendingForms = $derived.by(() => forms.filter((form) => form.status === "submitted").length);
 
-  const recentForms = $derived.by(() =>
-    [...forms]
-      .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      .slice(0, 3)
-  );
+  const recentForms = $derived.by(() => forms.slice(0, 5));
 
   const formStatusBadge = (status: Form["status"]) => {
     switch (status) {
