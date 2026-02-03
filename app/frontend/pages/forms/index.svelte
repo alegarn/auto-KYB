@@ -26,7 +26,7 @@
 	type StatusFilter = (typeof statusFilters)[number];
 
 	// Use server-provided list instead of mock data
-	let forms = $state<Form[]>(serverForms || []);
+	let forms = $derived<Form[]>(serverForms || []);
 	let loading = $state(false);
 	let search = $state("");
 	let selectedStatus = $state<StatusFilter>("all");
