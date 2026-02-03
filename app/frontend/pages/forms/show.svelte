@@ -3,6 +3,7 @@
   import Button from "/components/ui/button/button.svelte"
   import Card from "/components/ui/card/card.svelte"
   import CardContent from "/components/ui/card/card-content.svelte"
+  import { forms_path } from "@/routes";
 
   let { form } = $props()
 
@@ -41,7 +42,7 @@
     <p class="text-sm text-center mb-6">{form.description}</p>
 
     <div class="flex justify-start mb-4">
-      <Button onclick={goBack}>← Go back</Button>
+      <Button href={forms_path()}>← Back to Forms</Button>
     </div>
 
     {#if (form.form_fields || []).length === 0}

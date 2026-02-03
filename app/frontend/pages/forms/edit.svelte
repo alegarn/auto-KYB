@@ -40,51 +40,65 @@
   }
 </script>
 
-<section class="p-6">
-  <h1>Edit Form</h1>
+<section class="p-6 max-w-3xl mx-auto">
+  <h1 class="text-2xl font-semibold mb-4">Edit Form</h1>
   <Form action={form_path(initial?.id)} method="patch">
     <input type="hidden" name="_method" value="patch" />
-    <div>
-      <label for="name">Name</label>
-      <Input id="name" bind:value={name} name="form[name]" />
-    </div>
-    <div>
-      <label for="description">Description</label>
-      <Input id="description" bind:value={description} name="form[description]" />
+
+    <div class="mb-4">
+      <label for="name" class="block font-medium mb-1">Name</label>
+      <Input id="name" bind:value={name} name="form[name]" class="w-full" />
     </div>
 
     <div>
-      <h2>Fields</h2>
-      {#each fields as field, i (i)}
-        <div class="flex items-center gap-2">
-          <Input
-            bind:value={field.label}
-            name={`form[structure][fields][${i}][label]`}
-            placeholder="Label"
-            oninput={(e:any)=>updateField(i, 'label', (e.target as HTMLInputElement).value)}
-          />
-          <BasicDropdown
-            value={field.field_type}
-            items={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'date', label: 'Date' }]}
-            on:select={(e:any) => updateField(i, 'field_type', e.detail.value)}
-          />
-          <input type="hidden" name={`form[structure][fields][${i}][field_type]`} value={field.field_type} />
-          <label class="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name={`form[structure][fields][${i}][required]`}
-              checked={field.required}
-              onchange={(e)=>updateField(i, 'required', (e.target as HTMLInputElement).checked)}
-            />
-            Required
-          </label>
-          <Button class="destructive" type="button" onclick={()=>removeField(i)}>Remove</Button>
-        </div>
-      {/each}
-      <Button class="outline" type="button" onclick={addField}>Add field</Button>
+      <h2 class="text-lg font-medium mb-2">Fields</h2>
+      <div class="flex flex-col space-y-4">
+        {#each fields as field, i (i)}
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div class="flex-1">
+              <Input
+                bind:value={field.label}
+                name={`form[structure][fields][${i}][label]`}
+                placeholder="Label"
+                oninput={(e:any)=>updateField(i, 'label', (e.target as HTMLInputElement).value)}
+                class="w-full"
+              />
+            </div>
+
+            <div class="w-40 flex-shrink-0">
+              <BasicDropdown
+                value={field.field_type}
+                items={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'date', label: 'Date' }]}
+                on:select={(e:any) => updateField(i, 'field_type', e.detail.value)}
+              />
+              <input type="hidden" name={`form[structure][fields][${i}][field_type]`} value={field.field_type} />
+            </div>
+
+            <div class="flex items-center gap-2">
+              <label class="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name={`form[structure][fields][${i}][required]`}
+                  checked={field.required}
+                  onchange={(e)=>updateField(i, 'required', (e.target as HTMLInputElement).checked)}
+                />
+                <span>Required</span>
+              </label>
+            </div>
+
+            <div class="flex-shrink-0">
+              <Button class="destructive" type="button" onclick={()=>removeField(i)}>Remove</Button>
+            </div>
+          </div>
+        {/each}
+      </div>
+
+      <div class="mt-3">
+        <Button class="outline" type="button" onclick={addField}>Add field</Button>
+      </div>
     </div>
 
-    <div class="mt-4">
+    <div class="mt-4 flex gap-2">
       <Button type="submit">Save</Button>
       <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
     </div>
