@@ -88,4 +88,10 @@ bower.json
 /app/frontend/routes/index.js
 /app/frontend/routes/index.d.ts
 
+# Ignore default rails views
 /app/views
+
+# Ignore storybook build outputs
+/storybook-static/
+/stories/assets/
+*storybook.log

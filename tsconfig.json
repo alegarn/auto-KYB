@@ -29,7 +29,14 @@
     }
   },
 
-  "include": ["app/frontend/**/*.ts", "app/frontend/**/*.js", "app/frontend/**/*.svelte"],
+  "include": [
+    "app/frontend/**/*.ts",
+    "app/frontend/**/*.js",
+    "app/frontend/**/*.svelte",
+    "spec/frontend/**/*.ts",
+    "spec/frontend/**/*.svelte",
+    "src/types"
+  ],
   "exclude": ["app/frontend/routes/**/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

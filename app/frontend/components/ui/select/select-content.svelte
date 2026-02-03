@@ -3,7 +3,7 @@
 	import SelectPortal from "./select-portal.svelte";
 	import SelectScrollUpButton from "./select-scroll-up-button.svelte";
 	import SelectScrollDownButton from "./select-scroll-down-button.svelte";
-	import { cn, type WithoutChild } from "@/lib/utils.js";
+	import { cn, type WithoutChildren } from "@/lib/utils.js";
 	import type { ComponentProps } from "svelte";
 	import type { WithoutChildrenOrChild } from "@/lib/utils.js";
 
@@ -15,7 +15,7 @@
 		children,
 		preventScroll = true,
 		...restProps
-	}: WithoutChild<SelectPrimitive.ContentProps> & {
+	}: WithoutChildren<SelectPrimitive.ContentProps> & {
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof SelectPortal>>;
 	} = $props();
 </script>
