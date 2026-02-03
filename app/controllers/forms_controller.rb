@@ -6,7 +6,7 @@ class FormsController < ApplicationController
       []
     end
 
-    render inertia: 'Forms/Index', props: {
+    render inertia: 'forms/index', props: {
       user: current_user ? { id: current_user.id, email: current_user.email } : nil,
       session_id: current_session_id,
       forms: forms
@@ -17,7 +17,7 @@ class FormsController < ApplicationController
     form = current_user.forms.find(params[:id])
     detail = FormDetailSerializer.new(form).as_json
 
-    render inertia: 'Forms/Show', props: {
+    render inertia: 'forms/show', props: {
       user: current_user ? { id: current_user.id, email: current_user.email } : nil,
       session_id: current_session_id,
       form: detail
@@ -25,7 +25,7 @@ class FormsController < ApplicationController
   end
 
   def new
-    render inertia: 'Forms/New', props: {
+    render inertia: 'forms/new', props: {
       user: current_user ? { id: current_user.id, email: current_user.email } : nil
     }
   end
@@ -35,7 +35,7 @@ class FormsController < ApplicationController
 
     redirect_to forms_path, status: :see_other
   rescue ActiveRecord::RecordInvalid => e
-    render inertia: 'Forms/New', props: {
+    render inertia: 'forms/new', props: {
       user: current_user ? { id: current_user.id, email: current_user.email } : nil,
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity
@@ -44,7 +44,7 @@ class FormsController < ApplicationController
   def edit
     form = current_user.forms.find(params[:id])
 
-    render inertia: 'Forms/Edit', props: {
+    render inertia: 'forms/edit', props: {
       form: FormDetailSerializer.new(form).as_json
     }
   end
@@ -63,12 +63,12 @@ class FormsController < ApplicationController
 
     redirect_to form_path(form), notice: 'Form updated'
   rescue FormService::DataLossWarning => e
-    render inertia: 'Forms/Edit', props: {
+    render inertia: 'forms/edit', props: {
       form: FormDetailSerializer.new(form).as_json,
       error: e.message
     }, status: :unprocessable_entity
   rescue ActiveRecord::RecordInvalid => e
-    render inertia: 'Forms/Edit', props: {
+    render inertia: 'forms/edit', props: {
       form: form.present? ? FormDetailSerializer.new(form).as_json : nil,
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity

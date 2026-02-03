@@ -7,6 +7,8 @@
 	import { Input } from "/components/ui/input";
 	import * as Sheet from "/components/ui/sheet";
 	import { Skeleton } from "/components/ui/skeleton";
+	import { Form as InertiaForm, inertia } from '@inertiajs/svelte'
+	import { new_form_path, form_path, edit_form_path } from "@/routes";
 
 	type FormStatus = "draft" | "submitted" | "approved" | "rejected";
 	type Form = {
@@ -14,71 +16,25 @@
 		name: string;
 		status: FormStatus;
 		created_at: string;
-		owner: string;
+    updated_at: string;
 	};
 
-	let { children, user, session_id } = $props();
- 	let showModal = $state(false);
- 	let selectedToDelete = $state(null as Form | null);
-
-	const mockForms: Form[] = [
-		{
-			id: "FR-194",
-			name: "Vendor Onboarding",
-			status: "submitted",
-			created_at: "2026-01-25",
-			owner: "Mia Carter",
-		},
-		{
-			id: "FR-195",
-			name: "KYB Renewal",
-			status: "approved",
-			created_at: "2026-01-24",
-			owner: "Evan Lee",
-		},
-		{
-			id: "FR-196",
-			name: "Risk Review",
-			status: "draft",
-			created_at: "2026-01-22",
-			owner: "Mia Carter",
-		},
-		{
-			id: "FR-197",
-			name: "Partner Intake",
-			status: "rejected",
-			created_at: "2026-01-20",
-			owner: "Noah Patel",
-		},
-		{
-			id: "FR-198",
-			name: "Supplier Compliance",
-			status: "submitted",
-			created_at: "2026-01-18",
-			owner: "Lena Dubois",
-		},
-	];
+	let { children, user, session_id, forms: serverForms } = $props();
+	let showModal = $state(false);
+	let selectedToDelete = $state(null as Form | null);
 
 	const statusFilters = ["all", "draft", "submitted", "approved", "rejected"] as const;
 	type StatusFilter = (typeof statusFilters)[number];
 
-	let forms = $state<Form[]>([]);
-	let loading = $state(true);
+	// Use server-provided list instead of mock data
+	let forms = $derived<Form[]>(serverForms || []);
+	let loading = $state(false);
 	let search = $state("");
 	let selectedStatus = $state<StatusFilter>("all");
 
-	onMount(() => {
-		const timeout = setTimeout(() => {
-			forms = mockForms;
-			loading = false;
-		}, 650);
-
-		return () => clearTimeout(timeout);
-	});
-
 	const filteredForms = $derived.by(() =>
 		forms.filter((form) => {
-			const matchesSearch = [form.name, form.id, form.owner]
+			const matchesSearch = [form.name, form.id]
 				.join(" ")
 				.toLowerCase()
 				.includes(search.trim().toLowerCase());
@@ -126,38 +82,39 @@
 			<div class="flex flex-col gap-2 sm:flex-row">
 				<Button variant="secondary">Review submissions</Button>
 				<Sheet.Root>
-					<Sheet.Trigger class={buttonVariants({ variant: "default" })}>
+					<Button href={new_form_path()} variant="default">
 						New form
-					</Sheet.Trigger>
+					</Button>
 					<Sheet.Content side="right" class="w-full sm:max-w-lg">
 						<Sheet.Header>
 							<Sheet.Title>Create a new form</Sheet.Title>
 							<Sheet.Description>
-								Start with a form name and assign an owner. You can add fields later.
+								Start with a form name and optional description. You can add fields later.
 							</Sheet.Description>
 						</Sheet.Header>
-						<div class="mt-6 space-y-4">
-							<div class="space-y-2">
-								<label class="text-sm font-medium" for="form-name">Form name</label>
-								<Input id="form-name" placeholder="KYB Renewal" />
-							</div>
-							<div class="space-y-2">
-								<label class="text-sm font-medium" for="form-owner">Owner</label>
-								<Input id="form-owner" placeholder="mia@quickkyb.com" type="email" />
-							</div>
-							<div class="space-y-2">
-								<label class="text-sm font-medium" for="form-due">Due date</label>
-								<Input id="form-due" type="date" />
-							</div>
+						<div class="mt-6">
+							<!-- Use the Inertia Form to POST to /forms -->
+							<InertiaForm action="/forms" method="post">
+								<div class="space-y-4">
+									<div class="space-y-2">
+										<label class="text-sm font-medium" for="form-name">Form name</label>
+										<Input id="form-name" name="form[name]" placeholder="KYB Renewal" />
+									</div>
+									<div class="space-y-2">
+										<label class="text-sm font-medium" for="form-description">Description</label>
+										<Input id="form-description" name="form[description]" placeholder="Optional description" />
+									</div>
+								</div>
+								<Sheet.Footer class="mt-6">
+									<Sheet.Close class={buttonVariants({ variant: "secondary" })}>
+										Cancel
+									</Sheet.Close>
+									<button type="submit" class={buttonVariants({ variant: "default" })}>
+										Create form
+									</button>
+								</Sheet.Footer>
+							</InertiaForm>
 						</div>
-						<Sheet.Footer class="mt-6">
-							<Sheet.Close class={buttonVariants({ variant: "secondary" })}>
-								Cancel
-							</Sheet.Close>
-							<Sheet.Close class={buttonVariants({ variant: "default" })}>
-								Create form
-							</Sheet.Close>
-						</Sheet.Footer>
 					</Sheet.Content>
 				</Sheet.Root>
 			</div>
@@ -248,17 +205,18 @@
 						<div class="max-h-[520px] space-y-3 overflow-auto pr-2">
 							{#each filteredForms as form (form.id)}
 								<div class="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
-									<div>
+									<a use:inertia href={form_path(form.id)} class="flex-1 no-underline">
 										<p class="font-medium text-foreground">{form.name}</p>
-										<p class="text-sm text-muted-foreground">
-											{form.id} · {form.created_at} · Owner: {form.owner}
-										</p>
-									</div>
+										<p class="text-sm text-muted-foreground">Last update {form.updated_at}</p>
+									</a>
 									<div class="flex items-center gap-3">
 										<span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(form.status)}`}>
 											{form.status}
 										</span>
-										<Button variant="secondary" size="sm">Open</Button>
+										<Button href={edit_form_path(form.id)} class="no-underline" size="sm" variant="secondary">Update</Button>
+										<InertiaForm action={form_path(form.id)} method="delete">
+											<Button type="submit" variant="destructive" size="sm">Delete</Button>
+										</InertiaForm>
 									</div>
 								</div>
 							{/each}

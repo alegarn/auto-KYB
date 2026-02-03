@@ -7,7 +7,7 @@ class FormDetailSerializer
     {
       id: @form.id,
       name: @form.name,
-      description: @form.description,
+      structure: @form.structure,
       created_at: @form.created_at.iso8601,
       form_fields: serialized_fields
     }
