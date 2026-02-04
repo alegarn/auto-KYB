@@ -24,9 +24,18 @@ class ClientsController < ApplicationController
   end
 
   def show
+    client_form = @client.client_forms.includes(:form).order(created_at: :desc).first
+
     render inertia: 'Clients/Show', props: {
       user: user_props,
-      client: ClientSerializer.new(@client).as_json
+      client: ClientSerializer.new(@client).as_json,
+      client_form: client_form ? {
+        id: client_form.id,
+        status: ClientForm.statuses.key(client_form.status) || client_form.status,
+        created_at: client_form.created_at&.strftime('%Y-%m-%d %H:%M:%S'),
+        form: FormSerializer.new(client_form.form).as_json
+      } : nil,
+      forms: forms_props
     }
   end
 
@@ -55,7 +64,8 @@ class ClientsController < ApplicationController
   def new
     render inertia: 'Clients/New', props: {
       user: user_props,
-      client: {}
+      client: {},
+      forms: forms_props
     }
   end
 
@@ -63,14 +73,36 @@ class ClientsController < ApplicationController
     client = current_user.clients.new(client_params)
 
     if client.save
+      form_id = params.dig(:client_form, :form_id)
+
+      if form_id.present?
+        form = current_user.forms.find(form_id)
+
+        result = ClientInvitationService.create_invitation(client: client, form: form, expires_in: params.dig(:client_form, :expires_in) || 7.days)
+        client_form = result[:client_form]
+        password = result[:password]
+
+        store_client_form_one_time_password(client_form, password)
+        redirect_to password_reveal_client_form_path(client_form), status: :see_other
+        return
+      end
+
       redirect_to clients_path, status: :see_other
     else
       render inertia: 'Clients/New', props: {
         user: user_props,
         client: ClientSerializer.new(client).as_json,
-        errors: client.errors.messages
+        errors: client.errors.messages,
+        forms: forms_props
       }, status: :unprocessable_entity
     end
+  rescue ActiveRecord::RecordNotFound
+    render inertia: 'Clients/New', props: {
+      user: user_props,
+      client: ClientSerializer.new(client).as_json,
+      errors: { form_id: ["Form not found"] },
+      forms: forms_props
+    }, status: :unprocessable_entity
   end
 
   def edit
@@ -108,5 +140,11 @@ class ClientsController < ApplicationController
 
   def user_props
     current_user ? { id: current_user.id, email: current_user.email } : nil
+  end
+
+  def forms_props
+    return [] unless current_user
+
+    FormSerializer.collection(current_user.forms.order(created_at: :desc))
   end
 end

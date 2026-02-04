@@ -6,7 +6,7 @@
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
 
-  let { user, errors = {}, session_id } = $props();
+  let { user, errors = {}, session_id, forms = [] } = $props();
 
   const hasError = (field: string) => {
     if (!errors) return false;
@@ -49,6 +49,28 @@
 
   <InertiaForm method="post" action="/clients">
     <div class="space-y-4 max-w-2xl">
+      <div>
+        <Label for="client-form" class="block text-sm font-medium">Form to link</Label>
+        <select
+          id="client-form"
+          name="client_form[form_id]"
+          class={`w-full border rounded px-3 py-2 bg-background ${hasError('form_id') ? 'border-rose-600' : ''}`}
+          required={forms && forms.length > 0}
+          disabled={!forms || forms.length === 0}
+        >
+          <option value="">Select a form</option>
+          {#each forms as form}
+            <option value={form.id}>{form.name}</option>
+          {/each}
+        </select>
+        {#if hasError('form_id')}
+          <div class="text-rose-600 text-sm mt-1">{errors['form_id']?.[0]}</div>
+        {/if}
+        {#if !forms || forms.length === 0}
+          <p class="text-sm text-muted-foreground mt-1">No forms available yet. Create a form first to enable subspace access.</p>
+        {/if}
+      </div>
+
       <div>
         <Label for="client-name" class="block text-sm font-medium">Name</Label>
         <Input id="client-name" name="client[name]" class={`w-full ${hasError('name') ? 'border-rose-600' : ''}`} />

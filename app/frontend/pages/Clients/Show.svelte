@@ -1,12 +1,14 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import { clients_path, dashboard_path, edit_client_path, client_path } from "@/routes";
+  import { clients_path, dashboard_path, edit_client_path, client_path, client_forms_path } from "@/routes";
   import Button from '@/components/ui/button/button.svelte';
   import Modal from '@/components/ui/modal.svelte';
+  import { Form as InertiaForm } from '@inertiajs/svelte';
+  import { Label } from '/components/ui/label/index.js';
   import { router } from '@inertiajs/svelte';
 
-  let { user, client = null, session_id } = $props();
+  let { user, client = null, session_id, forms = [], client_form = null } = $props();
   let showConfirm = $state(false);
 
   function openConfirm() {
@@ -55,6 +57,44 @@
                   </div>
                 {/if}
               </div>
+            {/if}
+          </div>
+
+          <div class="mt-6 border rounded p-4 bg-background">
+            <h2 class="text-lg font-semibold mb-2">Client subspace</h2>
+
+            {#if client_form}
+              <p class="text-sm text-muted-foreground">Has a subspace</p>
+              <div class="mt-2 text-sm">
+                <div><strong>Form:</strong> {client_form.form?.name}</div>
+                <div><strong>Status:</strong> {client_form.status}</div>
+              </div>
+            {:else}
+              <InertiaForm method="post" action={client_forms_path()}>
+                <input type="hidden" name="client_form[client_id]" value={client?.id} />
+                <div class="space-y-2">
+                  <Label for="link-form" class="block text-sm font-medium">Link a form</Label>
+                  <select
+                    id="link-form"
+                    name="client_form[form_id]"
+                    class="w-full border rounded px-3 py-2 bg-background"
+                    required
+                    disabled={!forms || forms.length === 0}
+                  >
+                    <option value="">Select a form</option>
+                    {#each forms as form}
+                      <option value={form.id}>{form.name}</option>
+                    {/each}
+                  </select>
+                  {#if !forms || forms.length === 0}
+                    <p class="text-sm text-muted-foreground">No forms available yet. Create a form first.</p>
+                  {/if}
+                </div>
+
+                <div class="mt-3">
+                  <Button type="submit" class="btn">Create subspace</Button>
+                </div>
+              </InertiaForm>
             {/if}
           </div>
 

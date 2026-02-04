@@ -1,5 +1,7 @@
 class Client < ApplicationRecord
   belongs_to :user
+  has_many :client_forms, dependent: :destroy
+  has_many :form_responses, through: :client_forms
   # If clients have dependent records (e.g., forms), ensure cleanup. Currently no direct associations.
   # has_many :forms, dependent: :destroy
 
