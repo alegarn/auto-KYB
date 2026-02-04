@@ -29,6 +29,19 @@ RSpec.describe "ClientPortal::Sessions", type: :request do
       set_cookie = response.headers["Set-Cookie"] || ""
       expect(set_cookie).not_to include("client_form_session=")
     end
+
+    it "returns 429 after too many failed attempts from the same IP + access token" do
+      Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
+      headers = { "REMOTE_ADDR" => "203.0.113.10" }
+
+      5.times do
+        post client_portal_login_path(@client_form.access_token), params: { password: "wrong" }, headers: headers
+        expect(response).to have_http_status(:unauthorized)
+      end
+
+      post client_portal_login_path(@client_form.access_token), params: { password: "wrong" }, headers: headers
+      expect(response).to have_http_status(:too_many_requests)
+    end
   end
 
   describe "GET /client_portal/login/:access_token" do
