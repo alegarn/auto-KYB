@@ -15,6 +15,7 @@ RSpec.describe "ClientPortal::Sessions", type: :request do
 
   describe "POST /client_portal/login/:access_token" do
     it "sets a signed http-only cookie on successful login" do
+      https!
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
 
       expect(response).to have_http_status(:found)
@@ -55,6 +56,7 @@ RSpec.describe "ClientPortal::Sessions", type: :request do
 
   describe "DELETE /client_portal/logout" do
     it "clears the client_form_session cookie" do
+      https!
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
       expect(response).to have_http_status(:found)
 
