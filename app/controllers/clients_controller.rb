@@ -17,8 +17,8 @@ class ClientsController < ApplicationController
       clients: clients,
       meta: {
         page: @pagy.page,
-        per_page: @pagy.items,
-        total_count: @pagy.count
+        per_page: (@pagy.vars[:items] || clients_page.size),
+        total_count: scope.count
       }
     }
   end

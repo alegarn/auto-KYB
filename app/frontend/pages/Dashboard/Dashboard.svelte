@@ -3,12 +3,12 @@
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import * as Card from "/components/ui/card";
-  import { Button, buttonVariants } from "/components/ui/button";
+  import { Button } from "/components/ui/button";
   import { router } from '@inertiajs/svelte';
   import { Input } from "/components/ui/input";
   import * as Sheet from "/components/ui/sheet";
   import { Skeleton } from "/components/ui/skeleton";
-  import { new_form_path, form_path } from "@/routes";
+  import { new_form_path, form_path, new_client_path, client_path, edit_client_path } from "@/routes";
 
   type Client = {
     id: string;
@@ -72,6 +72,12 @@
       onStart: () => (loadingClients = true),
       onFinish: () => (loadingClients = false),
     });
+  }
+
+  function deleteClient(id: string) {
+    if (!confirm("Are you sure you want to delete this client?")) return;
+    loadingClients = true;
+    router.delete(client_path(id), {})
   }
   const totalClients = $derived.by(() => clients.length);
   const activeClients = $derived.by(() => clients.filter((client) => client.status === "active").length);
@@ -144,41 +150,8 @@
       </div>
       <div class="flex flex-col gap-2 sm:flex-row">
         <Button href={new_form_path()} variant="secondary">New Form</Button>
-        <Sheet.Root>
-          <Sheet.Trigger class={buttonVariants({ variant: "default" })}>
-            New Client
-          </Sheet.Trigger>
-          <Sheet.Content side="right" class="w-full sm:max-w-lg">
-            <Sheet.Header>
-              <Sheet.Title>New client</Sheet.Title>
-              <Sheet.Description>
-                Add a client record quickly. You can complete details later.
-              </Sheet.Description>
-            </Sheet.Header>
-            <div class="mt-6 space-y-4">
-              <div class="space-y-2">
-                <label class="text-sm font-medium" for="client-name">Client name</label>
-                <Input id="client-name" placeholder="Acme Logistics" />
-              </div>
-              <div class="space-y-2">
-                <label class="text-sm font-medium" for="client-id">Unique identifier</label>
-                <Input id="client-id" placeholder="CL-006" />
-              </div>
-              <div class="space-y-2">
-                <label class="text-sm font-medium" for="client-contact">Primary contact</label>
-                <Input id="client-contact" placeholder="alex@acme.com" type="email" />
-              </div>
-            </div>
-            <Sheet.Footer class="mt-6">
-              <Sheet.Close class={buttonVariants({ variant: "secondary" })}>
-                Cancel
-              </Sheet.Close>
-              <Sheet.Close class={buttonVariants({ variant: "default" })}>
-                Save client
-              </Sheet.Close>
-            </Sheet.Footer>
-          </Sheet.Content>
-        </Sheet.Root>
+        <Button href={new_client_path()} variant="default">New Client</Button>
+
       </div>
     </section>
 
@@ -261,13 +234,15 @@
                 <div class="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p class="font-medium text-foreground">{client.name}</p>
-                    <p class="text-sm text-muted-foreground">{client.id} · Updated {client.updated_at}</p>
+                    <p class="text-sm text-muted-foreground">Updated {client.updated_at}</p>
                   </div>
                   <div class="flex items-center gap-3">
                     <span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${clientStatusBadge(client.status)}`}>
                       {client.status}
                     </span>
-                    <Button variant="secondary" size="sm">View</Button>
+                    <Button href={client_path(client.id)} variant="default" size="sm">View</Button>
+                    <Button href={edit_client_path(client.id)} variant="secondary" size="sm">Edit</Button>
+                    <Button variant="destructive" size="sm" onclick={() => deleteClient(client.id)}>Delete</Button>
                   </div>
                 </div>
               {/each}

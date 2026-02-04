@@ -2,7 +2,7 @@ class DashboardQuery
   def initialize(user)
     @user = user
   end
-
+=begin 
   def stats
     {
       total_clients: client_scope.count,
@@ -11,6 +11,7 @@ class DashboardQuery
       pending_forms: form_scope.where(status: 'submitted').count
     }
   end
+=end
 
   def recent_forms(limit: 5)
     form_scope.order(updated_at: :desc).limit(limit)
