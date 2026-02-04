@@ -3,8 +3,9 @@
   import CalendarIcon from "@lucide/svelte/icons/calendar";
   import HouseIcon from "@lucide/svelte/icons/house";
   import SettingsIcon from "@lucide/svelte/icons/settings";
+  import UsersIcon from "@lucide/svelte/icons/users";
   import { Link, page } from "@inertiajs/svelte";
-  import { dashboard_path, forms_path } from "/routes/index";
+  import { clients_path, dashboard_path, forms_path } from "/routes/index";
 
   // Menu items.
   const items = [
@@ -17,6 +18,11 @@
       title: "My Forms",
       url: forms_path(),
       icon: CalendarIcon,
+    },
+    {
+      title: "My Clients",
+      url: clients_path(),
+      icon: UsersIcon,
     },
     {
       title: "Settings",
