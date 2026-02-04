@@ -1,4 +1,6 @@
 <script lang="ts">
+  import * as Sidebar from "/components/ui/sidebar/index.js";
+  import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { Form, page } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
@@ -10,7 +12,7 @@
   let name = $state("")
   let fields = $state<Array<{ label: string; field_type: string; required: boolean }>>([])
 
-  const { errors: serverErrors } = $props()
+  const { errors: serverErrors, session_id } = $props()
 
   let clientErrors = $state<{ name?: string; fieldErrors: Array<{ label?: string; field_type?: string }> }>({ fieldErrors: [] })
 
@@ -71,8 +73,12 @@
   }
 </script>
 
-<section class="p-6 max-w-3xl mx-auto">
-  <h1 class="text-2xl font-semibold mb-4">Create Form</h1>
+<Sidebar.Provider>
+  <AppSidebar session_id={session_id} />
+  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
+    <Sidebar.Trigger class="mb-4" />
+    <section class="p-6 max-w-3xl mx-auto">
+      <h1 class="text-2xl font-semibold mb-4">Create Form</h1>
   <Form action={forms_path()} method="post" on:submit={handleSubmit}>
     {#if serverErrors}
       {#if Array.isArray(serverErrors) && serverErrors.length}
@@ -150,4 +156,6 @@
       <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
     </div>
   </Form>
-</section>
+    </section>
+  </main>
+</Sidebar.Provider>

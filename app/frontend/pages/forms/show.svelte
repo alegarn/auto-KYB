@@ -1,11 +1,13 @@
 <script lang="ts">
+  import * as Sidebar from "/components/ui/sidebar/index.js";
+  import AppSidebar from "/components/customs/app-sidebar.svelte";
   import Input from "/components/ui/input/input.svelte"
   import Button from "/components/ui/button/button.svelte"
   import Card from "/components/ui/card/card.svelte"
   import CardContent from "/components/ui/card/card-content.svelte"
   import { forms_path } from "@/routes";
 
-  let { form } = $props()
+  let { form, session_id } = $props()
 
   // preview mode and state
   let preview = $state(true)
@@ -36,10 +38,14 @@
   }
 </script>
 
-<section class="flex items-center justify-center min-h-screen p-6">
-  <div class="w-full max-w-3xl">
-    <h1 class="text-2xl font-semibold text-center">{form.name}</h1>
-    <p class="text-sm text-center mb-6">{form.description}</p>
+<Sidebar.Provider>
+  <AppSidebar session_id={session_id} />
+  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
+    <Sidebar.Trigger class="mb-4" />
+    <section class="flex items-center justify-center min-h-screen p-6">
+      <div class="w-full max-w-3xl">
+        <h1 class="text-2xl font-semibold text-center">{form.name}</h1>
+        <p class="text-sm text-center mb-6">{form.description}</p>
 
     <div class="flex justify-start mb-4">
       <Button href={forms_path()}>← Back to Forms</Button>
@@ -75,5 +81,7 @@
         </div>
       {/if}
     {/if}
-  </div>
-</section>
+      </div>
+    </section>
+  </main>
+</Sidebar.Provider>

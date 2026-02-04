@@ -1,10 +1,12 @@
 <script lang="ts">
+  import * as Sidebar from "/components/ui/sidebar/index.js";
+  import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { Form as InertiaForm } from '@inertiajs/svelte';
   import Button from '/components/ui/button/button.svelte';
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
 
-  let { user, errors = {} } = $props();
+  let { user, errors = {}, session_id } = $props();
 
   const hasError = (field: string) => {
     if (!errors) return false;
@@ -13,7 +15,11 @@
   };
 </script>
 
-<section class="p-6 max-w-3xl mx-auto">
+<Sidebar.Provider>
+  <AppSidebar session_id={session_id} />
+  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
+    <Sidebar.Trigger class="mb-4" />
+    <section class="p-6 max-w-3xl mx-auto">
   <header class="mb-4">
     <h1 class="text-2xl font-semibold">New client</h1>
     <p class="text-sm text-muted-foreground">{user?.email}</p>
@@ -103,4 +109,6 @@
       <Button href="/clients" class="btn btn-ghost">Cancel</Button>
     </div>
   </InertiaForm>
-</section>
+    </section>
+  </main>
+</Sidebar.Provider>
