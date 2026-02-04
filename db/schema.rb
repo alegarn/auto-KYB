@@ -15,6 +15,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_072735) do
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
 
+  create_table "clients", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "address"
+    t.string "company_name", null: false
+    t.datetime "created_at", null: false
+    t.string "email"
+    t.string "name", null: false
+    t.string "phone"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index "user_id, lower((company_name)::text)", name: "index_clients_on_user_id_and_lower_company_name"
+    t.index "user_id, lower((name)::text)", name: "index_clients_on_user_id_and_lower_name"
+    t.index ["user_id"], name: "index_clients_on_user_id"
+  end
+
   create_table "form_fields", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "field_type", null: false
@@ -58,6 +72,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_072735) do
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 
+  add_foreign_key "clients", "users"
   add_foreign_key "form_fields", "forms"
   add_foreign_key "forms", "users"
   add_foreign_key "sessions", "users"
