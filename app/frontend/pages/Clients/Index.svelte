@@ -43,13 +43,15 @@
       </header>
 
       <div class="mb-4 flex items-center gap-3">
-        <form onsubmit={(e) => { e.preventDefault(); search(); }} class="flex flex-wrap gap-2 items-center">
+        <form onsubmit={(e) => { e.preventDefault(); search(); }} class="flex items-center gap-2">
           <label for="q" class="sr-only">Search clients</label>
           <Input id="q" name="q" bind:value={q} placeholder="Search by name or company" class="max-w-xs" />
-          <Button type="submit">Search</Button>
-          <Button type="button" variant="secondary" onclick={() => { q = ''; goToPage(1); }}>
-            Clear search
-          </Button>
+          <div class="flex items-center gap-2">
+            <Button type="submit">Search</Button>
+            <Button type="button" variant="secondary" onclick={() => { q = ''; goToPage(1); }}>
+              Clear
+            </Button>
+          </div>
         </form>
         <Button href={new_client_path()} class="btn">Add client</Button>
       </div>
@@ -62,16 +64,18 @@
       {:else}
         <ul class="space-y-3" role="list" aria-label="Client list">
           {#each clients as client}
-            <li class="rounded-lg border p-4 flex items-center justify-between" role="listitem">
-              <Button href={client_path(client['id'])} class="no-underline" aria-label={`View ${client['name']}`}>
+          <li class="rounded-lg border p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" role="listitem">
+            <Button href={client_path(client['id'])} variant="ghost" class="flex-1 no-underline p-0 text-left" aria-label={`View ${client['name']}`}>
+              <div>
                 <div class="font-medium">{client['name']}</div>
                 <div class="text-sm text-muted-foreground">{client['company_name']}</div>
-              </Button>
-              <div class="flex gap-2">
-                <Button href={edit_client_path(client['id'])} class="btn btn-secondary">Edit</Button>
-                <Button variant="destructive" size="sm" onclick={() => deleteClient(client['id'])}>Delete</Button>
               </div>
-            </li>
+            </Button>
+            <div class="flex items-center gap-3">
+              <Button href={edit_client_path(client['id'])} variant="secondary" size="sm">Edit</Button>
+              <Button variant="destructive" size="sm" onclick={() => deleteClient(client['id'])}>Delete</Button>
+            </div>
+          </li>
           {/each}
         </ul>
 
