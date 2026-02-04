@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import * as Card from "/components/ui/card";
   import { Button, buttonVariants } from "/components/ui/button";
+  import { router } from '@inertiajs/svelte';
   import { Input } from "/components/ui/input";
   import * as Sheet from "/components/ui/sheet";
   import { Skeleton } from "/components/ui/skeleton";
@@ -24,34 +25,16 @@
     updated_at: string;
   };
 
-  let { children, user, session_id, recent_forms } = $props();
+  let { children, user, session_id, clients: initialClients, recent_forms: initialForms, meta } = $props();
 
-  const mockClients: Client[] = [
-    { id: "CL-001", name: "Acme Logistics", status: "active", updated_at: "2026-01-27" },
-    { id: "CL-002", name: "Northbridge Foods", status: "pending", updated_at: "2026-01-26" },
-    { id: "CL-003", name: "Stellar Dynamics", status: "active", updated_at: "2026-01-24" },
-    { id: "CL-004", name: "Juniper Health", status: "inactive", updated_at: "2026-01-22" },
-    { id: "CL-005", name: "Redstone Labs", status: "active", updated_at: "2026-01-20" },
-  ];
-
-  let clients = $state<Client[]>([]);
-  let forms = $derived<Form[]>(recent_forms ?? []);
-  let loadingClients = $state(true);
-  let loadingForms = $state(true);
+  let clients = $derived<Client[]>(initialClients ?? []);
+  let forms = $derived<Form[]>(initialForms ?? []);
+  let loadingClients = $state(false);
+  let loadingForms = $state(false);
   let search = $state("");
   let activeOnly = $state(false);
 
-  onMount(() => {
-    const timeout = setTimeout(() => {
-      clients = mockClients;
-      forms = recent_forms ?? [];
-      loadingClients = false;
-      loadingForms = false;
-    }, 700);
-
-    return () => clearTimeout(timeout);
-  });
-
+  
   const filteredClients = $derived.by(() =>
     clients.filter((client) => {
       const matchesSearch = [client.name, client.id]
@@ -63,6 +46,33 @@
     })
   );
 
+   const totalPages = () => Math.max(1, Math.ceil(meta.total_count / meta.per_page));
+
+   function pageRange(windowSize = 5) {
+     const total = totalPages();
+     const current = meta.page ?? 1;
+     const half = Math.floor(windowSize / 2);
+     let start = Math.max(1, current - half);
+     let end = Math.min(total, start + windowSize - 1);
+     if (end - start < windowSize - 1) start = Math.max(1, end - windowSize + 1);
+     const range = [];
+     for (let i = start; i <= end; i++) range.push(i);
+     return range;
+   }
+
+  function goToPage(page: number) {
+    if (page < 1 || page > totalPages() || page === meta.page) return;
+    const params: Record<string, any> = { page };
+    if (search && search.trim().length) params.q = search.trim();
+    if (activeOnly) params.active_only = 1;
+
+    router.get(window.location.pathname, params, {
+      preserveState: true,
+      preserveScroll: true,
+      onStart: () => (loadingClients = true),
+      onFinish: () => (loadingClients = false),
+    });
+  }
   const totalClients = $derived.by(() => clients.length);
   const activeClients = $derived.by(() => clients.filter((client) => client.status === "active").length);
   const pendingClients = $derived.by(() => clients.filter((client) => client.status === "pending").length);
@@ -105,6 +115,31 @@
       <div>
         <p class="text-sm text-muted-foreground">Welcome back</p>
         <h1 class="text-2xl font-semibold text-foreground">Dashboard</h1>
+          <!-- Pagination controls -->
+          {#if meta && meta.total_count > meta.per_page}
+            <div class="mt-3 flex items-center justify-between border-t pt-3">
+              <div class="text-sm text-muted-foreground">Showing page {meta.page} of {totalPages()}</div>
+              <nav class="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onclick={() => goToPage(meta.page - 1)} disabled={meta.page <= 1}>
+                  Prev
+                </Button>
+
+                {#each pageRange(7) as p}
+                  <button
+                    class={`px-3 py-1 rounded ${p === meta.page ? 'bg-primary text-primary-foreground' : 'bg-background border'}`}
+                    onclick={() => goToPage(p)}
+                    aria-current={p === meta.page ? 'page' : undefined}
+                  >
+                    {p}
+                  </button>
+                {/each}
+
+                <Button variant="ghost" size="sm" onclick={() => goToPage(meta.page + 1)} disabled={meta.page >= totalPages()}>
+                  Next
+                </Button>
+              </nav>
+            </div>
+          {/if}
         <p class="text-sm text-muted-foreground">{user?.email}</p>
       </div>
       <div class="flex flex-col gap-2 sm:flex-row">
@@ -199,7 +234,7 @@
               bind:value={search}
               class="sm:w-56"
             />
-            <Button variant={activeOnly ? "default" : "secondary"} on:click={() => (activeOnly = !activeOnly)}>
+            <Button variant={activeOnly ? "default" : "secondary"} onclick={() => (activeOnly = !activeOnly)}>
               {activeOnly ? "Active only" : "All statuses"}
             </Button>
           </div>
