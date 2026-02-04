@@ -1,56 +1,67 @@
-import { vi } from 'vitest';
-import { writable } from 'svelte/store';
+import { vi, expect } from 'vitest'
+import * as matchers from '@testing-library/jest-dom/matchers'
+import { readable } from 'svelte/store'
 
-// polyfill window.matchMedia for tests
-if (typeof window !== 'undefined' && !window.matchMedia) {
-  // @ts-ignore
-  window.matchMedia = (query: string) => ({
+expect.extend(matchers)
+
+// Mock window.matchMedia for responsive components using Vitest's vi.fn
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-  });
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+})
+
+// Mock IntersectionObserver for lazy loading
+;(global as any).IntersectionObserver = class IntersectionObserver {
+  constructor() {}
+  disconnect() {}
+  observe() {}
+  takeRecords() {
+    return []
+  }
+  unobserve() {}
 }
 
-// Note: specific tests provide their own `@inertiajs/svelte` mocks
+// Mock requestIdleCallback for lazy loading
+;(global as any).requestIdleCallback = (callback: any) => {
+  return setTimeout(() => callback({ didTimeout: false }), 1)
+}
+
+;(global as any).cancelIdleCallback = (id: number) => {
+  clearTimeout(id)
+}
 
 // Provide a default mock for `@inertiajs/svelte` so components imported
 // before test-level mocks won't fail. Individual tests can override this.
-vi.mock('@inertiajs/svelte', () => {
-  const mockPageProps = {
-    url: '/dashboard',
-    props: { user: { id: '1', email: 'test@example.com', name: 'Test User' }, session_id: null, recent_forms: [], forms: [], errors: null, flash: {} },
-    component: 'Dashboard',
-    version: '1.0'
-  };
+vi.mock('@inertiajs/svelte', async () => {
+  const actual = await vi.importActual('@inertiajs/svelte')
 
-  const page = {
-    subscribe: (fn: Function) => {
-      fn(mockPageProps.props);
-      return () => {}
-    },
-    get props() {
-      return mockPageProps.props
-    },
-    get url() {
-      return mockPageProps.url
-    },
-    get component() {
-      return mockPageProps.component
-    }
-  };
+  const mockPage = readable({
+    url: new URL('http://localhost/'),
+    params: {},
+    route: { id: null },
+    status: 200,
+    error: null,
+    form: null,
+    stuff: null,
+    session: null,
+    flash: {},
+  })
 
-  const mockInertia = vi.fn();
-  const mockVisit = vi.fn();
+  const mockInertia = vi.fn()
+  const mockVisit = vi.fn()
 
   return {
-    page,
-    Link: (props: any) => ({ $$render: () => `<a href="${props?.href ?? '#'}">${props?.children ?? ''}</a>` }),
-    Form: (props: any) => ({ $$render: () => `<form>${props?.children ?? ''}</form>` }),
+    ...(actual as any),
+    page: mockPage,
     inertia: mockInertia,
     visit: mockVisit,
     useForm: () => ({
@@ -63,7 +74,7 @@ vi.mock('@inertiajs/svelte', () => {
       reset: vi.fn(),
       submit: vi.fn(),
       transform: vi.fn(),
-      setDefaults: vi.fn()
+      setDefaults: vi.fn(),
     }),
     router: {
       visit: mockVisit,
@@ -72,7 +83,7 @@ vi.mock('@inertiajs/svelte', () => {
       post: vi.fn(),
       put: vi.fn(),
       patch: vi.fn(),
-      delete: vi.fn()
-    }
-  };
-});
+      delete: vi.fn(),
+    },
+  }
+})
