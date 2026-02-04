@@ -24,7 +24,7 @@
 <main class="p-6">
   <header class="mb-4">
     <h1 class="text-2xl font-semibold">Client details</h1>
-    <p class="text-sm text-muted-foreground">{user?.email}</p>
+    <p class="text-sm text-muted-foreground" aria-label="Signed in user">{user?.email}</p>
   </header>
 
   {#if client}
@@ -55,6 +55,10 @@
       <Button href={edit_client_path(client['id'])} variant="secondary">Edit</Button>
 
       <Button on:click={openConfirm} class="btn-destructive" variant="destructive">Delete</Button>
+
+      <!-- Export buttons for GDPR: JSON and CSV exports open in a new tab for download / machine consumption -->
+      <Button href={`/clients/${client['id']}/export.json`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as JSON">Export (JSON)</Button>
+      <Button href={`/clients/${client['id']}/export.csv`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as CSV">Export (CSV)</Button>
 
       <Modal
         title="Delete client"

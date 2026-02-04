@@ -1,24 +1,23 @@
-class ClientsController < ApplicationController
-  before_action :set_client, only: %i[show edit update destroy]
+require 'csv'
 
+class ClientsController < ApplicationController
+  before_action :set_client, only: %i[show edit update destroy export]
   def index
     return render inertia: 'Clients/Index', props: { user: nil, clients: [] } unless current_user
 
     scope = Client.by_user(current_user.id).order(created_at: :desc)
     scope = scope.search_by_name_or_company(params[:q]) if params[:q].present?
 
-    page = params[:page].to_i > 0 ? params[:page].to_i : 1
-    per_page = 10
-    clients_page = scope.limit(per_page).offset((page - 1) * per_page)
+    @pagy, clients_page = pagy(scope, items: 10, page: params[:page])
     clients = clients_page.map { |c| client_json(c) }
 
     render inertia: 'Clients/Index', props: {
       user: user_props,
       clients: clients,
       meta: {
-        page: page,
-        per_page: per_page,
-        total_count: scope.count
+        page: @pagy.page,
+        per_page: @pagy.items,
+        total_count: @pagy.count
       }
     }
   end
@@ -28,6 +27,28 @@ class ClientsController < ApplicationController
       user: user_props,
       client: client_json(@client)
     }
+  end
+
+  # GDPR export endpoint - returns JSON or CSV representation of the client
+  def export
+    client = current_user.clients.find(params[:id])
+
+    respond_to do |format|
+      format.json { render json: client_json(client) }
+
+      format.csv do
+        attrs = %w[id name company_name email phone address created_at updated_at]
+        csv_data = CSV.generate(headers: true) do |csv|
+          csv << attrs
+          csv << attrs.map { |a| client.as_json[a] }
+        end
+
+        send_data csv_data, filename: "client-#{client.id}.csv", type: 'text/csv'
+      end
+
+      # fallback for non-explicit formats
+      format.any { render json: client_json(client) }
+    end
   end
 
   def new
