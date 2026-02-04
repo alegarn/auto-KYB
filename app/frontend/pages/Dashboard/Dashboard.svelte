@@ -82,17 +82,17 @@
         return "bg-amber-100 text-amber-700";
     }
   };
-
+    
   const clientStatusBadge = (status: Client["status"]) => {
-    switch (status) {
-      case "active":
-        return "bg-emerald-100 text-emerald-700";
-      case "pending":
-        return "bg-blue-100 text-blue-700";
-      default:
-        return "bg-slate-100 text-slate-600";
-    }
-  };
+      switch (status) {
+        case "active":
+          return "bg-emerald-100 text-emerald-700";
+        case "pending":
+          return "bg-blue-100 text-blue-700";
+        default:
+          return "bg-slate-100 text-slate-600";
+      }
+    };
 </script>
 
 <Sidebar.Provider>
