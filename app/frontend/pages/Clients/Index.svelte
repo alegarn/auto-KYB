@@ -3,6 +3,7 @@
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { client_path, new_client_path, edit_client_path } from "@/routes";
+  import { Input } from "/components/ui/input/index.js";
   import Button from '/components/ui/button/button.svelte';
 
   // read Inertia props via Svelte 5 $props
@@ -42,11 +43,13 @@
       </header>
 
       <div class="mb-4 flex items-center gap-3">
-        <form onsubmit={(e) => { e.preventDefault(); search(); }} class="flex gap-2 items-center">
+        <form onsubmit={(e) => { e.preventDefault(); search(); }} class="flex flex-wrap gap-2 items-center">
           <label for="q" class="sr-only">Search clients</label>
-          <input id="q" name="q" bind:value={q} class="input" placeholder="Search by name or company" />
-          <button type="submit" class="btn">Search</button>
-          <button type="button" class="btn btn-secondary" onclick={() => { q = ''; goToPage(1); }}>Clear search</button>
+          <Input id="q" name="q" bind:value={q} placeholder="Search by name or company" class="max-w-xs" />
+          <Button type="submit">Search</Button>
+          <Button type="button" variant="secondary" onclick={() => { q = ''; goToPage(1); }}>
+            Clear search
+          </Button>
         </form>
         <Button href={new_client_path()} class="btn">Add client</Button>
       </div>
