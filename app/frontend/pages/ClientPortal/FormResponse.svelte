@@ -26,7 +26,10 @@
 
     if (res.ok) {
       if (validate) {
-        statusMessage = 'Form submitted and validated.';
+        // server returns a redirect (See Other). Navigate to confirmation page.
+        // Some environments may follow redirects; explicitly navigate to the confirmation URL.
+        window.location.href = '/client_portal/confirmation';
+        return;
       } else {
         const json = await res.json();
         statusMessage = `Saved (version ${json.version})`;

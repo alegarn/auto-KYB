@@ -60,5 +60,6 @@ Rails.application.routes.draw do
     delete "logout", to: "sessions#destroy", as: :logout
 
     resource :form_response, only: [:show, :update]
+    get "confirmation", to: "confirmations#show", as: :confirmation
   end
 end
