@@ -1,10 +1,48 @@
-<!-- Placeholder for Clients New page - Svelte component -->
-<script>
-  // Placeholder component for Clients new
-  const {} = $props();
+<script lang="ts">
+  import { Form as InertiaForm } from '@inertiajs/svelte';
+  import { clients_path } from "@/routes";
+
+  let { user, errors = [] } = $props();
 </script>
 
-<div class="clients-new-placeholder">
-  <h1>Clients — New (placeholder)</h1>
-  <p>This is a placeholder Svelte page for creating a new client.</p>
-</div>
+<main class="p-6">
+  <header class="mb-4">
+    <h1 class="text-2xl font-semibold">New client</h1>
+    <p class="text-sm text-muted-foreground">{user?.email}</p>
+  </header>
+
+  {#if errors.length}
+    <div class="mb-4 text-rose-600">
+      <ul>
+        {#each errors as err}
+          <li>{err}</li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
+
+  <InertiaForm method="post" action="/clients">
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium">Name</label>
+        <input name="client[name]" type="text" class="input" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium">Company name</label>
+        <input name="client[company_name]" type="text" class="input" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium">Email</label>
+        <input name="client[email]" type="email" class="input" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium">Phone</label>
+        <input name="client[phone]" type="text" class="input" />
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <button type="submit" class="btn">Create client</button>
+    </div>
+  </InertiaForm>
+</main>
