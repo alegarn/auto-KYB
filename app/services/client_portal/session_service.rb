@@ -3,11 +3,13 @@ module ClientPortal
     COOKIE_NAME = :client_form_session
 
     def self.set_cookie(cookies, client_form)
+      expires_at = client_form.expires_at || 7.days.from_now
       cookies.signed[COOKIE_NAME] = {
         value: client_form.access_token,
         httponly: true,
-        secure: Rails.env.production?,
-        same_site: :lax
+        secure: true,
+        same_site: :strict,
+        expires: expires_at
       }
     end
 

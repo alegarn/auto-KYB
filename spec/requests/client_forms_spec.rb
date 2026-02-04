@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "ClientForms", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
+  after { travel_back }
+
   describe "POST /client_forms" do
     it "creates a client_form and redirects to password reveal and stores a one-time password in session" do
       user = sign_in_user
@@ -44,6 +48,25 @@ RSpec.describe "ClientForms", type: :request do
       # second access should not reveal the password
       get password_reveal_client_form_path(cf)
       expect(response.body).not_to include(one_time)
+    end
+
+    it "expires the password reveal after 5 minutes" do
+      user = sign_in_user
+      client = FactoryBot.create(:client, user: user)
+      form = FactoryBot.create(:form, user: user)
+
+      post client_forms_path, params: { client_form: { client_id: client.id, form_id: form.id } }
+      cf = ClientForm.order(:created_at).last
+
+      entry = session[:client_form_one_time_passwords][cf.id.to_s]
+      one_time = entry[:password] || entry['password']
+
+      travel 6.minutes
+
+      get password_reveal_client_form_path(cf)
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include(one_time)
+      expect(response.body).to include("Password no longer available or expired.")
     end
   end
 end

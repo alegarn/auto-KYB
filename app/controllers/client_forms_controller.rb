@@ -36,9 +36,12 @@ class ClientFormsController < ApplicationController
         session[:client_form_one_time_passwords].delete(client_form.id.to_s)
       else
         @password = nil
+        session[:client_form_one_time_passwords].delete(client_form.id.to_s)
+        flash.now[:alert] = "Password no longer available or expired."
       end
     else
       @password = nil
+      flash.now[:alert] = "Password no longer available or expired."
     end
 
     render inertia: 'Clients/PasswordReveal', props: {

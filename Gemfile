@@ -47,6 +47,9 @@ gem "authentication-zero"
 # Brings Rails named routes to javascript
 gem "js-routes"
 
+# Rate limiting
+gem "rack-attack"
+
 # Support for PostgreSQL's pgcrypto extension
 gem "pgcrypto"
 

@@ -8,13 +8,14 @@
   const hasInjectedHandler = $derived(typeof injectedOnSave === 'function')
 
   // form state keyed by field id
-  let state = $state<Record<string, any>>({})
+  let formState = $state<Record<string, any>>({})
+  let flashMessage = $state<string | null>(null)
 
   // initialize
   $effect(() => {
     if (form?.form_fields) {
       for (const f of form.form_fields) {
-        if (state[f.id] === undefined) state[f.id] = f.value ?? ''
+        if (formState[f.id] === undefined) formState[f.id] = f.value ?? ''
       }
     }
   })
@@ -23,21 +24,63 @@
     const { id, value } = detail
     const f = form.form_fields.find((x: any) => x.id === id)
     if (f?.type === 'number') {
-      state[id] = value === '' ? null : Number(value)
+      formState[id] = value === '' ? null : Number(value)
     } else {
-      state[id] = value
+      formState[id] = value
     }
   }
 
-  function submit(e: SubmitEvent) {
+  async function submit(e: SubmitEvent) {
     if (hasInjectedHandler) {
       e.preventDefault()
       const submitter = e.submitter as HTMLButtonElement | null
       const validate = submitter?.value === 'true'
-      injectedOnSave?.({ data: state, validate })
+      injectedOnSave?.({ data: formState, validate })
+      return
+    }
+
+    e.preventDefault()
+    flashMessage = null
+    const submitter = e.submitter as HTMLButtonElement | null
+    const validate = submitter?.value === 'true'
+
+    const response = await fetch(client_portal_form_response_path(), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({ form_response: { data: formState, validate } }),
+    })
+
+    if (response.status === 429) {
+      const data = await response.json().catch(() => null)
+      flashMessage = data?.error || 'Too many requests. Please try again later.'
+      return
+    }
+
+    if (response.status === 403) {
+      flashMessage = 'This form is locked or no longer available.'
+      return
+    }
+
+    if (response.redirected) {
+      window.location.href = response.url
+      return
+    }
+
+    if (!response.ok) {
+      flashMessage = 'Unable to save right now. Please try again.'
     }
   }
 </script>
+
+{#if flashMessage}
+  <div class="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700" role="alert">
+    <span>{flashMessage}</span>
+  </div>
+{/if}
 
 <h1>{form.name}</h1>
 <form method="post" action={client_portal_form_response_path()} onsubmit={submit}>
