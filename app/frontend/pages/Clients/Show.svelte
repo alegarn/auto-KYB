@@ -61,12 +61,15 @@
       <Button href={`/clients/${client['id']}/export.csv`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as CSV">Export (CSV)</Button>
 
       <Modal
-        title="Delete client"
-        description="This will permanently delete the client. This action cannot be undone."
         open={showConfirm}
         onClose={closeConfirm}
         onConfirm={confirmDelete}
       >
+        {#snippet header()}
+          <h2 class="text-lg font-semibold">Delete client</h2>
+          <p class="text-sm text-muted-foreground">This will permanently delete the client. This action cannot be undone.</p>
+        {/snippet}
+
         <p class="text-sm text-muted-foreground">Are you sure you want to delete this client?</p>
       </Modal>
     </div>
