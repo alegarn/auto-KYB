@@ -1,6 +1,14 @@
 import { createInertiaApp, type ResolvedComponent } from '@inertiajs/svelte'
 import { mount } from 'svelte'
 
+// Phase 0: pages under ClientPortal/* should not use the authenticated sidebar layout.
+// This exported list can be imported by layout logic or page wrappers to exclude
+// those pages from the app sidebar. Kept minimal for Phase 0.
+export const NO_SIDEBAR_PAGES = [
+  // Matches Inertia page names that start with `ClientPortal/`
+  'ClientPortal/',
+]
+
 createInertiaApp({
   // Disable progress bar
   //
