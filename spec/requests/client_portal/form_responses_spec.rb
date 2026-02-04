@@ -6,6 +6,67 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
   let(:form) { create(:form, user: user) }
 
   before do
+    @client_form = create(:client_form, client: client, form: form)
+    password = "secret-pass-#{SecureRandom.hex(4)}"
+    @client_form.password = password
+    @client_form.save!
+    @password = password
+  end
+
+  describe "PATCH /client_portal/form_response" do
+    it "validates, locks, clears session and redirects to confirmation" do
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect(response).to have_http_status(:found)
+
+      patch client_portal_form_response_path, params: { form_response: { data: { foo: 'bar' }, validate: true } }
+
+      expect(response).to have_http_status(:see_other)
+      expect(response).to redirect_to(client_portal_confirmation_path)
+      expect(response.cookies["client_form_session"]).to be_nil
+
+      @client_form.reload
+      expect(@client_form.validated_at).not_to be_nil
+      expect(@client_form.status).to eq(ClientForm.statuses['validated'])
+    end
+
+    it "rejects updates when client_form is locked (validated)" do
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect(response).to have_http_status(:found)
+
+      # Validate first
+      patch client_portal_form_response_path, params: { form_response: { data: { foo: 'bar' }, validate: true } }
+      expect(response).to have_http_status(:see_other)
+
+      # Login again to get cookie (session cleared on validate)
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect(response).to have_http_status(:found)
+
+      # Attempt to save after validation should redirect to login (session cleared/locked)
+      patch client_portal_form_response_path, params: { form_response: { data: { foo: 'baz' } } }
+      expect(response).to have_http_status(:see_other)
+      expect(response.headers["Location"]).to include("/client_portal/login")
+    end
+
+    it "rejects updates when client_form is expired" do
+      @client_form.update!(expires_at: 1.day.ago)
+
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect(response).to have_http_status(:found)
+
+      patch client_portal_form_response_path, params: { form_response: { data: { foo: 'bar' } } }
+      expect(response).to have_http_status(:see_other)
+      expect(response.headers["Location"]).to include("/client_portal/login")
+    end
+  end
+end
+require "rails_helper"
+
+RSpec.describe "ClientPortal::FormResponses", type: :request do
+  let(:user) { create(:user) }
+  let(:client) { create(:client, user: user) }
+  let(:form) { create(:form, user: user) }
+
+  before do
     @client_form = ClientForm.create!(client: client, form: form)
     password = "secret-pass-#{SecureRandom.hex(4)}"
     @client_form.password = password

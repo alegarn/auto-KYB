@@ -27,7 +27,7 @@ module ClientPortal
 
       if validate
         ClientPortal::SessionService.clear_cookie(cookies)
-        redirect_to root_path, status: :see_other
+        redirect_to client_portal_confirmation_path, status: :see_other
       else
         render json: { version: resp.version }, status: :ok
       end
