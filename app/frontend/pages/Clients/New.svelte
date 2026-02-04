@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Form as InertiaForm } from '@inertiajs/svelte';
   import { clients_path } from "@/routes";
+  import Button from '@/components/ui/button/button.svelte';
 
   let { user, errors = [] } = $props();
 </script>
@@ -42,7 +43,7 @@
     </div>
 
     <div class="mt-6">
-      <button type="submit" class="btn">Create client</button>
+      <Button type="submit" class="btn">Create client</Button>
     </div>
   </InertiaForm>
 </main>

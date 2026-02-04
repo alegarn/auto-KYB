@@ -2,15 +2,24 @@ class ClientsController < ApplicationController
   before_action :set_client, only: %i[show edit update destroy]
 
   def index
-    clients = if current_user
-      current_user.clients.order(created_at: :desc).map { |c| client_json(c) }
-    else
-      []
-    end
+    return render inertia: 'Clients/Index', props: { user: nil, clients: [] } unless current_user
+
+    scope = Client.by_user(current_user.id).order(created_at: :desc)
+    scope = scope.search_by_name_or_company(params[:q]) if params[:q].present?
+
+    page = params[:page].to_i > 0 ? params[:page].to_i : 1
+    per_page = 10
+    clients_page = scope.limit(per_page).offset((page - 1) * per_page)
+    clients = clients_page.map { |c| client_json(c) }
 
     render inertia: 'Clients/Index', props: {
       user: user_props,
-      clients: clients
+      clients: clients,
+      meta: {
+        page: page,
+        per_page: per_page,
+        total_count: scope.count
+      }
     }
   end
 
