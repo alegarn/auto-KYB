@@ -12,7 +12,7 @@ class ClientPortal::BaseController < ApplicationController
   def authenticate_client_form!
     unless Current.client_form && !Current.client_form.locked?
       ClientPortal::SessionService.clear_cookie(cookies)
-      redirect_to client_portal_login_path, status: :see_other
+      redirect_to client_portal_login_path(access_token: ''), status: :see_other
     end
   end
 end
