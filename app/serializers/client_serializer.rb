@@ -4,7 +4,10 @@ class ClientSerializer
   end
 
   def as_json(*)
-    @client.as_json(only: %i[id name company_name email phone address created_at updated_at])
+    data = @client.as_json(only: %i[id name company_name email phone address])
+    data['created_at'] = @client.created_at&.strftime('%Y-%m-%d %H:%M:%S')
+    data['updated_at'] = @client.updated_at&.strftime('%Y-%m-%d %H:%M:%S')
+    data
   end
 
   def self.collection(relation)
