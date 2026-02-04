@@ -71,7 +71,7 @@ class ClientsController < ApplicationController
   def destroy
     @client.destroy!
 
-    redirect_to clients_path, status: :see_other
+    redirect_to clients_path, notice: 'Client deleted', status: :see_other
   end
 
   private

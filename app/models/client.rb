@@ -1,5 +1,7 @@
 class Client < ApplicationRecord
   belongs_to :user
+  # If clients have dependent records (e.g., forms), ensure cleanup. Currently no direct associations.
+  # has_many :forms, dependent: :destroy
 
   validates :name, presence: true
   validates :company_name, presence: true

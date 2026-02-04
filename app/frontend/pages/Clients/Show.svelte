@@ -1,8 +1,24 @@
 <script lang="ts">
   import { clients_path, dashboard_path, edit_client_path, client_path } from "@/routes";
   import Button from '@/components/ui/button/button.svelte';
+  import Modal from '@/components/ui/modal.svelte';
+  import { Inertia } from '@inertiajs/inertia';
 
   let { user, client = null } = $props();
+  let showConfirm = $state(false);
+
+  function openConfirm() {
+    showConfirm = true;
+  }
+
+  function closeConfirm() {
+    showConfirm = false;
+  }
+
+  function confirmDelete() {
+    if (!client) return;
+    Inertia.delete(client_path(client['id']));
+  }
 </script>
 
 <main class="p-6">
@@ -38,10 +54,17 @@
     <div class="mt-6 flex gap-2">
       <Button href={edit_client_path(client['id'])} variant="secondary">Edit</Button>
 
-      <form method="post" action={client_path(client['id'])} on:submit|preventDefault={() => { /* handled by server/inertia */ }}>
-        <input type="hidden" name="_method" value="delete" />
-        <Button class="btn-destructive" variant="destructive">Delete</Button>
-      </form>
+      <Button on:click={openConfirm} class="btn-destructive" variant="destructive">Delete</Button>
+
+      <Modal
+        title="Delete client"
+        description="This will permanently delete the client. This action cannot be undone."
+        open={showConfirm}
+        onClose={closeConfirm}
+        onConfirm={confirmDelete}
+      >
+        <p class="text-sm text-muted-foreground">Are you sure you want to delete this client?</p>
+      </Modal>
     </div>
   {:else}
     <p class="text-sm text-muted-foreground">Client not found.</p>
