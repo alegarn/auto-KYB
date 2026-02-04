@@ -2,6 +2,7 @@ require 'csv'
 
 class ClientsController < ApplicationController
   before_action :set_client, only: %i[show edit update destroy export]
+
   def index
     return render inertia: 'Clients/Index', props: { user: nil, clients: [] } unless current_user
 
@@ -9,15 +10,15 @@ class ClientsController < ApplicationController
     scope = scope.search_by_name_or_company(params[:q]) if params[:q].present?
 
     @pagy, clients_page = pagy(scope, items: 10, page: params[:page])
-    clients = clients_page.map { |c| client_json(c) }
+    clients = clients_page.map { |c| ClientSerializer.new(c).as_json }
 
     render inertia: 'Clients/Index', props: {
       user: user_props,
       clients: clients,
       meta: {
         page: @pagy.page,
-        per_page: @pagy.items,
-        total_count: @pagy.count
+        per_page: (@pagy.vars[:items] || clients_page.size),
+        total_count: scope.count
       }
     }
   end
@@ -25,7 +26,7 @@ class ClientsController < ApplicationController
   def show
     render inertia: 'Clients/Show', props: {
       user: user_props,
-      client: client_json(@client)
+      client: ClientSerializer.new(@client).as_json
     }
   end
 
@@ -34,7 +35,7 @@ class ClientsController < ApplicationController
     client = current_user.clients.find(params[:id])
 
     respond_to do |format|
-      format.json { render json: client_json(client) }
+      format.json { render json: ClientSerializer.new(client).as_json }
 
       format.csv do
         attrs = %w[id name company_name email phone address created_at updated_at]
@@ -47,7 +48,7 @@ class ClientsController < ApplicationController
       end
 
       # fallback for non-explicit formats
-      format.any { render json: client_json(client) }
+      format.any { render json: ClientSerializer.new(client).as_json }
     end
   end
 
@@ -66,7 +67,7 @@ class ClientsController < ApplicationController
     else
       render inertia: 'Clients/New', props: {
         user: user_props,
-        client: client_json(client),
+        client: ClientSerializer.new(client).as_json,
         errors: client.errors.messages
       }, status: :unprocessable_entity
     end
@@ -74,7 +75,7 @@ class ClientsController < ApplicationController
 
   def edit
     render inertia: 'Clients/Edit', props: {
-      client: client_json(@client)
+      client: ClientSerializer.new(@client).as_json
     }
   end
 
@@ -84,7 +85,7 @@ class ClientsController < ApplicationController
     redirect_to client_path(@client), notice: 'Client updated'
   rescue ActiveRecord::RecordInvalid => e
     render inertia: 'Clients/Edit', props: {
-      client: @client.present? ? client_json(@client) : nil,
+      client: @client.present? ? ClientSerializer.new(@client).as_json : nil,
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity
   end
@@ -99,10 +100,6 @@ class ClientsController < ApplicationController
 
   def client_params
     params.require(:client).permit(:name, :company_name, :email, :phone, address: {})
-  end
-
-  def client_json(client)
-    client.as_json(only: [:id, :name, :company_name, :email, :phone, :address, :created_at, :updated_at])
   end
 
   def set_client
