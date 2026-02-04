@@ -14,6 +14,12 @@ Rails.application.routes.draw do
     end
   end
 
+  resources :clients do
+    member do
+      get :export
+    end
+  end
+
   get "settings", to: "settings#index"
 
   get  "sign_in", to: "sessions#new"

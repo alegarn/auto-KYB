@@ -12,6 +12,7 @@ AllCops:
     - 'tmp/**/*'
     - 'log/**/*'
     - 'public/**/*'
+    - 'app/frontend/**/*'
 
 # Enable Rails-specific cops
 Rails:
@@ -24,6 +25,40 @@ Layout/LineLength:
 inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 
 # Overwrite or add rules to create your own house style
+#
+# Client management specific adjustments
+Metrics/MethodLength:
+  Max: 25
+  Exclude:
+    - 'app/controllers/**/*'
+    - 'spec/**/*'
+
+Metrics/ClassLength:
+  Max: 300
+  Exclude:
+    - 'app/models/**/*'
+    - 'app/controllers/**/*'
+    - 'spec/**/*'
+
+# Prefer empty lines around class bodies for readability
+Layout/EmptyLinesAroundClassBody:
+  EnforcedStyle: empty_lines
+
+# Enforce snake_case filenames for Ruby files
+Naming/FileName:
+  Enabled: true
+
+# Keep linting strict for common issues
+Lint/UselessAssignment:
+  Enabled: true
+
+# Allow controller methods to be a bit longer in Rails apps
+Metrics/BlockLength:
+  Max: 200
+  Exclude:
+    - 'app/controllers/**/*'
+
+# Uncomment and adjust rules below as needed
 #
 # # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
 # Layout/SpaceInsideArrayLiteralBrackets:

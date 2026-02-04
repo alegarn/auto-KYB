@@ -1,9 +1,15 @@
 class DashboardController < ApplicationController
   def index
+    q = DashboardQuery.new(current_user)
+    @pagy, clients_page = pagy(q.clients_scope.order(created_at: :desc), items: 10, page: params[:page])
+    clients = ClientSerializer.collection(clients_page)
+
     render inertia: "Dashboard/Dashboard", props: {
       user: current_user,
       session_id: current_session_id,
-      recent_forms: FormSerializer.collection(current_user.forms.order(updated_at: :desc).limit(5))
+      clients: clients,
+      recent_forms: FormSerializer.collection(q.recent_forms),
+      meta: { page: @pagy.page, per_page: (@pagy.vars[:items] || clients_page.size), total_count: q.clients_scope.count }
     }
   end
 
