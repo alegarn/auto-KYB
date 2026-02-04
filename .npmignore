@@ -1,0 +1,14 @@
+# npm package ignore
+node_modules/
+dist/
+build/
+coverage/
+.DS_Store
+.env*
+Dockerfile*
+.dockerignore
+.git
+.vscode/
+.idea/
+*.log
+*.tmp

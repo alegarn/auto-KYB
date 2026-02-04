@@ -1,11 +1,13 @@
 <script lang="ts">
+  import * as Sidebar from "/components/ui/sidebar/index.js";
+  import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { Form } from '@inertiajs/svelte'
   import Button from "/components/ui/button/button.svelte"
   import Input from "/components/ui/input/input.svelte"
   import BasicDropdown from '/components/ui/dropdown/basic-dropdown.svelte'
   import { form_path } from '@/routes';
 
-  let { form: initial } = $props()
+  let { form: initial, session_id } = $props()
 
   let name = $derived<string>(initial?.name || "")
   let description = $derived<string>(initial?.description || "")
@@ -40,8 +42,12 @@
   }
 </script>
 
-<section class="p-6 max-w-3xl mx-auto">
-  <h1 class="text-2xl font-semibold mb-4">Edit Form</h1>
+<Sidebar.Provider>
+  <AppSidebar session_id={session_id} />
+  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
+    <Sidebar.Trigger class="mb-4" />
+    <section class="p-6 max-w-3xl mx-auto">
+      <h1 class="text-2xl font-semibold mb-4">Edit Form</h1>
   <Form action={form_path(initial?.id)} method="patch">
     <input type="hidden" name="_method" value="patch" />
 
@@ -103,4 +109,6 @@
       <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
     </div>
   </Form>
-</section>
+    </section>
+  </main>
+</Sidebar.Provider>

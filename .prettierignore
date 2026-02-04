@@ -1,0 +1,13 @@
+# Prettier ignore patterns
+node_modules/
+dist/
+build/
+coverage/
+.svelte-kit
+.storybook-static/
+.vscode/
+.idea/
+.DS_Store
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

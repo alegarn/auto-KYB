@@ -95,3 +95,14 @@ bower.json
 /storybook-static/
 /stories/assets/
 *storybook.log
+
+# Misc OS/editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+
+# IDEs
+.idea/
+
+# Ruby gems
+*.gem
