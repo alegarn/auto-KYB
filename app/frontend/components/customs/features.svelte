@@ -6,7 +6,7 @@
   import Zap from "@lucide/svelte/icons/zap";
 </script>
 
-<section class="bg-zinc-50 py-16 md:py-32 dark:bg-transparent">
+<section id="features" class="bg-zinc-50 py-16 md:py-32 dark:bg-transparent">
   <div class="@container mx-auto max-w-5xl px-6">
     <div class="text-center">
       <h2 class="text-balance text-4xl font-semibold lg:text-5xl">

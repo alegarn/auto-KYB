@@ -1,8 +1,9 @@
 <script>
+  import { root_path } from "@/routes"
   const links = [
     {
       title: "Features",
-      href: "#",
+      href: `${root_path}#features`,
     },
     {
       title: "Solution",
@@ -14,7 +15,7 @@
     },
     {
       title: "Pricing",
-      href: "#",
+      href: `${root_path}#pricing`,
     },
     {
       title: "Help",
