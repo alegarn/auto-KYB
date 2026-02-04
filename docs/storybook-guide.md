@@ -178,7 +178,7 @@ See the example stories referenced earlier for usage patterns.
 <Meta title="Components/Button" component={Button} />
 
 <Story name="WithAction" args={{ label: 'Click', onClick: action('clicked') }}>
-  <Button on:click={$$props.onClick} {...$$props} />
+  <Button onclick={$$props.onClick} {...$$props} />
 </Story>
 ```
 
