@@ -5,6 +5,7 @@
   const props = $props()
   const form = $derived(props.form)
   const injectedOnSave = $derived(props.onSave)
+  const lastResponse = $derived(props.last_response)
   const hasInjectedHandler = $derived(typeof injectedOnSave === 'function')
 
   // form state keyed by field id
@@ -13,9 +14,14 @@
 
   // initialize
   $effect(() => {
+    const lastData = lastResponse?.data || {}
     if (form?.form_fields) {
       for (const f of form.form_fields) {
-        if (formState[f.id] === undefined) formState[f.id] = f.value ?? ''
+        const key = String(f.id)
+        const existing = lastData[key] ?? lastData[f.id]
+        if (formState[f.id] === undefined) {
+          formState[f.id] = existing ?? f.value ?? ''
+        }
       }
     }
   })
@@ -88,8 +94,12 @@
 
   {#each form.form_fields as field (field.id)}
     <FormFieldRenderer
-      {field}
+      id={field.id}
+      label={field.label}
+      type={field.type}
+      required={field.required}
       name={`form_response[data][${field.id}]`}
+      value={formState[field.id] ?? ''}
       onChange={onChange}
     />
   {/each}
