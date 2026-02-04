@@ -47,7 +47,7 @@
     <section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div>
         <p class="text-sm text-muted-foreground">Workspace</p>
-        <h1 class="text-2xl font-semibold text-foreground">My Clients</h1>
+        <h1 class="text-2xl font-semibold text-foreground">Clients</h1>
         <p class="text-sm text-muted-foreground">{user?.email}</p>
       </div>
       <div class="flex flex-col gap-2 sm:flex-row">
@@ -108,7 +108,7 @@
               <div class="flex items-center gap-2">
                 <Button type="submit" size="sm">Search</Button>
                 <Button type="button" size="sm" variant="secondary" onclick={() => { q = ''; goToPage(1); }}>
-                  Clear
+                  Clear search
                 </Button>
               </div>
             </form>
@@ -121,9 +121,9 @@
               <p class="text-sm text-muted-foreground">Create your first client.</p>
             </div>
           {:else}
-            <div class="max-h-[520px] space-y-3 overflow-auto pr-2">
+            <ul class="max-h-[520px] space-y-3 overflow-auto pr-2" role="list" aria-label="Client list">
               {#each clients as client}
-                <div class="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
+                <li class="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between" role="listitem">
                   <Button href={client_path(client['id'])} variant="ghost" class="flex-1 no-underline p-0 text-left" aria-label={`View ${client['name']}`}>
                     <div>
                       <div class="font-medium">{client['name']}</div>
@@ -134,9 +134,9 @@
                     <Button href={edit_client_path(client['id'])} variant="secondary" size="sm">Edit</Button>
                     <Button variant="destructive" size="sm" onclick={() => deleteClient(client['id'])}>Delete</Button>
                   </div>
-                </div>
+                </li>
               {/each}
-            </div>
+            </ul>
 
             <nav class="mt-4 flex items-center justify-center" aria-label="Pagination">
               <ul class="inline-flex items-center space-x-2">
