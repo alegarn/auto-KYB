@@ -8,7 +8,7 @@
 
   // rune-first state
   let q = $state('');
-  let page = $state(meta.page);
+  let page = $derived(meta.page);
 
   // derived rune for total pages
   const totalPages = $derived.by(() => Math.max(1, Math.ceil(meta.total_count / meta.per_page)));
