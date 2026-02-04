@@ -77,7 +77,11 @@
   function deleteClient(id: string) {
     if (!confirm("Are you sure you want to delete this client?")) return;
     loadingClients = true;
-    router.delete(client_path(id), {})
+    router.delete(client_path(id), {}, {
+      onStart: () => (loadingClients = true),
+      onFinish: () => (loadingClients = false),
+      onError: () => (loadingClients = false),
+    });
   }
   const totalClients = $derived.by(() => clients.length);
   const activeClients = $derived.by(() => clients.filter((client) => client.status === "active").length);
@@ -232,15 +236,16 @@
             <div class="max-h-[420px] space-y-3 overflow-auto pr-2">
               {#each filteredClients as client}
                 <div class="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p class="font-medium text-foreground">{client.name}</p>
-                    <p class="text-sm text-muted-foreground">Updated {client.updated_at}</p>
-                  </div>
+                  <Button href={client_path(client.id)} variant="ghost" class="flex-1 no-underline p-0 text-left">
+                    <div>
+                      <p class="font-medium text-foreground">{client.name}</p>
+                      <p class="text-sm text-muted-foreground">Updated {client.updated_at}</p>
+                    </div>
+                  </Button>
                   <div class="flex items-center gap-3">
                     <span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${clientStatusBadge(client.status)}`}>
                       {client.status}
                     </span>
-                    <Button href={client_path(client.id)} variant="default" size="sm">View</Button>
                     <Button href={edit_client_path(client.id)} variant="secondary" size="sm">Edit</Button>
                     <Button variant="destructive" size="sm" onclick={() => deleteClient(client.id)}>Delete</Button>
                   </div>
