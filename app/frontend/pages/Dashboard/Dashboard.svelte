@@ -1,13 +1,14 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import * as Card from "/components/ui/card";
-  import { Button, buttonVariants } from "/components/ui/button";
+  import { Button } from "/components/ui/button";
+  import { router } from '@inertiajs/svelte';
   import { Input } from "/components/ui/input";
   import * as Sheet from "/components/ui/sheet";
   import { Skeleton } from "/components/ui/skeleton";
-  import { new_form_path, form_path } from "@/routes";
+  import { new_form_path, form_path, new_client_path, client_path, edit_client_path } from "@/routes";
 
   type Client = {
     id: string;
@@ -24,34 +25,16 @@
     updated_at: string;
   };
 
-  let { children, user, session_id, recent_forms } = $props();
+  let { children, user, session_id, clients: initialClients, recent_forms: initialForms, meta } = $props();
 
-  const mockClients: Client[] = [
-    { id: "CL-001", name: "Acme Logistics", status: "active", updated_at: "2026-01-27" },
-    { id: "CL-002", name: "Northbridge Foods", status: "pending", updated_at: "2026-01-26" },
-    { id: "CL-003", name: "Stellar Dynamics", status: "active", updated_at: "2026-01-24" },
-    { id: "CL-004", name: "Juniper Health", status: "inactive", updated_at: "2026-01-22" },
-    { id: "CL-005", name: "Redstone Labs", status: "active", updated_at: "2026-01-20" },
-  ];
-
-  let clients = $state<Client[]>([]);
-  let forms = $derived<Form[]>(recent_forms ?? []);
-  let loadingClients = $state(true);
-  let loadingForms = $state(true);
+  let clients = $derived<Client[]>(initialClients ?? []);
+  let forms = $derived<Form[]>(initialForms ?? []);
+  let loadingClients = $state(false);
+  let loadingForms = $state(false);
   let search = $state("");
   let activeOnly = $state(false);
 
-  onMount(() => {
-    const timeout = setTimeout(() => {
-      clients = mockClients;
-      forms = recent_forms ?? [];
-      loadingClients = false;
-      loadingForms = false;
-    }, 700);
-
-    return () => clearTimeout(timeout);
-  });
-
+  
   const filteredClients = $derived.by(() =>
     clients.filter((client) => {
       const matchesSearch = [client.name, client.id]
@@ -63,6 +46,43 @@
     })
   );
 
+   const totalPages = () => Math.max(1, Math.ceil(meta.total_count / meta.per_page));
+
+   function pageRange(windowSize = 5) {
+     const total = totalPages();
+     const current = meta.page ?? 1;
+     const half = Math.floor(windowSize / 2);
+     let start = Math.max(1, current - half);
+     let end = Math.min(total, start + windowSize - 1);
+     if (end - start < windowSize - 1) start = Math.max(1, end - windowSize + 1);
+     const range = [];
+     for (let i = start; i <= end; i++) range.push(i);
+     return range;
+   }
+
+  function goToPage(page: number) {
+    if (page < 1 || page > totalPages() || page === meta.page) return;
+    const params: Record<string, any> = { page };
+    if (search && search.trim().length) params.q = search.trim();
+    if (activeOnly) params.active_only = 1;
+
+    router.get(window.location.pathname, params, {
+      preserveState: true,
+      preserveScroll: true,
+      onStart: () => (loadingClients = true),
+      onFinish: () => (loadingClients = false),
+    });
+  }
+
+  function deleteClient(id: string) {
+    if (!confirm("Are you sure you want to delete this client?")) return;
+    loadingClients = true;
+    router.delete(client_path(id), {}, {
+      onStart: () => (loadingClients = true),
+      onFinish: () => (loadingClients = false),
+      onError: () => (loadingClients = false),
+    });
+  }
   const totalClients = $derived.by(() => clients.length);
   const activeClients = $derived.by(() => clients.filter((client) => client.status === "active").length);
   const pendingClients = $derived.by(() => clients.filter((client) => client.status === "pending").length);
@@ -82,17 +102,17 @@
         return "bg-amber-100 text-amber-700";
     }
   };
-
+    
   const clientStatusBadge = (status: Client["status"]) => {
-    switch (status) {
-      case "active":
-        return "bg-emerald-100 text-emerald-700";
-      case "pending":
-        return "bg-blue-100 text-blue-700";
-      default:
-        return "bg-slate-100 text-slate-600";
-    }
-  };
+      switch (status) {
+        case "active":
+          return "bg-emerald-100 text-emerald-700";
+        case "pending":
+          return "bg-blue-100 text-blue-700";
+        default:
+          return "bg-slate-100 text-slate-600";
+      }
+    };
 </script>
 
 <Sidebar.Provider>
@@ -105,45 +125,37 @@
       <div>
         <p class="text-sm text-muted-foreground">Welcome back</p>
         <h1 class="text-2xl font-semibold text-foreground">Dashboard</h1>
+          <!-- Pagination controls -->
+          {#if meta && meta.total_count > meta.per_page}
+            <div class="mt-3 flex items-center justify-between border-t pt-3">
+              <div class="text-sm text-muted-foreground">Showing page {meta.page} of {totalPages()}</div>
+              <nav class="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onclick={() => goToPage(meta.page - 1)} disabled={meta.page <= 1}>
+                  Prev
+                </Button>
+
+                {#each pageRange(7) as p}
+                  <button
+                    class={`px-3 py-1 rounded ${p === meta.page ? 'bg-primary text-primary-foreground' : 'bg-background border'}`}
+                    onclick={() => goToPage(p)}
+                    aria-current={p === meta.page ? 'page' : undefined}
+                  >
+                    {p}
+                  </button>
+                {/each}
+
+                <Button variant="ghost" size="sm" onclick={() => goToPage(meta.page + 1)} disabled={meta.page >= totalPages()}>
+                  Next
+                </Button>
+              </nav>
+            </div>
+          {/if}
         <p class="text-sm text-muted-foreground">{user?.email}</p>
       </div>
       <div class="flex flex-col gap-2 sm:flex-row">
         <Button href={new_form_path()} variant="secondary">New Form</Button>
-        <Sheet.Root>
-          <Sheet.Trigger class={buttonVariants({ variant: "default" })}>
-            New Client
-          </Sheet.Trigger>
-          <Sheet.Content side="right" class="w-full sm:max-w-lg">
-            <Sheet.Header>
-              <Sheet.Title>New client</Sheet.Title>
-              <Sheet.Description>
-                Add a client record quickly. You can complete details later.
-              </Sheet.Description>
-            </Sheet.Header>
-            <div class="mt-6 space-y-4">
-              <div class="space-y-2">
-                <label class="text-sm font-medium" for="client-name">Client name</label>
-                <Input id="client-name" placeholder="Acme Logistics" />
-              </div>
-              <div class="space-y-2">
-                <label class="text-sm font-medium" for="client-id">Unique identifier</label>
-                <Input id="client-id" placeholder="CL-006" />
-              </div>
-              <div class="space-y-2">
-                <label class="text-sm font-medium" for="client-contact">Primary contact</label>
-                <Input id="client-contact" placeholder="alex@acme.com" type="email" />
-              </div>
-            </div>
-            <Sheet.Footer class="mt-6">
-              <Sheet.Close class={buttonVariants({ variant: "secondary" })}>
-                Cancel
-              </Sheet.Close>
-              <Sheet.Close class={buttonVariants({ variant: "default" })}>
-                Save client
-              </Sheet.Close>
-            </Sheet.Footer>
-          </Sheet.Content>
-        </Sheet.Root>
+        <Button href={new_client_path()} variant="default">New Client</Button>
+
       </div>
     </section>
 
@@ -199,7 +211,7 @@
               bind:value={search}
               class="sm:w-56"
             />
-            <Button variant={activeOnly ? "default" : "secondary"} on:click={() => (activeOnly = !activeOnly)}>
+            <Button variant={activeOnly ? "default" : "secondary"} onclick={() => (activeOnly = !activeOnly)}>
               {activeOnly ? "Active only" : "All statuses"}
             </Button>
           </div>
@@ -224,15 +236,18 @@
             <div class="max-h-[420px] space-y-3 overflow-auto pr-2">
               {#each filteredClients as client}
                 <div class="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p class="font-medium text-foreground">{client.name}</p>
-                    <p class="text-sm text-muted-foreground">{client.id} · Updated {client.updated_at}</p>
-                  </div>
+                  <Button href={client_path(client.id)} variant="ghost" class="flex-1 no-underline p-0 text-left">
+                    <div>
+                      <p class="font-medium text-foreground">{client.name}</p>
+                      <p class="text-sm text-muted-foreground">Updated {client.updated_at}</p>
+                    </div>
+                  </Button>
                   <div class="flex items-center gap-3">
                     <span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${clientStatusBadge(client.status)}`}>
                       {client.status}
                     </span>
-                    <Button variant="secondary" size="sm">View</Button>
+                    <Button href={edit_client_path(client.id)} variant="secondary" size="sm">Edit</Button>
+                    <Button variant="destructive" size="sm" onclick={() => deleteClient(client.id)}>Delete</Button>
                   </div>
                 </div>
               {/each}
