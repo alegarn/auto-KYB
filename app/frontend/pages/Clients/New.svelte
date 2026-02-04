@@ -1,19 +1,19 @@
 <script lang="ts">
   import { Form as InertiaForm } from '@inertiajs/svelte';
-  import { clients_path } from "@/routes";
-  import Button from '@/components/ui/button/button.svelte';
+  import Button from '/components/ui/button/button.svelte';
+  import Input from '/components/ui/input/input.svelte';
+  import { Label } from '/components/ui/label/index.js';
 
   let { user, errors = {} } = $props();
 
   const hasError = (field: string) => {
     if (!errors) return false;
-    // errors may be an Array (global) or an Object with arrays per field
     if (Array.isArray(errors)) return false;
     return (errors[field] && errors[field].length) || false;
   };
 </script>
 
-<main class="p-6">
+<section class="p-6 max-w-3xl mx-auto">
   <header class="mb-4">
     <h1 class="text-2xl font-semibold">New client</h1>
     <p class="text-sm text-muted-foreground">{user?.email}</p>
@@ -42,34 +42,34 @@
   {/if}
 
   <InertiaForm method="post" action="/clients">
-    <div class="space-y-4">
+    <div class="space-y-4 max-w-2xl">
       <div>
-        <label class="block text-sm font-medium">Name</label>
-        <input name="client[name]" type="text" class={`input ${hasError('name') ? 'border-rose-600' : ''}`} />
+        <Label for="client-name" class="block text-sm font-medium">Name</Label>
+        <Input id="client-name" name="client[name]" class={`w-full ${hasError('name') ? 'border-rose-600' : ''}`} />
         {#if hasError('name')}
           <div class="text-rose-600 text-sm mt-1">{errors['name']?.[0]}</div>
         {/if}
       </div>
 
       <div>
-        <label class="block text-sm font-medium">Company name</label>
-        <input name="client[company_name]" type="text" class={`input ${hasError('company_name') ? 'border-rose-600' : ''}`} />
+        <Label for="client-company" class="block text-sm font-medium">Company name</Label>
+        <Input id="client-company" name="client[company_name]" class={`w-full ${hasError('company_name') ? 'border-rose-600' : ''}`} />
         {#if hasError('company_name')}
           <div class="text-rose-600 text-sm mt-1">{errors['company_name']?.[0]}</div>
         {/if}
       </div>
 
       <div>
-        <label class="block text-sm font-medium">Email</label>
-        <input name="client[email]" type="email" class={`input ${hasError('email') ? 'border-rose-600' : ''}`} />
+        <Label for="client-email" class="block text-sm font-medium">Email</Label>
+        <Input id="client-email" name="client[email]" type="email" class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
         {#if hasError('email')}
           <div class="text-rose-600 text-sm mt-1">{errors['email']?.[0]}</div>
         {/if}
       </div>
 
       <div>
-        <label class="block text-sm font-medium">Phone</label>
-        <input name="client[phone]" type="text" class={`input ${hasError('phone') ? 'border-rose-600' : ''}`} />
+        <Label for="client-phone" class="block text-sm font-medium">Phone</Label>
+        <Input id="client-phone" name="client[phone]" class={`w-full ${hasError('phone') ? 'border-rose-600' : ''}`} />
         {#if hasError('phone')}
           <div class="text-rose-600 text-sm mt-1">{errors['phone']?.[0]}</div>
         {/if}
@@ -79,20 +79,20 @@
         <legend class="text-sm font-medium">Address (optional)</legend>
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 mt-2">
           <div>
-            <label class="block text-sm">Street</label>
-            <input name="client[address][street]" type="text" class="input" />
+            <Label for="client-street" class="block text-sm">Street</Label>
+            <Input id="client-street" name="client[address][street]" />
           </div>
           <div>
-            <label class="block text-sm">City</label>
-            <input name="client[address][city]" type="text" class="input" />
+            <Label for="client-city" class="block text-sm">City</Label>
+            <Input id="client-city" name="client[address][city]" />
           </div>
           <div>
-            <label class="block text-sm">Postal code</label>
-            <input name="client[address][postal_code]" type="text" class="input" />
+            <Label for="client-postal" class="block text-sm">Postal code</Label>
+            <Input id="client-postal" name="client[address][postal_code]" />
           </div>
           <div>
-            <label class="block text-sm">Country</label>
-            <input name="client[address][country]" type="text" class="input" />
+            <Label for="client-country" class="block text-sm">Country</Label>
+            <Input id="client-country" name="client[address][country]" />
           </div>
         </div>
       </fieldset>
@@ -100,7 +100,7 @@
 
     <div class="mt-6 flex gap-2 items-center">
       <Button type="submit" class="btn">Create client</Button>
-      <a href="/clients" class="btn btn-ghost">Cancel</a>
+      <Button href="/clients" class="btn btn-ghost">Cancel</Button>
     </div>
   </InertiaForm>
-</main>
+</section>
