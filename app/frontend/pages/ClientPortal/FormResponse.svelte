@@ -8,14 +8,14 @@
   const hasInjectedHandler = $derived(typeof injectedOnSave === 'function')
 
   // form state keyed by field id
-  let state = $state<Record<string, any>>({})
+  let formState = $state<Record<string, any>>({})
   let flashMessage = $state<string | null>(null)
 
   // initialize
   $effect(() => {
     if (form?.form_fields) {
       for (const f of form.form_fields) {
-        if (state[f.id] === undefined) state[f.id] = f.value ?? ''
+        if (formState[f.id] === undefined) formState[f.id] = f.value ?? ''
       }
     }
   })
@@ -24,9 +24,9 @@
     const { id, value } = detail
     const f = form.form_fields.find((x: any) => x.id === id)
     if (f?.type === 'number') {
-      state[id] = value === '' ? null : Number(value)
+      formState[id] = value === '' ? null : Number(value)
     } else {
-      state[id] = value
+      formState[id] = value
     }
   }
 
@@ -35,7 +35,7 @@
       e.preventDefault()
       const submitter = e.submitter as HTMLButtonElement | null
       const validate = submitter?.value === 'true'
-      injectedOnSave?.({ data: state, validate })
+      injectedOnSave?.({ data: formState, validate })
       return
     }
 
@@ -51,7 +51,7 @@
         Accept: 'application/json',
       },
       credentials: 'same-origin',
-      body: JSON.stringify({ form_response: { data: state, validate } }),
+      body: JSON.stringify({ form_response: { data: formState, validate } }),
     })
 
     if (response.status === 429) {

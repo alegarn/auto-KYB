@@ -25,5 +25,12 @@ module QuickKyb
     # config.eager_load_paths << Rails.root.join("extras")
 
     config.middleware.use Rack::Attack
+
+    config.action_dispatch.default_headers.merge!({
+      "X-Frame-Options" => "DENY",
+      "X-Content-Type-Options" => "nosniff",
+      "Referrer-Policy" => "strict-origin-when-cross-origin",
+      "Permissions-Policy" => "camera=(), microphone=(), geolocation=()"
+    })
   end
 end
