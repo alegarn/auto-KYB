@@ -1,4 +1,6 @@
 class ClientsController < ApplicationController
+  before_action :set_client, only: %i[show edit update destroy]
+
   def index
     clients = if current_user
       current_user.clients.order(created_at: :desc).map { |c| client_json(c) }
@@ -7,23 +9,21 @@ class ClientsController < ApplicationController
     end
 
     render inertia: 'Clients/Index', props: {
-      user: current_user ? { id: current_user.id, email: current_user.email } : nil,
+      user: user_props,
       clients: clients
     }
   end
 
   def show
-    client = current_user.clients.find(params[:id])
-
     render inertia: 'Clients/Show', props: {
-      user: current_user ? { id: current_user.id, email: current_user.email } : nil,
-      client: client_json(client)
+      user: user_props,
+      client: client_json(@client)
     }
   end
 
   def new
     render inertia: 'Clients/New', props: {
-      user: current_user ? { id: current_user.id, email: current_user.email } : nil
+      user: user_props
     }
   end
 
@@ -34,34 +34,30 @@ class ClientsController < ApplicationController
     redirect_to clients_path, status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     render inertia: 'Clients/New', props: {
-      user: current_user ? { id: current_user.id, email: current_user.email } : nil,
+      user: user_props,
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity
   end
 
   def edit
-    client = current_user.clients.find(params[:id])
-
     render inertia: 'Clients/Edit', props: {
-      client: client_json(client)
+      client: client_json(@client)
     }
   end
 
   def update
-    client = current_user.clients.find(params[:id])
-    client.update!(client_params)
+    @client.update!(client_params)
 
-    redirect_to client_path(client), notice: 'Client updated'
+    redirect_to client_path(@client), notice: 'Client updated'
   rescue ActiveRecord::RecordInvalid => e
     render inertia: 'Clients/Edit', props: {
-      client: client.present? ? client_json(client) : nil,
+      client: @client.present? ? client_json(@client) : nil,
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity
   end
 
   def destroy
-    client = current_user.clients.find(params[:id])
-    client.destroy!
+    @client.destroy!
 
     redirect_to clients_path, status: :see_other
   end
@@ -74,5 +70,13 @@ class ClientsController < ApplicationController
 
   def client_json(client)
     client.as_json(only: [:id, :name, :company_name, :email, :phone, :address, :created_at, :updated_at])
+  end
+
+  def set_client
+    @client = current_user.clients.find(params[:id])
+  end
+
+  def user_props
+    current_user ? { id: current_user.id, email: current_user.email } : nil
   end
 end
