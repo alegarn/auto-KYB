@@ -1,7 +1,7 @@
 <script lang="ts">
   import { client_path, new_client_path, edit_client_path } from "@/routes";
   import Button from '/components/ui/button/button.svelte';
-  import { Form, Form as InertiaForm } from '@inertiajs/svelte';
+  import { Form as InertiaForm } from '@inertiajs/svelte';
 
   let { user, clients = [], meta = { page: 1, per_page: 10, total_count: 0 } } = $props();
   let q = $state('');
@@ -13,8 +13,7 @@
     Inertia.get('/clients', { q: q, page: p }, { preserveState: true });
   }
 
-  function search(e) {
-    e.preventDefault();
+  function search() {
     goToPage(1);
   }
 
@@ -27,12 +26,12 @@
   </header>
 
   <div class="mb-4 flex items-center gap-3">
-    <Form on:submit|preventDefault={search} class="flex gap-2 items-center">
+    <form onsubmit={(e) => { e.preventDefault(); search(); }} class="flex gap-2 items-center">
       <label for="q" class="sr-only">Search clients</label>
       <input id="q" name="q" bind:value={q} class="input" placeholder="Search by name or company" />
       <button type="submit" class="btn">Search</button>
-      <button type="button" class="btn btn-secondary" onclick={() => { q = ''; goToPage(1); }}>Clear search</button>
-    </Form>
+      <button type="button" class="btn btn-secondary" on:click={() => { q = ''; goToPage(1); }}>Clear search</button>
+    </form>
     <Button href={new_client_path()} class="btn">Add client</Button>
   </div>
 

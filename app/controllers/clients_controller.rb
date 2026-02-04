@@ -32,20 +32,23 @@ class ClientsController < ApplicationController
 
   def new
     render inertia: 'Clients/New', props: {
-      user: user_props
+      user: user_props,
+      client: {}
     }
   end
 
   def create
     client = current_user.clients.new(client_params)
-    client.save!
 
-    redirect_to clients_path, status: :see_other
-  rescue ActiveRecord::RecordInvalid => e
-    render inertia: 'Clients/New', props: {
-      user: user_props,
-      errors: e.record.errors.full_messages
-    }, status: :unprocessable_entity
+    if client.save
+      redirect_to clients_path, status: :see_other
+    else
+      render inertia: 'Clients/New', props: {
+        user: user_props,
+        client: client_json(client),
+        errors: client.errors.messages
+      }, status: :unprocessable_entity
+    end
   end
 
   def edit
