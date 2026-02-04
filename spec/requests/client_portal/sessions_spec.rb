@@ -31,6 +31,15 @@ RSpec.describe "ClientPortal::Sessions", type: :request do
     end
   end
 
+  describe "GET /client_portal/login/:access_token" do
+    it "renders the login page with access token" do
+      get client_portal_login_path(@client_form.access_token)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("ClientPortal/Login")
+    end
+  end
+
   describe "DELETE /client_portal/logout" do
     it "clears the client_form_session cookie" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }

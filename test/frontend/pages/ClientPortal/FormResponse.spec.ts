@@ -37,6 +37,6 @@ describe('ClientPortal/FormResponse', () => {
     const save = screen.getByRole('button', { name: /save/i })
     await user.click(save)
 
-    expect(onSave).toHaveBeenCalledWith({ data: { a: 'Alice', b: 30, c: '1990-01-01' } })
+    expect(onSave).toHaveBeenCalledWith({ data: { a: 'Alice', b: 30, c: '1990-01-01' }, validate: false })
   })
 })
