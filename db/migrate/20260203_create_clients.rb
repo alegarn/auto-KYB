@@ -10,6 +10,9 @@ class CreateClients < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
+    # Indexes to speed up common queries filtering by user and searching by name/company
+    # - user_id: quick lookup of a user's clients
+    # - (user_id, lower(name)) and (user_id, lower(company_name)): support case-insensitive searches scoped to a user
     add_index :clients, :user_id
     add_foreign_key :clients, :users, column: :user_id
 

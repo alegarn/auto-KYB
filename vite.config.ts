@@ -26,7 +26,7 @@ export default defineConfig({
   test: {
     // Two distinct Vitest projects:
     // 1) storybook - runs Storybook browser-mode tests using the Storybook addon
-    // 2) component-tests - runs standalone component/unit tests located under spec/frontend/component_tests
+    // 2) component-tests - runs standalone component/unit tests located under test/frontend/component_tests
     projects: [
       {
         extends: true,
@@ -54,7 +54,7 @@ export default defineConfig({
           name: 'component-tests',
           root: dirname,
           // Include our dedicated component test folder
-          include: ['spec/frontend/component_tests/**/*.spec.@(js|ts|svelte)']
+          include: ['test/frontend/component_tests/**/*.spec.@(js|ts|svelte)']
         }
       }
     ]

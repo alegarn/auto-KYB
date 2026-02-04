@@ -14,7 +14,7 @@
   };
 </script>
 
-<main class="p-6">
+<section class="p-6 max-w-3xl mx-auto">
   <header class="mb-4">
     <h1 class="text-2xl font-semibold">Edit client</h1>
     <p class="text-sm text-muted-foreground">{client?.email}</p>
@@ -104,4 +104,4 @@
       <Button href={client_path(client?.id)} class="btn btn-ghost">Cancel</Button>
     </div>
   </InertiaForm>
-</main>
+</section>

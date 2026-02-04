@@ -14,9 +14,11 @@ Rails.application.routes.draw do
     end
   end
 
-  # Placeholder routes for Client Management feature (Phase 1)
-  # These will be expanded in Phase 2 (Foundational) with full controller actions and Inertia pages.
-  resources :clients # Inertia pages will map to app/frontend/pages/Clients/*
+  resources :clients do
+    member do
+      get :export
+    end
+  end
 
   get "settings", to: "settings#index"
 

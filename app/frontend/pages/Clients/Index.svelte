@@ -1,25 +1,28 @@
 <script lang="ts">
+  import { router } from '@inertiajs/svelte';
   import { client_path, new_client_path, edit_client_path } from "@/routes";
   import Button from '/components/ui/button/button.svelte';
-  import { Form as InertiaForm } from '@inertiajs/svelte';
 
+  // read Inertia props via Svelte 5 $props
   let { user, clients = [], meta = { page: 1, per_page: 10, total_count: 0 } } = $props();
-  let q = $state('');
-  let page = $state(meta.page);
 
+  // rune-first state
+  let q = $state('');
+  let page = $derived(meta.page);
+
+  // derived rune for total pages
   const totalPages = $derived.by(() => Math.max(1, Math.ceil(meta.total_count / meta.per_page)));
 
   function goToPage(p: number) {
-    Inertia.get('/clients', { q: q, page: p }, { preserveState: true });
+    router.get('/clients', { q: q, page: p }, { preserveState: true });
   }
 
   function search() {
     goToPage(1);
   }
-
 </script>
 
-<main class="p-6">
+<section class="p-6 max-w-3xl mx-auto">
   <header class="mb-4">
     <h1 class="text-2xl font-semibold">Clients</h1>
     <p class="text-sm text-muted-foreground">{user?.email}</p>
@@ -30,7 +33,7 @@
       <label for="q" class="sr-only">Search clients</label>
       <input id="q" name="q" bind:value={q} class="input" placeholder="Search by name or company" />
       <button type="submit" class="btn">Search</button>
-      <button type="button" class="btn btn-secondary" on:click={() => { q = ''; goToPage(1); }}>Clear search</button>
+      <button type="button" class="btn btn-secondary" onclick={() => { q = ''; goToPage(1); }}>Clear search</button>
     </form>
     <Button href={new_client_path()} class="btn">Add client</Button>
   </div>
@@ -60,7 +63,7 @@
       <ul class="inline-flex items-center space-x-2">
         {#each Array(totalPages) as _, i}
           <li>
-            <button class={`px-3 py-1 rounded ${meta.page === i + 1 ? 'bg-foreground text-background' : 'bg-background border'}`} on:click={() => goToPage(i + 1)} aria-current={meta.page === i + 1 ? 'page' : undefined}>
+            <button class={`px-3 py-1 rounded ${meta.page === i + 1 ? 'bg-foreground text-background' : 'bg-background border'}`} onclick={() => goToPage(i + 1)} aria-current={meta.page === i + 1 ? 'page' : undefined}>
               {i + 1}
             </button>
           </li>
@@ -68,4 +71,4 @@
       </ul>
     </nav>
   {/if}
-</main>
+</section>
