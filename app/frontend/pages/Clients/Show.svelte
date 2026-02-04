@@ -2,7 +2,7 @@
   import { clients_path, dashboard_path, edit_client_path, client_path } from "@/routes";
   import Button from '@/components/ui/button/button.svelte';
   import Modal from '@/components/ui/modal.svelte';
-  import { Inertia } from '@inertiajs/inertia';
+  import { router } from '@inertiajs/svelte';
 
   let { user, client = null } = $props();
   let showConfirm = $state(false);
@@ -17,7 +17,7 @@
 
   function confirmDelete() {
     if (!client) return;
-    Inertia.delete(client_path(client['id']));
+    router.delete(client_path(client['id']));
   }
 </script>
 
@@ -54,7 +54,7 @@
     <div class="mt-6 flex gap-2">
       <Button href={edit_client_path(client['id'])} variant="secondary">Edit</Button>
 
-      <Button on:click={openConfirm} class="btn-destructive" variant="destructive">Delete</Button>
+      <Button onclick={openConfirm} class="btn-destructive" variant="destructive">Delete</Button>
 
       <!-- Export buttons for GDPR: JSON and CSV exports open in a new tab for download / machine consumption -->
       <Button href={`/clients/${client['id']}/export.json`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as JSON">Export (JSON)</Button>
