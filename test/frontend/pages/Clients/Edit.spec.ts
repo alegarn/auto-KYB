@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
-import '@testing-library/jest-dom';
+
 import EditClient from '../../../../app/frontend/pages/Clients/Edit.svelte';
 
 test('renders edit client form with pre-filled values', () => {

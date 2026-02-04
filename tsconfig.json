@@ -18,6 +18,7 @@
 
     /* Aliases */
     "baseUrl": ".",
+    "types": ["node", "vitest", "@testing-library/jest-dom"],
     "paths": {
       "@/*": ["./app/frontend/*"],
       "/lib/*": ["./app/frontend/lib/*"],
