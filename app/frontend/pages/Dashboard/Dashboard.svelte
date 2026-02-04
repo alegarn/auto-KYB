@@ -77,7 +77,7 @@
   function deleteClient(id: string) {
     if (!confirm("Are you sure you want to delete this client?")) return;
     loadingClients = true;
-    router.delete(client_path(id), {}, {
+    router.delete(client_path(id), {
       onStart: () => (loadingClients = true),
       onFinish: () => (loadingClients = false),
       onError: () => (loadingClients = false),
@@ -246,7 +246,6 @@
                     <span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${clientStatusBadge(client.status)}`}>
                       {client.status}
                     </span>
-                    <Button href={edit_client_path(client.id)} variant="secondary" size="sm">Edit</Button>
                     <Button variant="destructive" size="sm" onclick={() => deleteClient(client.id)}>Delete</Button>
                   </div>
                 </div>
