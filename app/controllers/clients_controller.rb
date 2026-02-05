@@ -1,5 +1,3 @@
-require 'csv'
-
 class ClientsController < ApplicationController
   before_action :set_client, only: %i[show edit update destroy export]
 
@@ -43,23 +41,17 @@ class ClientsController < ApplicationController
 
   # GDPR export endpoint - returns JSON or CSV representation of the client
   def export
-    client = current_user.clients.find(params[:id])
-
     respond_to do |format|
-      format.json { render json: ClientSerializer.new(client).as_json }
+      format.json { render json: ClientSerializer.new(@client).as_json }
 
       format.csv do
-        attrs = %w[id name company_name email phone address created_at updated_at]
-        csv_data = CSV.generate(headers: true) do |csv|
-          csv << attrs
-          csv << attrs.map { |a| client.as_json[a] }
-        end
+        csv_data = ClientExportService.call(@client)
 
-        send_data csv_data, filename: "client-#{client.id}.csv", type: 'text/csv'
+        send_data csv_data, filename: "client-#{@client.id}.csv", type: 'text/csv'
       end
 
       # fallback for non-explicit formats
-      format.any { render json: ClientSerializer.new(client).as_json }
+      format.any { render json: ClientSerializer.new(@client).as_json }
     end
   end
 

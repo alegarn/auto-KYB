@@ -106,8 +106,9 @@
             <!-- Export buttons for GDPR: JSON and CSV exports open in a new tab for download / machine consumption -->
             <!-- 
             <Button href={`/clients/${client['id']}/export.json`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as JSON">Export (JSON)</Button>
-            <Button href={`/clients/${client['id']}/export.csv`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as CSV">Export (CSV)</Button>
             -->
+            <Button href={`/clients/${client['id']}/export.csv`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as CSV">Export (CSV)</Button>
+            
             <Modal
               open={showConfirm}
               onClose={closeConfirm}
