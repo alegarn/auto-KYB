@@ -76,6 +76,13 @@
       return
     }
 
+    if (response.ok) {
+      const data = await response.json().catch(() => null)
+      flashMessage = data?.notice || 'Form saved successfully.'
+      return
+    }
+
+
     if (!response.ok) {
       flashMessage = 'Unable to save right now. Please try again.'
     }
