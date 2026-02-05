@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { page, router } from '@inertiajs/svelte'
   import { client_portal_form_response_path } from '@/routes'
   import FormFieldRenderer from '../../components/FormFieldRenderer.svelte'
-
+  
   const props = $props()
   const form = $derived(props.form)
   const injectedOnSave = $derived(props.onSave)
@@ -9,8 +10,9 @@
   const hasInjectedHandler = $derived(typeof injectedOnSave === 'function')
 
   // form state keyed by field id
+  type FlashMessage = { type: 'alert' | 'notice'; message?: string } | null
   let formState = $state<Record<string, any>>({})
-  let flashMessage = $state<string | null>(null)
+  let flashMessage = $state<FlashMessage>(null)
 
   // initialize
   $effect(() => {
@@ -60,38 +62,48 @@
       body: JSON.stringify({ form_response: { data: formState, validate } }),
     })
 
-    if (response.status === 429) {
+    if (response?.status === 429) {
       const data = await response.json().catch(() => null)
-      flashMessage = data?.error || 'Too many requests. Please try again later.'
+      data?.error ? flashMessage = {type: "alert", message: data?.error} : null;
       return
     }
 
-    if (response.status === 403) {
-      flashMessage = 'This form is locked or no longer available.'
+    if (response?.status === 403) {
+      flashMessage = {
+        type: "alert", 
+        message: 'This form is locked or no longer available.'
+      }
       return
     }
 
-    if (response.redirected) {
+    if (response?.redirected) {
       window.location.href = response.url
       return
     }
 
-    if (response.ok) {
+    if (response?.ok) {
       const data = await response.json().catch(() => null)
-      flashMessage = data?.notice || 'Form saved successfully.'
+      flashMessage =  {
+          type: "notice", 
+          message: data?.notice
+        };
       return
     }
 
 
-    if (!response.ok) {
-      flashMessage = 'Unable to save right now. Please try again.'
+    if (!response?.ok) {
+      flashMessage = {
+        type: "alert", 
+        message: 'Unable to submit the form right now. Please try again.'
+      }
     }
   }
+
 </script>
 
 {#if flashMessage}
-  <div class="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700" role="alert">
-    <span>{flashMessage}</span>
+  <div class="mb-4 rounded-md bg-{flashMessage?.type === 'alert' ? 'red' : 'green'}-50 p-4 text-sm text-{flashMessage?.type === 'alert' ? 'red' : 'green'}-700" role="alert">
+    <span>{flashMessage?.message}</span>
   </div>
 {/if}
 
