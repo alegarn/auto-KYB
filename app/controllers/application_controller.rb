@@ -16,6 +16,14 @@ class ApplicationController < ActionController::Base
     Current.session&.id
   end
 
+  def store_client_form_one_time_password(client_form, password, expires_in: 5.minutes)
+    session[:client_form_one_time_passwords] ||= {}
+    session[:client_form_one_time_passwords][client_form.id.to_s] = {
+      password: password,
+      expires_at: expires_in.from_now.iso8601
+    }
+  end
+
   private
     def authenticate
       # Allow tests that set Current.session directly to bypass cookie-based lookup

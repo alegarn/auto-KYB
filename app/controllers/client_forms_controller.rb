@@ -6,15 +6,16 @@ class ClientFormsController < ApplicationController
     client = current_user.clients.find(params.dig(:client_form, :client_id))
     form = current_user.forms.find(params.dig(:client_form, :form_id))
 
+    if client.client_forms.exists?
+      redirect_to client_path(client), alert: "Client already has a subspace"
+      return
+    end
+
     result = ClientInvitationService.create_invitation(client: client, form: form, expires_in: params.dig(:client_form, :expires_in) || 7.days)
     client_form = result[:client_form]
     password = result[:password]
 
-    session[:client_form_one_time_passwords] ||= {}
-    session[:client_form_one_time_passwords][client_form.id.to_s] = {
-      password: password,
-      expires_at: 5.minutes.from_now.iso8601
-    }
+    store_client_form_one_time_password(client_form, password)
 
     redirect_to password_reveal_client_form_path(client_form), status: :see_other
   rescue ActiveRecord::RecordNotFound

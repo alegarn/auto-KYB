@@ -29,7 +29,10 @@ module ClientPortal
         ClientPortal::SessionService.clear_cookie(cookies)
         redirect_to client_portal_confirmation_path, status: :see_other
       else
-        render json: { version: resp.version }, status: :ok
+        render json: { 
+          version: resp.version, 
+          notice: "Form response saved successfully." 
+          }, status: :ok
       end
     end
 

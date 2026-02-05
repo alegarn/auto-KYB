@@ -1,4 +1,6 @@
 <script>
+  import Button from '@/components/ui/button/button.svelte';
+  import { clients_path, dashboard_path } from '@/routes';
   import { page } from '@inertiajs/svelte'
   const { client, form, access_url, password } = $props();
 </script>
@@ -26,4 +28,7 @@
       <div class="password">{password}</div>
     </div>
   {/if}
+
+  <Button href={clients_path()}>Back to Clients</Button>
+  <Button href={dashboard_path()}>Back to Dashboard</Button>
 </main>

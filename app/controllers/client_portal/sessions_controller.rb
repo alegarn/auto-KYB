@@ -3,11 +3,22 @@ class ClientPortal::SessionsController < ClientPortal::BaseController
 
   def new
     @access_token = params[:access_token]
-    render inertia: "ClientPortal/Login", props: { access_token: @access_token }
+    client_form = ClientForm.find_by(access_token: @access_token)
+    portal_status = client_form.nil? || client_form.locked? ? 'gone' : 'active'
+
+    render inertia: "ClientPortal/Login", props: {
+      access_token: @access_token,
+      portal_status: portal_status
+    }
   end
 
   def create
     client_form = ClientForm.find_by(access_token: params[:access_token])
+
+    if client_form.nil? || client_form.locked?
+      head :gone
+      return
+    end
 
     if client_form&.authenticate(params[:password])
       ClientPortal::SessionService.set_cookie(cookies, client_form)

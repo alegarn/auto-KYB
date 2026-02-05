@@ -26,7 +26,8 @@ class FormsController < ApplicationController
 
   def new
     render inertia: 'forms/new', props: {
-      user: current_user ? { id: current_user.id, email: current_user.email } : nil
+      user: current_user ? { id: current_user.id, email: current_user.email } : nil,
+      session_id: current_session_id
     }
   end
 
@@ -37,6 +38,7 @@ class FormsController < ApplicationController
   rescue ActiveRecord::RecordInvalid => e
     render inertia: 'forms/new', props: {
       user: current_user ? { id: current_user.id, email: current_user.email } : nil,
+      session_id: current_session_id,
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity
   end
@@ -45,6 +47,7 @@ class FormsController < ApplicationController
     form = current_user.forms.find(params[:id])
 
     render inertia: 'forms/edit', props: {
+      session_id: current_session_id,
       form: FormDetailSerializer.new(form).as_json
     }
   end
@@ -64,11 +67,13 @@ class FormsController < ApplicationController
     redirect_to form_path(form), notice: 'Form updated'
   rescue FormService::DataLossWarning => e
     render inertia: 'forms/edit', props: {
+      session_id: current_session_id,
       form: FormDetailSerializer.new(form).as_json,
       error: e.message
     }, status: :unprocessable_entity
   rescue ActiveRecord::RecordInvalid => e
     render inertia: 'forms/edit', props: {
+      session_id: current_session_id,
       form: form.present? ? FormDetailSerializer.new(form).as_json : nil,
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity
