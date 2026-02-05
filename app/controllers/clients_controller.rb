@@ -7,6 +7,11 @@ class ClientsController < ApplicationController
     scope = Client.by_user(current_user.id).order(created_at: :desc)
     scope = scope.search_by_name_or_company(params[:q]) if params[:q].present?
 
+    # Filter by client form status if provided (ignore "All")
+    if params[:status].present? && params[:status].to_s.downcase != 'all'
+      scope = scope.where(form_status: params[:status])
+    end
+
     @pagy, clients_page = pagy(scope, items: 10, page: params[:page])
     clients = clients_page.map { |c| ClientSerializer.new(c).as_json }
 

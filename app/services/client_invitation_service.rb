@@ -25,6 +25,10 @@ class ClientInvitationService
 
     client_form.save!
 
+    if client.form_status.blank? || client.inactive?
+      client.update!(form_status: :linked)
+    end
+
     { client_form: client_form, password: password }
   end
 end

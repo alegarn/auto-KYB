@@ -12,6 +12,7 @@
 
   // rune-first state
   let q = $state('');
+  let status = $state('all');
   let page = $derived(meta.page);
 
   // derived rune for total pages
@@ -25,7 +26,11 @@
   );
 
   function goToPage(p: number) {
-    router.get('/clients', { q: q, page: p }, { preserveState: true });
+    const params: Record<string, any> = { page: p };
+    if (q && q.trim().length) params.q = q.trim();
+    if (status && status !== 'all') params.status = status;
+
+    router.get('/clients', params, { preserveState: true });
   }
 
   function search() {
@@ -36,6 +41,19 @@
     if (!confirm("Are you sure you want to delete this client?")) return;
     router.delete(client_path(id));
   }
+
+  const clientStatusBadge = (status: string) => {
+    switch (status) {
+      case "validated":
+        return "bg-emerald-100 text-emerald-700";
+      case "active":
+        return "bg-blue-100 text-blue-700";
+      case "linked":
+        return "bg-amber-100 text-amber-700";
+      default:
+        return "bg-slate-100 text-slate-600";
+    }
+  };
 </script>
 
 <Sidebar.Provider>
@@ -106,8 +124,15 @@
               <label for="q" class="sr-only">Search clients</label>
               <Input id="q" name="q" bind:value={q} placeholder="Search by name or company" class="sm:w-56" />
               <div class="flex items-center gap-2">
+                <select bind:value={status} class="sm:w-40 rounded border px-2 py-1">
+                  <option value="all">All</option>
+                  <option value="inactive">inactive</option>
+                  <option value="linked">linked</option>
+                  <option value="active">active</option>
+                  <option value="validated">validated</option>
+                </select>
                 <Button type="submit" size="sm">Search</Button>
-                <Button type="button" size="sm" variant="secondary" onclick={() => { q = ''; goToPage(1); }}>
+                <Button type="button" size="sm" variant="secondary" onclick={() => { q = ''; status = 'all'; goToPage(1); }}>
                   Clear search
                 </Button>
               </div>
@@ -131,6 +156,9 @@
                     </div>
                   </Button>
                   <div class="flex items-center gap-3">
+                    <span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${clientStatusBadge(client['status'])}`}>
+                      {client['status']}
+                    </span>
                     <Button href={edit_client_path(client['id'])} variant="secondary" size="sm">Edit</Button>
                     <Button variant="destructive" size="sm" onclick={() => deleteClient(client['id'])}>Delete</Button>
                   </div>

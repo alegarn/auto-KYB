@@ -40,6 +40,7 @@
           <div class="space-y-2">
             <p><strong>Name:</strong> {client['name']}</p>
             <p><strong>Company:</strong> {client['company_name']}</p>
+            <p><strong>Status:</strong> {client['status']}</p>
             {#if client['email']}<p><strong>Email:</strong> {client['email']}</p>{/if}
             {#if client['phone']}<p><strong>Phone:</strong> {client['phone']}</p>{/if}
 
