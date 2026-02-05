@@ -4,7 +4,7 @@ class ClientsController < ApplicationController
   before_action :set_client, only: %i[show edit update destroy export]
 
   def index
-    return render inertia: 'Clients/Index', props: { user: nil, clients: [] } unless current_user
+    return render inertia: 'Clients/Index', props: { user: nil, clients: [], session_id: current_session_id } unless current_user
 
     scope = Client.by_user(current_user.id).order(created_at: :desc)
     scope = scope.search_by_name_or_company(params[:q]) if params[:q].present?
@@ -14,6 +14,7 @@ class ClientsController < ApplicationController
 
     render inertia: 'Clients/Index', props: {
       user: user_props,
+      session_id: current_session_id,
       clients: clients,
       meta: {
         page: @pagy.page,
@@ -28,6 +29,7 @@ class ClientsController < ApplicationController
 
     render inertia: 'Clients/Show', props: {
       user: user_props,
+      session_id: current_session_id,
       client: ClientSerializer.new(@client).as_json,
       client_form: client_form ? {
         id: client_form.id,
@@ -64,6 +66,7 @@ class ClientsController < ApplicationController
   def new
     render inertia: 'Clients/New', props: {
       user: user_props,
+      session_id: current_session_id,
       client: {},
       forms: forms_props
     }
@@ -91,6 +94,7 @@ class ClientsController < ApplicationController
     else
       render inertia: 'Clients/New', props: {
         user: user_props,
+        session_id: current_session_id,
         client: ClientSerializer.new(client).as_json,
         errors: client.errors.messages,
         forms: forms_props
@@ -99,6 +103,7 @@ class ClientsController < ApplicationController
   rescue ActiveRecord::RecordNotFound
     render inertia: 'Clients/New', props: {
       user: user_props,
+      session_id: current_session_id,
       client: ClientSerializer.new(client).as_json,
       errors: { form_id: ["Form not found"] },
       forms: forms_props
@@ -107,6 +112,7 @@ class ClientsController < ApplicationController
 
   def edit
     render inertia: 'Clients/Edit', props: {
+      session_id: current_session_id,
       client: ClientSerializer.new(@client).as_json
     }
   end
@@ -117,6 +123,7 @@ class ClientsController < ApplicationController
     redirect_to client_path(@client), notice: 'Client updated'
   rescue ActiveRecord::RecordInvalid => e
     render inertia: 'Clients/Edit', props: {
+      session_id: current_session_id,
       client: @client.present? ? ClientSerializer.new(@client).as_json : nil,
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity
