@@ -11,18 +11,26 @@ beforeEach(() => {
 
 const mockUser = { id: '1', email: 'test@example.com', name: 'Test User' }
 
+const defaultMeta = { page: 1, per_page: 10, total_count: 0 }
+const defaultProps = { user: mockUser, clients: [], meta: defaultMeta, session_id: '', children: null }
+
+function renderIndex(overrides: Record<string, any> = {}) {
+  const props = { ...defaultProps, ...overrides }
+  return render(Index, { props })
+}
+
 test('renders without crashing with empty clients array', () => {
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
   expect(screen.getByText('Clients')).toBeTruthy()
 })
 
 test('displays the correct header with user email', () => {
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
   expect(screen.getByText(mockUser.email)).toBeTruthy()
 })
 
 test('shows "No clients found" message when clients array is empty', () => {
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
   expect(screen.getByText(/No clients found/i)).toBeTruthy()
 })
 
@@ -32,7 +40,7 @@ test('renders client list when clients are provided', () => {
     { id: '2', name: 'Beta', company_name: 'Beta LLC' }
   ]
 
-  render(Index, { props: { user: mockUser, clients, meta: { page: 1, per_page: 10, total_count: 2 } } })
+  renderIndex({ clients, meta: { page: 1, per_page: 10, total_count: 2 } })
 
   const list = screen.getByRole('list', { name: /Client list/i })
   const items = within(list).getAllByRole('listitem')
@@ -43,7 +51,7 @@ test('renders client list when clients are provided', () => {
 
 test('displays search input and buttons', async () => {
   const user = userEvent.setup()
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
 
   expect(screen.getByPlaceholderText('Search by name or company')).toBeTruthy()
   expect(screen.getByText('Search')).toBeTruthy()
@@ -56,7 +64,7 @@ test('displays search input and buttons', async () => {
 })
 
 test('renders pagination when meta.total_count > meta.per_page', () => {
-  render(Index, { props: { user: mockUser, clients: [{ id: '1', name: 'A', company_name: '' }], meta: { page: 1, per_page: 1, total_count: 3 } } })
+  renderIndex({ clients: [{ id: '1', name: 'A', company_name: '' }], meta: { page: 1, per_page: 1, total_count: 3 } })
 
   const pagination = screen.getByLabelText('Pagination')
   const buttons = within(pagination).getAllByRole('button')
@@ -80,7 +88,7 @@ test('renders status badge with correct classes for validated status', () => {
     { id: '1', name: 'Validated Client', company_name: 'Validated Inc.', status: 'validated' }
   ]
 
-  render(Index, { props: { user: mockUser, clients, meta: { page: 1, per_page: 10, total_count: 1 } } })
+  renderIndex({ clients, meta: { page: 1, per_page: 10, total_count: 1 } })
 
   const list = screen.getByRole('list', { name: /Client list/i })
   const listItem = within(list).getByRole('listitem')
@@ -94,7 +102,7 @@ test('renders status badge with correct classes for active status', () => {
     { id: '1', name: 'Active Client', company_name: 'Active Inc.', status: 'active' }
   ]
 
-  render(Index, { props: { user: mockUser, clients, meta: { page: 1, per_page: 10, total_count: 1 } } })
+  renderIndex({ clients, meta: { page: 1, per_page: 10, total_count: 1 } })
 
   const list = screen.getByRole('list', { name: /Client list/i })
   const listItem = within(list).getByRole('listitem')
@@ -108,7 +116,7 @@ test('renders status badge with correct classes for linked status', () => {
     { id: '1', name: 'Linked Client', company_name: 'Linked Inc.', status: 'linked' }
   ]
 
-  render(Index, { props: { user: mockUser, clients, meta: { page: 1, per_page: 10, total_count: 1 } } })
+  renderIndex({ clients, meta: { page: 1, per_page: 10, total_count: 1 } })
 
   const list = screen.getByRole('list', { name: /Client list/i })
   const listItem = within(list).getByRole('listitem')
@@ -122,7 +130,7 @@ test('renders status badge with correct classes for inactive status', () => {
     { id: '1', name: 'Inactive Client', company_name: 'Inactive Inc.', status: 'inactive' }
   ]
 
-  render(Index, { props: { user: mockUser, clients, meta: { page: 1, per_page: 10, total_count: 1 } } })
+  renderIndex({ clients, meta: { page: 1, per_page: 10, total_count: 1 } })
 
   const list = screen.getByRole('list', { name: /Client list/i })
   const listItem = within(list).getByRole('listitem')
@@ -136,7 +144,7 @@ test('renders status badge with default classes for unknown status', () => {
     { id: '1', name: 'Unknown Client', company_name: 'Unknown Inc.', status: 'unknown' }
   ]
 
-  render(Index, { props: { user: mockUser, clients, meta: { page: 1, per_page: 10, total_count: 1 } } })
+  renderIndex({ clients, meta: { page: 1, per_page: 10, total_count: 1 } })
 
   const list = screen.getByRole('list', { name: /Client list/i })
   const listItem = within(list).getByRole('listitem')
@@ -153,7 +161,7 @@ test('renders multiple clients with different status badges', () => {
     { id: '4', name: 'Client 4', company_name: 'Company 4', status: 'inactive' }
   ]
 
-  render(Index, { props: { user: mockUser, clients, meta: { page: 1, per_page: 10, total_count: 4 } } })
+  renderIndex({ clients, meta: { page: 1, per_page: 10, total_count: 4 } })
 
   const list = screen.getByRole('list', { name: /Client list/i })
   const listItems = within(list).getAllByRole('listitem')
@@ -169,7 +177,7 @@ test('renders multiple clients with different status badges', () => {
  * Verifies that the search functionality works correctly for filtering clients by name or company
  */
 test('displays search input for filtering by name or company', () => {
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
 
   const searchInput = screen.getByPlaceholderText('Search by name or company')
   expect(searchInput).toBeTruthy()
@@ -179,7 +187,7 @@ test('displays search input for filtering by name or company', () => {
 
 test('allows typing into search input', async () => {
   const user = userEvent.setup()
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
 
   const searchInput = screen.getByPlaceholderText('Search by name or company')
   
@@ -190,7 +198,7 @@ test('allows typing into search input', async () => {
 
 test('search button is present and clickable', async () => {
   const user = userEvent.setup()
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
 
   const searchButton = screen.getByRole('button', { name: 'Search' })
   expect(searchButton).toBeTruthy()
@@ -201,7 +209,7 @@ test('search button is present and clickable', async () => {
 
 test('clear search button resets search input and status filter', async () => {
   const user = userEvent.setup()
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
 
   const searchInput = screen.getByPlaceholderText('Search by name or company')
   const statusSelect = screen.getByRole('combobox')
@@ -228,7 +236,7 @@ test('clear search button resets search input and status filter', async () => {
  * Verifies that the status filter dropdown works correctly and filters clients by status
  */
 test('displays status filter dropdown with all options', () => {
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
 
   const statusSelect = screen.getByRole('combobox')
   expect(statusSelect).toBeTruthy()
@@ -243,7 +251,7 @@ test('displays status filter dropdown with all options', () => {
 })
 
 test('status filter defaults to "all"', () => {
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
 
   const statusSelect = screen.getByRole('combobox')
   expect((statusSelect as HTMLSelectElement).value).toBe('all')
@@ -251,7 +259,7 @@ test('status filter defaults to "all"', () => {
 
 test('allows selecting different status filter options', async () => {
   const user = userEvent.setup()
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
 
   const statusSelect = screen.getByRole('combobox')
   
@@ -273,7 +281,7 @@ test('allows selecting different status filter options', async () => {
 
 test('search and status filter work together', async () => {
   const user = userEvent.setup()
-  render(Index, { props: { user: mockUser, clients: [], meta: { page: 1, per_page: 10, total_count: 0 } } })
+  renderIndex()
 
   const searchInput = screen.getByPlaceholderText('Search by name or company')
   const statusSelect = screen.getByRole('combobox')
@@ -296,7 +304,7 @@ test('renders clients with status information', () => {
     { id: '2', name: 'Client B', company_name: 'Company B', status: 'active' }
   ]
 
-  render(Index, { props: { user: mockUser, clients, meta: { page: 1, per_page: 10, total_count: 2 } } })
+  renderIndex({ clients, meta: { page: 1, per_page: 10, total_count: 2 } })
 
   // Verify both clients are rendered with their status badges
   expect(screen.getByText('Client A')).toBeTruthy()
