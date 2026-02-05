@@ -48,6 +48,5 @@
 
   <div class="cta-row">
     <a class="btn btn-primary" href="/">Return to Home</a>
-    <a class="btn btn-secondary" href="/client_forms" >View Links</a>
   </div>
 </main>
