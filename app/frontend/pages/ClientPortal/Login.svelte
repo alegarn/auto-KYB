@@ -3,6 +3,7 @@
 
   const props = $props()
   const access_token = $derived(props.access_token)
+  const portal_status = $derived(props.portal_status)
   const injectedOnLogin = $derived(props.onLogin)
   const hasInjectedHandler = $derived(typeof injectedOnLogin === 'function')
 
@@ -35,6 +36,11 @@
       return
     }
 
+    if (response.status === 410) {
+      flashMessage = 'This portal is no longer available.'
+      return
+    }
+
     if (response.status === 401) {
       flashMessage = 'Invalid password. Please try again.'
       return
@@ -57,10 +63,16 @@
   </div>
 {/if}
 
-<form method="post" action={client_portal_login_path(access_token)} onsubmit={submit}>
-  <div>
-    <label for="password">Password</label>
-    <input id="password" name="password" aria-label="Password" type="password" bind:value={password} />
+{#if portal_status === 'gone'}
+  <div class="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+    <p>This portal is no longer available.</p>
   </div>
-  <button type="submit">Login</button>
-</form>
+{:else}
+  <form method="post" action={client_portal_login_path(access_token)} onsubmit={submit}>
+    <div>
+      <label for="password">Password</label>
+      <input id="password" name="password" aria-label="Password" type="password" bind:value={password} />
+    </div>
+    <button type="submit">Login</button>
+  </form>
+{/if}
