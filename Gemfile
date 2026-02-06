@@ -45,6 +45,7 @@ gem "inertia_rails", "~> 3.10"
 gem "authentication-zero"
 
 # Brings Rails named routes to javascript
+# $ rails generate js_routes:middleware
 gem "js-routes"
 
 # Rate limiting

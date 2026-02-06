@@ -94,7 +94,7 @@
     if (!response?.ok) {
       flashMessage = {
         type: "alert", 
-        message: 'Unable to submit the form right now. Please try again.'
+        message: 'Unable to submit the form right now. Your form may be revoked or locked. Please try again or contact your form provider.'
       }
     }
   }
