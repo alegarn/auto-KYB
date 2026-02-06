@@ -40,6 +40,8 @@ class ClientForm < ApplicationRecord
       validate!
     end
 
+    client.update!(form_status: validate ? :validated : :active)
+
     response
   end
 

@@ -23,6 +23,32 @@
     if (!client) return;
     router.delete(client_path(client['id']));
   }
+
+  const clientStatusBadge = (status: string) => {
+    switch (status) {
+      case "validated":
+        return "bg-emerald-100 text-emerald-700";
+      case "active":
+        return "bg-blue-100 text-blue-700";
+      case "linked":
+        return "bg-amber-100 text-amber-700";
+      default:
+        return "bg-slate-100 text-slate-600";
+    }
+  };
+
+  const formStatusBadge = (status: string) => {
+    switch (status) {
+      case "validated":
+        return "bg-emerald-100 text-emerald-700";
+      case "filled":
+        return "bg-blue-100 text-blue-700";
+      case "draft":
+        return "bg-amber-100 text-amber-700";
+      default:
+        return "bg-slate-100 text-slate-600";
+    }
+  };
 </script>
 
 <Sidebar.Provider>
@@ -40,6 +66,11 @@
           <div class="space-y-2">
             <p><strong>Name:</strong> {client['name']}</p>
             <p><strong>Company:</strong> {client['company_name']}</p>
+            <p><strong>Status:</strong>
+              <span class={`ml-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${clientStatusBadge(client['status'])}`}>
+                {client['status']}
+              </span>
+            </p>
             {#if client['email']}<p><strong>Email:</strong> {client['email']}</p>{/if}
             {#if client['phone']}<p><strong>Phone:</strong> {client['phone']}</p>{/if}
 
@@ -67,7 +98,11 @@
               <p class="text-sm text-muted-foreground">Has a subspace</p>
               <div class="mt-2 text-sm">
                 <div><strong>Form:</strong> {client_form.form?.name}</div>
-                <div><strong>Status:</strong> {client_form.status}</div>
+                <div><strong>Status:</strong>
+                  <span class={`ml-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${formStatusBadge(client_form.status)}`}>
+                    {client_form.status}
+                  </span>
+                </div>
               </div>
             {:else}
               <InertiaForm method="post" action={client_forms_path()}>

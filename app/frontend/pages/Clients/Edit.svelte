@@ -7,7 +7,37 @@
   import { Label } from '/components/ui/label/index.js';
   import { client_path } from '@/routes';
   
-  let { client = {}, errors = {}, session_id } = $props();
+  let { client = {}, errors = {}, session_id, forms = [], current_form_id = null, confirm_message = null, attempted_form_id = null, confirm_replace_required = false } = $props();
+
+  // modal and form state
+  let showConfirm = $state({ open: false, continue: false });
+  function modalOpen() {
+    showConfirm.open = !showConfirm?.open;
+  }
+  function modalContinue() {
+    showConfirm.open = false;
+    showConfirm.continue = true;
+    confirmedReplace = true;
+  }
+  function handleFormSelectPointerDown(event: PointerEvent) {
+    if (client?.status !== "active") return;
+    if (showConfirm?.continue) return;
+    if (showConfirm?.open) return;
+    event.preventDefault();
+    showConfirm.open = true;
+  }
+
+  // selected form the user may pick (local der$derived so we can bind and update)
+  let selectedForm = $derived(attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null));
+
+  // form submission state
+  let confirmedReplace = $state(false);
+
+  // currently linked form (if provided via client props)
+  const currentLinkedForm = $derived(() => {
+    const linkedId = current_form_id || client?.client_form_id || client?.form_id || client?.form?.id;
+    return (forms && forms.length) ? forms.find((f) => String(f.id) === String(linkedId)) : null;
+  });
 
   const hasError = (field: string) => {
     if (!errors) return false;
@@ -21,95 +51,136 @@
   <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
     <Sidebar.Trigger class="mb-4" />
     <section class="p-6 max-w-3xl mx-auto">
-  <header class="mb-4">
-    <h1 class="text-2xl font-semibold">Edit client</h1>
-    <p class="text-sm text-muted-foreground">{client?.email}</p>
-  </header>
+      <header class="mb-4">
+        <h1 class="text-2xl font-semibold">Edit client</h1>
+        <p class="text-sm text-muted-foreground">{client?.email}</p>
+      </header>
 
-  {#if Array.isArray(errors) && errors.length}
-    <div class="mb-4 text-rose-600">
-      <ul>
-        {#each errors as err}
-          <li>{err}</li>
-        {/each}
-      </ul>
-    </div>
-  {/if}
+      {#if Array.isArray(errors) && errors.length}
+        <div class="mb-4 text-rose-600">
+          <ul>
+            {#each errors as err}
+              <li>{err}</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
 
-  {#if !Array.isArray(errors) && Object.keys(errors || {}).length}
-    <div class="mb-4 text-rose-600">
-      <ul>
-        {#each Object.entries(errors) as [field, msgs]}
-          {#each msgs as msg}
-            <li>{field}: {msg}</li>
-          {/each}
-        {/each}
-      </ul>
-    </div>
-  {/if}
+      {#if !Array.isArray(errors) && Object.keys(errors || {}).length}
+        <div class="mb-4 text-rose-600">
+          <ul>
+            {#each Object.entries(errors) as [field, msgs]}
+              {#each msgs as msg}
+                <li>{field}: {msg}</li>
+              {/each}
+            {/each}
+          </ul>
+        </div>
+      {/if}
 
-  <InertiaForm method="patch" action={`/clients/${client?.id}`}>
-    <div class="space-y-4 max-w-2xl">
-      <div>
-        <Label for="client-name" class="block text-sm font-medium">Name</Label>
-        <Input id="client-name" name="client[name]" value={client?.name} class={`w-full ${hasError('name') ? 'border-rose-600' : ''}`} />
-        {#if hasError('name')}
-          <div class="text-rose-600 text-sm mt-1">{errors['name']?.[0]}</div>
-        {/if}
-      </div>
-
-      <div>
-        <Label for="client-company" class="block text-sm font-medium">Company name</Label>
-        <Input id="client-company" name="client[company_name]" value={client?.company_name} class={`w-full ${hasError('company_name') ? 'border-rose-600' : ''}`} />
-        {#if hasError('company_name')}
-          <div class="text-rose-600 text-sm mt-1">{errors['company_name']?.[0]}</div>
-        {/if}
-      </div>
-
-      <div>
-        <Label for="client-email" class="block text-sm font-medium">Email</Label>
-        <Input id="client-email" name="client[email]" type="email" value={client?.email} class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
-        {#if hasError('email')}
-          <div class="text-rose-600 text-sm mt-1">{errors['email']?.[0]}</div>
-        {/if}
-      </div>
-
-      <div>
-        <Label for="client-phone" class="block text-sm font-medium">Phone</Label>
-        <Input id="client-phone" name="client[phone]" value={client?.phone} class={`w-full ${hasError('phone') ? 'border-rose-600' : ''}`} />
-        {#if hasError('phone')}
-          <div class="text-rose-600 text-sm mt-1">{errors['phone']?.[0]}</div>
-        {/if}
-      </div>
-
-      <fieldset class="mt-4 border p-3 rounded">
-        <legend class="text-sm font-medium">Address (optional)</legend>
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 mt-2">
-          <div>
-            <Label for="client-street" class="block text-sm">Street</Label>
-            <Input id="client-street" name="client[address][street]" value={client?.address?.street} />
+      <InertiaForm method="patch" action={`/clients/${client?.id}`}>
+        <!-- form mapping: show current linked form and allow changing via a dropdown (replaces previous Change button) -->
+        {#if forms && forms.length}
+          <div class="mt-4">
+            <Label for="client-form" class="block text-sm font-medium">Linked form</Label>
+            <div class="mt-1">
+              {#if client?.status === "validated"}
+                {#if currentLinkedForm}
+                  <span class="text-sm text-muted-foreground">{currentLinkedForm()?.name} <span class="ml-2 text-xs px-2 py-0.5 rounded bg-green-100 text-green-800">validated</span></span>
+                  <input type="hidden" name="client_form[form_id]" value={currentLinkedForm()?.id ?? ''} />
+                {:else}
+                  <span class="text-sm text-muted-foreground"><em>None</em></span>
+                {/if}
+              {:else}
+                <select id="client-form" name="client_form[form_id]" bind:value={selectedForm} onpointerdown={handleFormSelectPointerDown} class="mt-2 block w-full rounded border px-2 py-1">
+                  <option value="">-- None --</option>
+                  {#each forms as f}
+                    <option value={f.id}>{f.name}</option>
+                  {/each}
+                </select>
+              {/if}
+            </div>
           </div>
+        {/if}
+
+        <input type="hidden" name="client_form[confirm_replace]" value={confirmedReplace ? 'true' : 'false'} />
+        <div class="space-y-4 max-w-2xl">
           <div>
-            <Label for="client-city" class="block text-sm">City</Label>
-            <Input id="client-city" name="client[address][city]" value={client?.address?.city} />
+            <Label for="client-name" class="block text-sm font-medium">Name</Label>
+            <Input id="client-name" name="client[name]" value={client?.name} class={`w-full ${hasError('name') ? 'border-rose-600' : ''}`} />
+            {#if hasError('name')}
+              <div class="text-rose-600 text-sm mt-1">{errors['name']?.[0]}</div>
+            {/if}
           </div>
+
           <div>
-            <Label for="client-postal" class="block text-sm">Postal code</Label>
-            <Input id="client-postal" name="client[address][postal_code]" value={client?.address?.postal_code} />
+            <Label for="client-company" class="block text-sm font-medium">Company name</Label>
+            <Input id="client-company" name="client[company_name]" value={client?.company_name} class={`w-full ${hasError('company_name') ? 'border-rose-600' : ''}`} />
+            {#if hasError('company_name')}
+              <div class="text-rose-600 text-sm mt-1">{errors['company_name']?.[0]}</div>
+            {/if}
           </div>
+
           <div>
-            <Label for="client-country" class="block text-sm">Country</Label>
-            <Input id="client-country" name="client[address][country]" value={client?.address?.country} />
+            <Label for="client-email" class="block text-sm font-medium">Email</Label>
+            <Input id="client-email" name="client[email]" type="email" value={client?.email} class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
+            {#if hasError('email')}
+              <div class="text-rose-600 text-sm mt-1">{errors['email']?.[0]}</div>
+            {/if}
+          </div>
+
+          <div>
+            <Label for="client-phone" class="block text-sm font-medium">Phone</Label>
+            <Input id="client-phone" name="client[phone]" value={client?.phone} class={`w-full ${hasError('phone') ? 'border-rose-600' : ''}`} />
+            {#if hasError('phone')}
+              <div class="text-rose-600 text-sm mt-1">{errors['phone']?.[0]}</div>
+            {/if}
+          </div>
+
+          <fieldset class="mt-4 border p-3 rounded">
+            <legend class="text-sm font-medium">Address (optional)</legend>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 mt-2">
+              <div>
+                <Label for="client-street" class="block text-sm">Street</Label>
+                <Input id="client-street" name="client[address][street]" value={client?.address?.street} />
+              </div>
+              <div>
+                <Label for="client-city" class="block text-sm">City</Label>
+                <Input id="client-city" name="client[address][city]" value={client?.address?.city} />
+              </div>
+              <div>
+                <Label for="client-postal" class="block text-sm">Postal code</Label>
+                <Input id="client-postal" name="client[address][postal_code]" value={client?.address?.postal_code} />
+              </div>
+              <div>
+                <Label for="client-country" class="block text-sm">Country</Label>
+                <Input id="client-country" name="client[address][country]" value={client?.address?.country} />
+              </div>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="mt-6 flex gap-2 items-center">
+          <Button type="submit" class="btn">Update client</Button>
+          <Button href={client_path(client?.id)} class="btn btn-ghost">Cancel</Button>
+        </div>
+      </InertiaForm>
+
+      {#if showConfirm?.open && !showConfirm?.continue && client?.status === "active"}
+        <div class="fixed inset-0 z-[999] flex items-center justify-center">
+          <div class="absolute inset-0 bg-black/50" onclick={modalOpen} aria-hidden="true"></div>
+          <div class="relative z-[1000] bg-white rounded p-6 max-w-lg w-full shadow-lg">
+            <h2 class="text-lg font-semibold mb-2">Please confirm</h2>
+            <p class="mb-4">{confirm_message || "Are you sure you want to replace the client's linked form? This will delete existing form responses."}</p>
+            <div class="flex gap-2 justify-end">
+              <button class="px-4 py-2 border rounded" onclick={modalOpen}>Cancel</button>
+              <button type="submit" class="px-4 py-2 bg-rose-600 text-white rounded" onclick={modalContinue}>
+                Continue
+              </button>
+            </div>
           </div>
         </div>
-      </fieldset>
-    </div>
-
-    <div class="mt-6 flex gap-2 items-center">
-      <Button type="submit" class="btn">Update client</Button>
-      <Button href={client_path(client?.id)} class="btn btn-ghost">Cancel</Button>
-    </div>
-  </InertiaForm>
+      {/if}
     </section>
   </main>
 </Sidebar.Provider>

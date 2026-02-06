@@ -7,7 +7,7 @@ module ClientPortal
       cookies.signed[COOKIE_NAME] = {
         value: client_form.access_token,
         httponly: true,
-        secure: true,
+        secure: Rails.env.production?,
         same_site: :strict,
         expires: expires_at
       }

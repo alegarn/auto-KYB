@@ -13,7 +13,7 @@
   type Client = {
     id: string;
     name: string;
-    status: "active" | "pending" | "inactive";
+    status: "inactive" | "linked" | "active" | "validated";
     updated_at: string;
   };
 
@@ -85,7 +85,7 @@
   }
   const totalClients = $derived.by(() => clients.length);
   const activeClients = $derived.by(() => clients.filter((client) => client.status === "active").length);
-  const pendingClients = $derived.by(() => clients.filter((client) => client.status === "pending").length);
+  const pendingClients = $derived.by(() => clients.filter((client) => client.status === "validated").length);
   const pendingForms = $derived.by(() => forms.filter((form) => form.status === "submitted").length);
 
   const recentForms = $derived.by(() => forms.slice(0, 5));
@@ -105,10 +105,12 @@
     
   const clientStatusBadge = (status: Client["status"]) => {
       switch (status) {
-        case "active":
+        case "validated":
           return "bg-emerald-100 text-emerald-700";
-        case "pending":
+        case "active":
           return "bg-blue-100 text-blue-700";
+        case "linked":
+          return "bg-amber-100 text-amber-700";
         default:
           return "bg-slate-100 text-slate-600";
       }
