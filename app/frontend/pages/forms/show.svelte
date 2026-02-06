@@ -2,6 +2,7 @@
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import Input from "/components/ui/input/input.svelte"
+  import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
   import Button from "/components/ui/button/button.svelte"
   import Card from "/components/ui/card/card.svelte"
   import CardContent from "/components/ui/card/card-content.svelte"
@@ -22,13 +23,28 @@
   function handleSubmit(e: Event) {
     e.preventDefault()
     const formEl = (e.currentTarget || e.target) as HTMLFormElement
+    if (!formEl.checkValidity()) {
+      formEl.reportValidity()
+      return
+    }
+
     const fd = new FormData(formEl)
     const data: Record<string, any> = {}
     ;(form.form_fields || []).forEach((f: any) => {
       const key = `field_${f.id}`
       const val = fd.get(key)
-      data[f.id] = val === null ? null : String(val)
+      if (val === null) {
+        data[f.id] = null
+      } else {
+        const s = String(val)
+        if (f.field_type === "number") {
+          data[f.id] = s === "" ? null : Number(s)
+        } else {
+          data[f.id] = s
+        }
+      }
     })
+
     results = data
     preview = false
   }
@@ -66,10 +82,12 @@
       {#if preview}
         <form onsubmit={handleSubmit}>
           {#each form.form_fields as field (field['id'])}
-            <div class="mb-4">
-              <label for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</label>
-              <Input id={`field_${field['id']}`} name={`field_${field['id']}`} />
-            </div>
+            <Field class="mb-4">
+              <FieldLabel for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
+              <FieldContent>
+                <Input id={`field_${field['id']}`} name={`field_${field['id']}`} type={field.field_type || 'text'} required={field.required} />
+              </FieldContent>
+            </Field>
           {/each}
 
           <Button type="submit">Submit Preview</Button>
