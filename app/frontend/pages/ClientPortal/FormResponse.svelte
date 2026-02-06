@@ -40,7 +40,8 @@
   function onChange(detail: { id: string; value: any }) {
     const { id, value } = detail
     const f = form.form_fields.find((x: any) => x.id === id)
-    if (f?.type === 'number') {
+    const fieldType = f?.field_type ?? f?.type
+    if (fieldType === 'number') {
       formState[id] = value === '' ? null : Number(value)
     } else {
       formState[id] = value
@@ -130,10 +131,11 @@
             <FormFieldRenderer
               id={field.id}
               label={field.label}
-              type={field.type}
+              type={field.field_type ?? field.type}
               required={field.required}
               name={`form_response[data][${field.id}]`}
               value={formState[field.id] ?? ''}
+              inputOnly={true}
               onChange={onChange}
             />
           </FieldContent>

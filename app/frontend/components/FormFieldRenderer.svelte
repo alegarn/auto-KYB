@@ -1,6 +1,7 @@
 <script lang="ts">
-  const { id, label, type, required, value, name, onChange } = $props()
+  import Input from "/components/ui/input/input.svelte"
 
+  const { id, label, type, required, value, name, onChange, inputOnly = false } = $props()
 
   let currentValue = $derived(value ?? '')
   $effect(() => {
@@ -14,13 +15,27 @@
 
 </script>
 
-<label>
-  {label}
-  {#if type === 'number'}
-    <input aria-label={label} type="number" name={name} value={currentValue} oninput={onInput} {required} />
-  {:else if type === 'date'}
-    <input aria-label={label} type="date" name={name} value={currentValue} oninput={onInput} {required} />
-  {:else}
-    <input aria-label={label} type="text" name={name} value={currentValue} oninput={onInput} {required} />
-  {/if}
-</label>
+{#if inputOnly}
+  <Input
+    aria-label={label}
+    id={name ?? id}
+    name={name}
+    type={type || 'text'}
+    bind:value={currentValue}
+    oninput={onInput}
+    {required}
+  />
+{:else}
+  <label>
+    {label}
+    <Input
+      aria-label={label}
+      id={name ?? id}
+      name={name}
+      type={type || 'text'}
+      bind:value={currentValue}
+      oninput={onInput}
+      {required}
+    />
+  </label>
+{/if}
