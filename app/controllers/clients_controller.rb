@@ -98,20 +98,15 @@ class ClientsController < ApplicationController
       }, status: :unprocessable_entity
     end
   rescue ActiveRecord::RecordNotFound
-    render inertia: 'Clients/New', props: {
-      user: user_props,
-      session_id: current_session_id,
-      client: ClientSerializer.new(client).as_json,
-      errors: { form_id: ["Form not found"] },
-      forms: forms_props
-    }, status: :unprocessable_entity
+    render_form_not_found(view: 'Clients/New', client: client, include_user: true)
   end
 
   def edit
     render inertia: 'Clients/Edit', props: {
       session_id: current_session_id,
       client: ClientSerializer.new(@client).as_json,
-      forms: forms_props
+      forms: forms_props,
+      current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id
     }
   end
 
@@ -122,12 +117,7 @@ class ClientsController < ApplicationController
       begin
         new_form = current_user.forms.find(new_form_id)
       rescue ActiveRecord::RecordNotFound
-        render inertia: 'Clients/Edit', props: {
-          session_id: current_session_id,
-          client: ClientSerializer.new(@client).as_json,
-          errors: { form_id: ["Form not found"] },
-          forms: forms_props
-        }, status: :unprocessable_entity
+        render_form_not_found(view: 'Clients/Edit', client: @client)
         return
       end
     end
@@ -210,5 +200,18 @@ class ClientsController < ApplicationController
 
   def client_form_params
     params.fetch(:client_form, {}).permit(:form_id, :confirm_replace, :expires_in)
+  end
+
+  def render_form_not_found(view:, client:, include_user: false)
+    props = {
+      session_id: current_session_id,
+      client: client.present? ? ClientSerializer.new(client).as_json : nil,
+      errors: { form_id: ["Form not found"] },
+      forms: forms_props
+    }
+
+    props[:user] = user_props if include_user
+
+    render inertia: view, props: props, status: :unprocessable_entity
   end
 end
