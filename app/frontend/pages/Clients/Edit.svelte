@@ -7,7 +7,7 @@
   import { Label } from '/components/ui/label/index.js';
   import { client_path } from '@/routes';
   
-  let { client = {}, errors = {}, session_id, forms = [], confirm_message = null, attempted_form_id = null, confirm_replace_required = false } = $props();
+  let { client = {}, errors = {}, session_id, forms = [], current_form_id = null, confirm_message = null, attempted_form_id = null, confirm_replace_required = false } = $props();
 
   // modal and form state
   let showConfirm = $state({ open: false, continue: false });
@@ -28,14 +28,14 @@
   }
 
   // selected form the user may pick (local der$derived so we can bind and update)
-  let selectedForm = $derived(attempted_form_id || (forms && forms.length ? forms[0]?.id : null));
+  let selectedForm = $derived(attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null));
 
   // form submission state
   let confirmedReplace = $state(false);
 
   // currently linked form (if provided via client props)
   const currentLinkedForm = $derived(() => {
-    const linkedId = client?.client_foorm_id || client?.form_id || client?.form?.id;
+    const linkedId = current_form_id || client?.client_form_id || client?.form_id || client?.form?.id;
     return (forms && forms.length) ? forms.find((f) => String(f.id) === String(linkedId)) : null;
   });
 
