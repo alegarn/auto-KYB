@@ -40,10 +40,10 @@
 
 <Sidebar.Provider>
   <AppSidebar session_id={session_id} />
-  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
+  <main class="h-screen w-screen bg-muted/40 px-4 py-6 md:px-8">
     <Sidebar.Trigger class="mb-4" />
-    <section class="flex items-center justify-center min-h-screen p-6">
-      <div class="w-full max-w-3xl">
+    <section class="flex items-center justify-center h-full w-full p-6">
+      <div class="w-full h-full">
         <h1 class="text-2xl font-semibold text-center">{form.name}</h1>
         <p class="text-sm text-center mb-6">{form.description}</p>
 
