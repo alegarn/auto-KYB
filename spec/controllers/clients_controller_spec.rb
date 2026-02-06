@@ -137,6 +137,18 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       expect(inertia.component).to eq("Clients/New")
       expect(inertia.props[:errors]).to be_present
     end
+
+    it "renders form not found when selected form does not exist" do
+      attrs = attributes_for(:client)
+
+      post :create, params: { client: attrs, client_form: { form_id: 999_999 } }
+
+      expect(response.status).to eq(422)
+      expect(inertia.component).to eq("Clients/New")
+      expect(inertia.props[:errors]['form_id'] || inertia.props[:errors][:form_id]).to be_present
+      # ensure the message is the expected one
+      expect(inertia.props[:errors].values.flatten.join).to include("Form not found")
+    end
   end
 
   describe "GET #edit" do
@@ -190,6 +202,17 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       expect(response.status).to eq(422)
       expect(inertia.component).to eq("Clients/Edit")
       expect(inertia.props[:errors]).to be_present
+    end
+
+    it "renders form not found when remapping to a non-existent form" do
+      client = create(:client, user: user)
+
+      patch :update, params: { id: client.id, client: { name: 'New' }, client_form: { form_id: 999_999 } }
+
+      expect(response.status).to eq(422)
+      expect(inertia.component).to eq("Clients/Edit")
+      expect(inertia.props[:errors]['form_id'] || inertia.props[:errors][:form_id]).to be_present
+      expect(inertia.props[:errors].values.flatten.join).to include("Form not found")
     end
 
     context 'remapping linked forms' do

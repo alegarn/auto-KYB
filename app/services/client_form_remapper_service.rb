@@ -14,7 +14,6 @@ class ClientFormRemapperService
   def self.call(client:, new_form:, confirm_replace: false, expires_in: 7.days)
     current_cf = client.client_forms.includes(:form_responses).order(created_at: :desc).first
 
-    # nothing to do if same form
     return { status: :no_change } if current_cf && current_cf.form_id == new_form.id
 
     if client.active? && current_cf&.form_responses&.exists? && !confirm_replace
@@ -22,13 +21,17 @@ class ClientFormRemapperService
     end
 
     client.transaction do
+      # Revoke previous client portal immediately so old tokens are rejected.
+      if current_cf
+        current_cf.update!(access_token: nil, expires_at: Time.current - 1.second)
+      end
+
       # Hard-delete previous form responses as requested (skip callbacks)
       current_cf&.form_responses&.delete_all
 
       # Create invitation (this will create a new ClientForm)
       result = ClientInvitationService.create_invitation(client: client, form: new_form, expires_in: expires_in)
 
-      # Ensure client shows as linked
       client.update!(form_status: :linked) unless client.linked?
 
       { status: :created, client_form: result[:client_form], password: result[:password] }
