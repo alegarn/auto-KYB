@@ -57,8 +57,8 @@
   }
 </script>
 
-<main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
-  <section class="max-w-md mx-auto rounded-lg border border-border bg-background p-6">
+<main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8 flex items-center justify-center">
+  <section class="w-full max-w-md rounded-lg border border-border bg-background p-6">
     {#if flashMessage}
       <div class="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700" role="alert">
         <span>{flashMessage}</span>
