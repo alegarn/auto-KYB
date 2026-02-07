@@ -1,40 +1,56 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import { Form } from '@inertiajs/svelte'
-  import Button from "/components/ui/button/button.svelte"
-  import Input from "/components/ui/input/input.svelte"
-  import BasicDropdown from '/components/ui/dropdown/basic-dropdown.svelte'
+  import { router } from '@inertiajs/svelte'
+  import { Button } from "/components/ui/button/index.js"
+  import { Input } from "/components/ui/input/index.js"
+  import { Label } from "/components/ui/label/index.js"
+  import FormBuilder from "/components/customs/FormBuilder.svelte"
+  import type { FormField } from "/components/customs/form-builder/types"
   import { form_path } from '@/routes';
 
-  let { form: initial, session_id } = $props()
+  let { form: initial, errors: serverErrors, error: serverError, session_id } = $props()
 
-  let name = $derived<string>(initial?.name || "")
-  let description = $derived<string>(initial?.description || "")
-  let fields = $derived<Array<{ label: string; field_type: string; required: boolean }>>(initial?.form_fields?.map((f:any)=>({ label: f.label, field_type: f.field_type, required: f.required })) || [])
+  let name = $state(initial?.name || "")
+  let fields = $state<FormField[]>(
+    (initial?.form_fields || []).map((f: any, i: number) => ({
+      id: f.id,
+      label: f.label,
+      field_type: f.field_type,
+      required: !!f.required,
+      position: f.position || i + 1,
+      metadata: f.metadata || {},
+    }))
+  )
+  let clientError = $state("")
+  let submitting = $state(false)
 
-  const unsaved = $derived.by(() => name !== (initial?.name || '') || JSON.stringify(fields) !== JSON.stringify((initial?.form_fields||[]).map((f:any)=>({ label: f.label, field_type: f.field_type, required: f.required }))))
-
-  $effect(() => {
-    // very small auto-save draft mock: store in localStorage
-    if (unsaved) {
-      localStorage.setItem(`form_draft_${initial?.id || 'new'}`, JSON.stringify({ name, description, fields }))
+  function handleSubmit() {
+    clientError = ""
+    if (!name.trim()) {
+      clientError = "Name is required"
+      return
     }
-  })
 
-  function addField() {
-    fields = [...fields, { label: '', field_type: 'text', required: false }]
-  }
-
-  function removeField(index:number) {
-    fields = fields.filter((_,i)=>i!==index)
-  }
-
-  function updateField(index:number, key:string, value:any) {
-    const next = fields.slice()
-    // @ts-ignore
-    next[index] = { ...next[index], [key]: value }
-    fields = next
+    submitting = true
+    router.patch(form_path(initial?.id), {
+      form: {
+        name,
+        structure: {
+          fields: fields.map((f, i) => ({
+            ...(f.id ? { id: f.id } : {}),
+            label: f.label,
+            field_type: f.field_type,
+            required: f.required,
+            position: i + 1,
+            metadata: f.metadata || {},
+          })),
+        },
+      },
+    } as any, {
+      preserveState: true,
+      onFinish: () => { submitting = false },
+    })
   }
 
   function cancel() {
@@ -46,69 +62,47 @@
   <AppSidebar session_id={session_id} />
   <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
     <Sidebar.Trigger class="mb-4" />
-    <section class="p-6 max-w-3xl mx-auto">
-      <h1 class="text-2xl font-semibold mb-4">Edit Form</h1>
-  <Form action={form_path(initial?.id)} method="patch">
-    <input type="hidden" name="_method" value="patch" />
+    <section class="mx-auto max-w-7xl">
+      <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-semibold">Edit Form</h1>
+        <div class="flex gap-2">
+          <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
+          <Button type="button" onclick={handleSubmit} disabled={submitting}>
+            {submitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </div>
 
-    <div class="mb-4">
-      <label for="name" class="block font-medium mb-1">Name</label>
-      <Input id="name" bind:value={name} name="form[name]" class="w-full" />
-    </div>
+      {#if serverError}
+        <div class="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <p class="text-sm text-destructive">{serverError}</p>
+        </div>
+      {/if}
 
-    <div>
-      <h2 class="text-lg font-medium mb-2">Fields</h2>
-      <div class="flex flex-col space-y-4">
-        {#each fields as field, i (i)}
-          <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div class="flex-1">
-              <Input
-                bind:value={field.label}
-                name={`form[structure][fields][${i}][label]`}
-                placeholder="Label"
-                oninput={(e:any)=>updateField(i, 'label', (e.target as HTMLInputElement).value)}
-                class="w-full"
-              />
-            </div>
-
-            <div class="w-40 flex-shrink-0">
-              <BasicDropdown
-                value={field.field_type}
-                items={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'date', label: 'Date' }]}
-                on:select={(e:any) => updateField(i, 'field_type', e.detail.value)}
-              />
-              <input type="hidden" name={`form[structure][fields][${i}][field_type]`} value={field.field_type} />
-            </div>
-
-            <div class="flex items-center gap-2">
-              <label class="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name={`form[structure][fields][${i}][required]`}
-                  checked={field.required}
-                  onchange={(e)=>updateField(i, 'required', (e.target as HTMLInputElement).checked)}
-                />
-                <span>Required</span>
-              </label>
-            </div>
-
-            <div class="flex-shrink-0">
-              <Button class="destructive" type="button" onclick={()=>removeField(i)}>Remove</Button>
-            </div>
+      {#if serverErrors}
+        {#if Array.isArray(serverErrors) && serverErrors.length}
+          <div class="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">
+            {#each serverErrors as msg}
+              <p class="text-sm text-destructive">{msg}</p>
+            {/each}
           </div>
-        {/each}
+        {:else if typeof serverErrors === 'object'}
+          {#each Object.values(serverErrors) as msg}
+            <p class="mb-4 text-sm text-destructive">{msg}</p>
+          {/each}
+        {/if}
+      {/if}
+
+      {#if clientError}
+        <p class="mb-4 text-sm text-destructive">{clientError}</p>
+      {/if}
+
+      <div class="mb-6 max-w-md">
+        <Label for="form-name" class="mb-1.5 block text-sm font-medium">Form Name</Label>
+        <Input id="form-name" bind:value={name} placeholder="Enter form name" />
       </div>
 
-      <div class="mt-3">
-        <Button class="outline" type="button" onclick={addField}>Add field</Button>
-      </div>
-    </div>
-
-    <div class="mt-4 flex gap-2">
-      <Button type="submit">Save</Button>
-      <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
-    </div>
-  </Form>
+      <FormBuilder bind:fields />
     </section>
   </main>
 </Sidebar.Provider>

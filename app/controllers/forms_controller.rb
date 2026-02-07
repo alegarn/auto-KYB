@@ -82,6 +82,11 @@ class FormsController < ApplicationController
   private
 
   def form_params
-    params.require(:form).permit(:name, :description, structure: { fields: [ :label, :field_type, :required, :position, metadata: {} ] })
+    base = params.require(:form).permit(:name, :description)
+    if params[:form][:structure].present?
+      raw = params[:form][:structure]
+      base[:structure] = raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : raw.to_h
+    end
+    base
   end
 end

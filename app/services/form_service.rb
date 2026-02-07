@@ -31,15 +31,16 @@ class FormService
   def self.update_form(user, form, params)
     raise ActiveRecord::RecordNotFound unless form.user_id == user.id
 
-    # minimal data-loss warning: detect removed field labels and raise if any have submissions
     if params[:structure]
-      existing_labels = form.form_fields.pluck(:label).map(&:to_s)
-      new_labels = (params[:structure][:fields] || []).map { |f| (f["label"] || f[:label]).to_s }
-      removed = existing_labels - new_labels
-      removed.each do |label|
-        # allow spec to stub this class method
-        if Form.respond_to?(:has_submissions_for_field?) && Form.has_submissions_for_field?(form.id, label)
-          raise DataLossWarning, "Update would remove field '#{label}' which has submissions"
+      incoming_fields = params[:structure][:fields] || params[:structure]["fields"] || []
+      incoming_ids = incoming_fields.filter_map { |f| (f["id"] || f[:id]).to_s }.reject(&:blank?)
+      existing_ids = form.form_fields.pluck(:id).map(&:to_s)
+      removed_ids = existing_ids - incoming_ids
+
+      removed_ids.each do |field_id|
+        field = form.form_fields.find_by(id: field_id)
+        if field && Form.respond_to?(:has_submissions_for_field?) && Form.has_submissions_for_field?(form.id, field.label)
+          raise DataLossWarning, "Update would remove field '#{field.label}' which has submissions"
         end
       end
     end
@@ -47,8 +48,9 @@ class FormService
     ActiveRecord::Base.transaction do
       form.update!(name: params[:name]) if params.key?(:name)
       if params[:structure]
-        new_fields = (params[:structure][:fields] || []).map.with_index(1) do |f, idx|
+        new_fields = (params[:structure][:fields] || params[:structure]["fields"] || []).map.with_index(1) do |f, idx|
           {
+            id: (f["id"] || f[:id]).to_s.presence,
             label: f["label"] || f[:label],
             field_type: f["field_type"] || f[:field_type],
             required: f.key?("required") ? f["required"] : (f.key?(:required) ? f[:required] : false),
@@ -57,21 +59,34 @@ class FormService
           }
         end
 
-        existing = form.form_fields.index_by { |ff| ff.label.to_s }
-        processed = []
+        existing = form.form_fields.index_by { |ff| ff.id.to_s }
+        seen_ids = []
 
         new_fields.each do |nf|
-          label = nf[:label].to_s
-          processed << label
-          if existing_field = existing[label]
-            existing_field.update!(field_type: nf[:field_type], required: nf[:required], position: nf[:position], metadata: nf[:metadata])
+          field_id = nf[:id]
+          if field_id && (existing_field = existing[field_id])
+            existing_field.update!(
+              label: nf[:label],
+              field_type: nf[:field_type],
+              required: nf[:required],
+              position: nf[:position],
+              metadata: nf[:metadata]
+            )
+            seen_ids << field_id
           else
-            form.form_fields.create!(label: nf[:label], field_type: nf[:field_type], required: nf[:required], position: nf[:position], metadata: nf[:metadata])
+            created = form.form_fields.create!(
+              label: nf[:label],
+              field_type: nf[:field_type],
+              required: nf[:required],
+              position: nf[:position],
+              metadata: nf[:metadata]
+            )
+            seen_ids << created.id.to_s
           end
         end
 
-        to_remove = existing.keys - processed
-        form.form_fields.where(label: to_remove).destroy_all if to_remove.any?
+        to_remove = existing.keys - seen_ids
+        form.form_fields.where(id: to_remove).destroy_all if to_remove.any?
 
         form.update!(structure: params[:structure])
       end
