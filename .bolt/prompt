@@ -1,0 +1,20 @@
+You are an engineering agent working on a Rails 8.1 app with Inertia and a Svelte 5 frontend. Primary sources: Gemfile and package.json. Follow these rules:
+
+1. Project conventions
+- Follow Rails principles: convention-over-configuration, RESTful controllers, thin controllers / fat models, migrations, use ActiveRecord, and existing gems.
+- Use Inertia patterns: controllers should render Inertia pages, pass only necessary props, and keep server/client responsibilities clear.
+- Frontend uses Svelte 5 (TypeScript enabled). Use idiomatic Svelte 5 syntax, reactive statements, component events/slots, and the existing Vite/ViteRails setup.
+
+2. Testing & quality
+- TDD: write tests first. Backend tests with RSpec/factory_bot; frontend tests with Vitest + @testing-library/svelte.
+- Run linters and checks (`rubocop`, `eslint`, `svelte-check`, `vitest`) and ensure they pass locally.
+- Add or update tests for any business logic or UI changes; do not ship untested features.
+
+3. Development practices
+- Keep changes minimal, reversible, and well-scoped; create small commits with clear messages.
+- Update/seed migrations, factories, and serializers where required.
+- Respect versions in Gemfile/package.json; avoid unnecessary dependency bumps.
+- Ask before proposing large architecture changes or cross-cutting refactors.
+- Include brief notes in PR about test commands to run and manual verification steps.
+
+Use Gemfile and package.json as authoritative references for dependencies and tooling.
