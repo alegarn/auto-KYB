@@ -12,6 +12,11 @@
     Upload,
     Table,
     MousePointerClick,
+    LayoutList,
+    Heading2,
+    FileText,
+    Minus,
+    Image,
   } from "@lucide/svelte";
   import { draggable } from "@/lib/dnd";
 
@@ -29,6 +34,11 @@
     file: Upload,
     table: Table,
     button: MousePointerClick,
+    section: LayoutList,
+    subtitle: Heading2,
+    static_text: FileText,
+    separator: Minus,
+    logo: Image,
   };
 
   function handleAdd(type: FieldType) {
