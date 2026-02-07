@@ -1,0 +1,11 @@
+<h1>My Forms</h1>
+<p><%= h(user&.email.to_s) %></p>
+<p><%= link_to "New Form", "/forms/new" %></p>
+<ul>
+  <% forms.each do |f| %>
+    <li>
+      <%= h(f[:name]) %>
+      <%= link_to 'Delete', "/forms/#{f[:id]}", method: :delete, data: { confirm: 'Are you sure you want to delete this form?' } %>
+    </li>
+  <% end %>
+</ul>
