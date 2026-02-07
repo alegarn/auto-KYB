@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { page, router } from '@inertiajs/svelte'
+  import { Form } from '@inertiajs/svelte'
   import { client_portal_form_response_path } from '@/routes'
-  import FormFieldRenderer from '../../components/FormFieldRenderer.svelte'
+  import FormFieldRenderer from '../../components/customs/FormFieldRenderer.svelte'
+  import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
+  import Button from '@/components/ui/button/button.svelte';
   
   const props = $props()
   const form = $derived(props.form)
@@ -38,7 +40,8 @@
   function onChange(detail: { id: string; value: any }) {
     const { id, value } = detail
     const f = form.form_fields.find((x: any) => x.id === id)
-    if (f?.type === 'number') {
+    const fieldType = f?.field_type ?? f?.type
+    if (fieldType === 'number') {
       formState[id] = value === '' ? null : Number(value)
     } else {
       formState[id] = value
@@ -118,27 +121,31 @@
 
     <h1 class="text-xl font-semibold text-foreground">{form.name}</h1>
 
-    <form method="post" action={client_portal_form_response_path()} onsubmit={submit} class="mt-4 space-y-4">
+    <Form method="post" action={client_portal_form_response_path()} onsubmit={submit} class="mt-4 space-y-4">
       <input type="hidden" name="_method" value="patch" />
 
       {#each form.form_fields as field (field.id)}
-        <div>
-          <FormFieldRenderer
-            id={field.id}
-            label={field.label}
-            type={field.type}
-            required={field.required}
-            name={`form_response[data][${field.id}]`}
-            value={formState[field.id] ?? ''}
-            onChange={onChange}
-          />
-        </div>
+        <Field>
+          <FieldLabel for={field.id}>{field.label}{#if field.required}*{/if}</FieldLabel>
+          <FieldContent>
+            <FormFieldRenderer
+              id={field.id}
+              label={field.label}
+              type={field.field_type ?? field.type}
+              required={field.required}
+              name={`form_response[data][${field.id}]`}
+              value={formState[field.id] ?? ''}
+              inputOnly={true}
+              onChange={onChange}
+            />
+          </FieldContent>
+        </Field>
       {/each}
 
       <div class="flex gap-3">
-        <button type="submit" name="form_response[validate]" value="false" class="inline-flex items-center rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold">Save</button>
-        <button type="submit" name="form_response[validate]" value="true" class="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Submit & Validate</button>
+        <Button type="submit" name="form_response[validate]" value="false" class="inline-flex items-center rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground">Save</Button>
+        <Button type="submit" name="form_response[validate]" value="true" class="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Submit & Validate</Button>
       </div>
-    </form>
+    </Form>
   </section>
 </main>
