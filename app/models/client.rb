@@ -1,5 +1,7 @@
 class Client < ApplicationRecord
   belongs_to :user
+  has_many :client_forms, dependent: :destroy
+  has_many :form_responses, through: :client_forms
   # If clients have dependent records (e.g., forms), ensure cleanup. Currently no direct associations.
   # has_many :forms, dependent: :destroy
 
@@ -8,9 +10,19 @@ class Client < ApplicationRecord
   validates :email, format: { with: URI::MailTo::EMAIL_REGEXP }, allow_blank: true
   validates :phone, format: { with: /\A[+\d\-\s().]{6,}\z/ }, allow_blank: true
 
+  enum :form_status, { inactive: 0, linked: 1, active: 2, validated: 3 }
+
+  before_validation :ensure_form_status
+
   scope :by_user, ->(user_id) { where(user_id: user_id) }
   scope :search_by_name_or_company, ->(query) {
     q = query.to_s.downcase
     where('lower(name) LIKE :q OR lower(company_name) LIKE :q', q: "%#{q}%")
   }
+
+  private
+
+  def ensure_form_status
+    self.form_status = :inactive if form_status.nil?
+  end
 end

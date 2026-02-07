@@ -47,4 +47,19 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+  # Client portal (Phase 0) - placeholder routes
+  resources :client_forms, only: [:create, :show, :destroy] do
+    member do
+      get :password_reveal
+    end
+  end
+
+  namespace :client_portal do
+    get  "login/:access_token", to: "sessions#new", as: :login
+    post "login/:access_token", to: "sessions#create"
+    delete "logout", to: "sessions#destroy", as: :logout
+
+    resource :form_response, only: [:show, :update]
+    get "confirmation", to: "confirmations#show", as: :confirmation
+  end
 end

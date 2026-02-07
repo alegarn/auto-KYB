@@ -1,12 +1,14 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import { clients_path, dashboard_path, edit_client_path, client_path } from "@/routes";
+  import { clients_path, dashboard_path, edit_client_path, client_path, client_forms_path } from "@/routes";
   import Button from '@/components/ui/button/button.svelte';
   import Modal from '@/components/ui/modal.svelte';
+  import { Form as InertiaForm } from '@inertiajs/svelte';
+  import { Label } from '/components/ui/label/index.js';
   import { router } from '@inertiajs/svelte';
 
-  let { user, client = null, session_id } = $props();
+  let { user, client = null, session_id, forms = [], client_form = null } = $props();
   let showConfirm = $state(false);
 
   function openConfirm() {
@@ -21,6 +23,32 @@
     if (!client) return;
     router.delete(client_path(client['id']));
   }
+
+  const clientStatusBadge = (status: string) => {
+    switch (status) {
+      case "validated":
+        return "bg-emerald-100 text-emerald-700";
+      case "active":
+        return "bg-blue-100 text-blue-700";
+      case "linked":
+        return "bg-amber-100 text-amber-700";
+      default:
+        return "bg-slate-100 text-slate-600";
+    }
+  };
+
+  const formStatusBadge = (status: string) => {
+    switch (status) {
+      case "validated":
+        return "bg-emerald-100 text-emerald-700";
+      case "filled":
+        return "bg-blue-100 text-blue-700";
+      case "draft":
+        return "bg-amber-100 text-amber-700";
+      default:
+        return "bg-slate-100 text-slate-600";
+    }
+  };
 </script>
 
 <Sidebar.Provider>
@@ -38,6 +66,11 @@
           <div class="space-y-2">
             <p><strong>Name:</strong> {client['name']}</p>
             <p><strong>Company:</strong> {client['company_name']}</p>
+            <p><strong>Status:</strong>
+              <span class={`ml-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${clientStatusBadge(client['status'])}`}>
+                {client['status']}
+              </span>
+            </p>
             {#if client['email']}<p><strong>Email:</strong> {client['email']}</p>{/if}
             {#if client['phone']}<p><strong>Phone:</strong> {client['phone']}</p>{/if}
 
@@ -58,6 +91,48 @@
             {/if}
           </div>
 
+          <div class="mt-6 border rounded p-4 bg-background">
+            <h2 class="text-lg font-semibold mb-2">Client subspace</h2>
+
+            {#if client_form}
+              <p class="text-sm text-muted-foreground">Has a subspace</p>
+              <div class="mt-2 text-sm">
+                <div><strong>Form:</strong> {client_form.form?.name}</div>
+                <div><strong>Status:</strong>
+                  <span class={`ml-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${formStatusBadge(client_form.status)}`}>
+                    {client_form.status}
+                  </span>
+                </div>
+              </div>
+            {:else}
+              <InertiaForm method="post" action={client_forms_path()}>
+                <input type="hidden" name="client_form[client_id]" value={client?.id} />
+                <div class="space-y-2">
+                  <Label for="link-form" class="block text-sm font-medium">Link a form</Label>
+                  <select
+                    id="link-form"
+                    name="client_form[form_id]"
+                    class="w-full border rounded px-3 py-2 bg-background"
+                    required
+                    disabled={!forms || forms.length === 0}
+                  >
+                    <option value="">Select a form</option>
+                    {#each forms as form}
+                      <option value={form.id}>{form.name}</option>
+                    {/each}
+                  </select>
+                  {#if !forms || forms.length === 0}
+                    <p class="text-sm text-muted-foreground">No forms available yet. Create a form first.</p>
+                  {/if}
+                </div>
+
+                <div class="mt-3">
+                  <Button type="submit" class="btn">Create subspace</Button>
+                </div>
+              </InertiaForm>
+            {/if}
+          </div>
+
           <div class="mt-6 flex gap-2">
             <Button href={edit_client_path(client['id'])} variant="secondary">Edit</Button>
 
@@ -66,8 +141,9 @@
             <!-- Export buttons for GDPR: JSON and CSV exports open in a new tab for download / machine consumption -->
             <!-- 
             <Button href={`/clients/${client['id']}/export.json`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as JSON">Export (JSON)</Button>
-            <Button href={`/clients/${client['id']}/export.csv`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as CSV">Export (CSV)</Button>
             -->
+            <Button href={`/clients/${client['id']}/export.csv`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as CSV">Export (CSV)</Button>
+            
             <Modal
               open={showConfirm}
               onClose={closeConfirm}

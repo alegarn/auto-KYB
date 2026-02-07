@@ -7,6 +7,7 @@ class ClientSerializer
     data = @client.as_json(only: %i[id name company_name email phone address])
     data['created_at'] = @client.created_at&.strftime('%Y-%m-%d %H:%M:%S')
     data['updated_at'] = @client.updated_at&.strftime('%Y-%m-%d %H:%M:%S')
+    data['status'] = @client.form_status.presence || 'inactive'
     data
   end
 

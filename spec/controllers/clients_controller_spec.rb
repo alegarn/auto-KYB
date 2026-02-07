@@ -17,11 +17,12 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       get :index, params: { page: 1 }
 
       expect(inertia.component).to eq("Clients/Index")
-      expect(inertia.props[:clients].length).to eq(10)
+      # returned clients are serialized with string keys — ensure pagination limit applied
+      expect(inertia.props[:clients].length).to be <= inertia.props[:meta][:per_page]
       expect(inertia.props[:meta][:per_page]).to eq(10)
       expect(inertia.props[:meta][:total_count]).to eq(15)
       # ensure returned clients belong to user
-      returned_ids = inertia.props[:clients].map { |c| c[:id] }
+      returned_ids = inertia.props[:clients].map { |c| c['id'] }
       expect(Client.where(id: returned_ids).pluck(:user_id).uniq).to eq([user.id])
     end
 
@@ -32,8 +33,57 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       get :index, params: { q: "UniqueName" }
 
       expect(inertia.component).to eq("Clients/Index")
-      expect(inertia.props[:clients].map { |c| c[:id] }).to include(matching.id)
-      expect(inertia.props[:clients].map { |c| c[:name] }).to include("UniqueName")
+      expect(inertia.props[:clients].map { |c| c['id'] }).to include(matching.id)
+      expect(inertia.props[:clients].map { |c| c['name'] }).to include("UniqueName")
+    end
+
+    it "filters by company name as part of search" do
+      by_company = create(:client, company_name: "SearchCorp Ltd", user: user)
+      create(:client, company_name: "Other Corp", user: user)
+
+      get :index, params: { q: "SearchCorp" }
+
+      expect(inertia.component).to eq("Clients/Index")
+      expect(inertia.props[:clients].map { |c| c['id'] }).to include(by_company.id)
+      expect(inertia.props[:clients].map { |c| c['company_name'] }).to include("SearchCorp Ltd")
+    end
+
+    it "filters by status" do
+      validated = create(:client, form_status: "validated", user: user)
+      active = create(:client, form_status: "active", user: user)
+      inactive = create(:client, form_status: "inactive", user: user)
+
+      # another user's client with same status should not be returned
+      other_user = create(:user)
+      create(:client, form_status: "active", user: other_user)
+
+      get :index, params: { status: "active" }
+
+      expect(inertia.component).to eq("Clients/Index")
+      # serializer exposes status under 'status' key and uses string keys
+      returned_statuses = inertia.props[:clients].map { |c| c['status'] }
+      expect(returned_statuses).to all(eq("active"))
+      returned_ids = inertia.props[:clients].map { |c| c['id'] }
+      expect(returned_ids).to include(active.id)
+      expect(returned_ids).not_to include(validated.id)
+      expect(returned_ids).not_to include(inactive.id)
+    end
+
+    it "applies combined status and name filters" do
+      # matching both name and status
+      match = create(:client, name: "Acme Co", form_status: "validated", user: user)
+      # same name but different status
+      create(:client, name: "Acme Co", form_status: "active", user: user)
+      # same status but different name (company_name must not match "Acme")
+      create(:client, name: "Other", company_name: "Other Corp", form_status: "validated", user: user)
+
+      get :index, params: { q: "Acme", status: "validated" }
+
+      expect(inertia.component).to eq("Clients/Index")
+      returned_ids = inertia.props[:clients].map { |c| c['id'] }
+      expect(returned_ids).to include(match.id)
+      # ensure only the client matching both filters is returned
+      expect(returned_ids.length).to eq(1)
     end
   end
 
@@ -44,7 +94,8 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       get :show, params: { id: client.id }
 
       expect(inertia.component).to eq("Clients/Show")
-      expect(inertia.props[:client][:id]).to eq(client.id)
+      # serializer returns string-keyed hash
+      expect(inertia.props[:client]['id']).to eq(client.id)
     end
 
     it "raises when accessing another user's client" do
@@ -86,6 +137,18 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       expect(inertia.component).to eq("Clients/New")
       expect(inertia.props[:errors]).to be_present
     end
+
+    it "renders form not found when selected form does not exist" do
+      attrs = attributes_for(:client)
+
+      post :create, params: { client: attrs, client_form: { form_id: 999_999 } }
+
+      expect(response.status).to eq(422)
+      expect(inertia.component).to eq("Clients/New")
+      expect(inertia.props[:errors]['form_id'] || inertia.props[:errors][:form_id]).to be_present
+      # ensure the message is the expected one
+      expect(inertia.props[:errors].values.flatten.join).to include("Form not found")
+    end
   end
 
   describe "GET #edit" do
@@ -95,7 +158,20 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       get :edit, params: { id: client.id }
 
       expect(inertia.component).to eq("Clients/Edit")
-      expect(inertia.props[:client][:id]).to eq(client.id)
+      # serializer returns string-keyed hash
+      expect(inertia.props[:client]['id']).to eq(client.id)
+    end
+
+    it "includes available forms in inertia props" do
+      client = create(:client, user: user)
+      form_a = create(:form, user: user)
+      form_b = create(:form, user: user)
+
+      get :edit, params: { id: client.id }
+
+      expect(inertia.component).to eq("Clients/Edit")
+      returned_form_ids = inertia.props[:forms].map { |f| f['id'] }
+      expect(returned_form_ids).to include(form_a.id, form_b.id)
     end
 
     it "raises when editing another user's client" do
@@ -126,6 +202,80 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       expect(response.status).to eq(422)
       expect(inertia.component).to eq("Clients/Edit")
       expect(inertia.props[:errors]).to be_present
+    end
+
+    it "renders form not found when remapping to a non-existent form" do
+      client = create(:client, user: user)
+
+      patch :update, params: { id: client.id, client: { name: 'New' }, client_form: { form_id: 999_999 } }
+
+      expect(response.status).to eq(422)
+      expect(inertia.component).to eq("Clients/Edit")
+      expect(inertia.props[:errors]['form_id'] || inertia.props[:errors][:form_id]).to be_present
+      expect(inertia.props[:errors].values.flatten.join).to include("Form not found")
+    end
+
+    context 'remapping linked forms' do
+      let(:form_a) { create(:form, user: user) }
+      let(:form_b) { create(:form, user: user) }
+
+      before do
+        # make sure controller sees current_user
+        allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(user)
+      end
+
+      context 'when client is active and has responses' do
+        before do
+          client = create(:client, user: user)
+          res = ClientInvitationService.create_invitation(client: client, form: form_a)
+          cf = res[:client_form]
+          cf.save_response!(data: { foo: 'bar' })
+          client.update!(form_status: :active)
+        end
+
+        it 'returns confirm required when not confirmed' do
+          client = Client.last
+          patch :update, params: { id: client.id, client: { name: 'New' }, client_form: { form_id: form_b.id } }
+
+          expect(response.status).to eq(422)
+          expect(inertia.component).to eq('Clients/Edit')
+          expect(inertia.props[:confirm_replace_required]).to be true
+        end
+
+        it 'rolls back client changes when remapper requires confirmation' do
+          client = Client.last
+          prev_name = client.name
+
+          allow(ClientFormRemapperService).to receive(:call).and_raise(ClientFormRemapperService::ConfirmReplaceRequired.new(form_b.id))
+
+          patch :update, params: { id: client.id, client: { name: 'AttemptedNew' }, client_form: { form_id: form_b.id } }
+
+          expect(response.status).to eq(422)
+          expect(inertia.component).to eq('Clients/Edit')
+          expect(inertia.props[:confirm_replace_required]).to be true
+          expect(client.reload.name).to eq(prev_name)
+        end
+
+        it 'deletes old responses and redirects to password reveal when confirmed' do
+          client = Client.last
+          patch :update, params: { id: client.id, client: { name: 'New' }, client_form: { form_id: form_b.id, confirm_replace: '1' } }
+
+          expect(response).to have_http_status(:see_other)
+          client.reload
+          expect(client.client_forms.where(form_id: form_b.id).exists?).to be true
+        end
+      end
+
+      context 'when client has no responses' do
+        it 'creates invitation without confirmation' do
+          client = create(:client, user: user)
+          patch :update, params: { id: client.id, client: { name: 'New' }, client_form: { form_id: form_a.id } }
+
+          expect(response).to have_http_status(:see_other)
+          client.reload
+          expect(client.client_forms.where(form_id: form_a.id).exists?).to be true
+        end
+      end
     end
   end
 

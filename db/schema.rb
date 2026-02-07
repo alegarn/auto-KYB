@@ -10,16 +10,32 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_28_072735) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_05_034805) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+
+  create_table "client_forms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "access_token"
+    t.uuid "client_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.uuid "form_id", null: false
+    t.string "password_digest"
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.datetime "validated_at"
+    t.index ["access_token"], name: "index_client_forms_on_access_token", unique: true
+    t.index ["client_id"], name: "index_client_forms_on_client_id"
+    t.index ["form_id"], name: "index_client_forms_on_form_id"
+  end
 
   create_table "clients", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "address"
     t.string "company_name", null: false
     t.datetime "created_at", null: false
     t.string "email"
+    t.integer "form_status", default: 0, null: false
     t.string "name", null: false
     t.string "phone"
     t.datetime "updated_at", null: false
@@ -40,6 +56,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_072735) do
     t.datetime "updated_at", null: false
     t.index ["form_id", "position"], name: "index_form_fields_on_form_id_and_position"
     t.index ["form_id"], name: "index_form_fields_on_form_id"
+  end
+
+  create_table "form_responses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "client_form_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "data", default: {}
+    t.datetime "updated_at", null: false
+    t.integer "version", default: 1, null: false
+    t.index ["client_form_id", "version"], name: "index_form_responses_on_client_form_id_and_version", unique: true
+    t.index ["client_form_id"], name: "index_form_responses_on_client_form_id"
   end
 
   create_table "forms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -72,8 +98,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_072735) do
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 
+  add_foreign_key "client_forms", "clients"
+  add_foreign_key "client_forms", "forms"
   add_foreign_key "clients", "users"
   add_foreign_key "form_fields", "forms"
+  add_foreign_key "form_responses", "client_forms"
   add_foreign_key "forms", "users"
   add_foreign_key "sessions", "users"
 end
