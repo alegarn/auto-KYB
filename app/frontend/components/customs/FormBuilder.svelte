@@ -3,6 +3,7 @@
   import Canvas from "./form-builder/Canvas.svelte";
   import FieldConfig from "./form-builder/FieldConfig.svelte";
   import { createField, type FormField, type FieldType } from "./form-builder/types";
+  import type { DropResult } from "@/lib/dnd";
 
   interface Props {
     fields: FormField[];
@@ -68,6 +69,33 @@
     fields = next;
   }
 
+  function handleDrop(result: DropResult) {
+    const { data, index } = result;
+
+    if (data.kind === 'palette' && data.fieldType) {
+      const newField = createField(data.fieldType as FieldType, 0);
+      fields = [
+        ...fields.slice(0, index),
+        newField,
+        ...fields.slice(index),
+      ].map((f, i) => ({ ...f, position: i + 1 }));
+      selectedIndex = index;
+      return;
+    }
+
+    if (data.kind === 'canvas' && data.fieldIndex !== undefined) {
+      const from = data.fieldIndex;
+      let to = index;
+      if (to === from || to === from + 1) return;
+      if (to > from) to -= 1;
+      const arr = fields.slice();
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      fields = arr.map((f, i) => ({ ...f, position: i + 1 }));
+      selectedIndex = to;
+    }
+  }
+
   const selectedField = $derived(
     selectedIndex !== null && selectedIndex < fields.length
       ? fields[selectedIndex]
@@ -89,6 +117,7 @@
       onduplicate={duplicateField}
       onmoveup={moveUp}
       onmovedown={moveDown}
+      ondrop={handleDrop}
     />
   </div>
 

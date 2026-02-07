@@ -13,6 +13,7 @@
     Table,
     MousePointerClick,
   } from "@lucide/svelte";
+  import { draggable } from "@/lib/dnd";
 
   const { add }: { add?: (type: FieldType) => void } = $props();
 
@@ -49,8 +50,14 @@
             type="button"
             class="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-2 text-left text-sm transition-colors hover:border-border hover:bg-accent"
             onclick={() => handleAdd(fieldType)}
-            data-field-type={fieldType}
-            data-draggable="palette-item"
+            use:draggable={{
+              data: () => ({
+                kind: 'palette' as const,
+                fieldType,
+                label: FIELD_TYPE_LABELS[fieldType],
+                badge: fieldType,
+              }),
+            }}
           >
             <Icon class="size-4 shrink-0 text-muted-foreground" />
             <span>{FIELD_TYPE_LABELS[fieldType]}</span>

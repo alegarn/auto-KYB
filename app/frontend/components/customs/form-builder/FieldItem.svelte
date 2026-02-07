@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FIELD_TYPE_LABELS, type FormField } from "./types";
   import { Pencil, Copy, Trash2, ChevronUp, ChevronDown, GripVertical } from "@lucide/svelte";
+  import { draggable } from "@/lib/dnd";
 
   interface Props {
     field: FormField;
@@ -31,9 +32,17 @@
 
 <div
   class="group flex items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors {isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-card hover:border-primary/30'}"
-  data-droppable="canvas-item"
-  data-index={index}
+  data-dnd-item
   role="listitem"
+  use:draggable={{
+    data: () => ({
+      kind: 'canvas' as const,
+      fieldIndex: index,
+      label: field.label || 'Untitled',
+      badge: field.field_type,
+    }),
+    handle: '[data-drag-handle]',
+  }}
 >
   <div class="cursor-grab text-muted-foreground/40" data-drag-handle aria-hidden="true">
     <GripVertical class="size-4" />
