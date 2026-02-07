@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Form } from '@inertiajs/svelte'
   import { client_portal_form_response_path } from '@/routes'
-  import FormFieldRenderer from '../../components/FormFieldRenderer.svelte'
+  import FormFieldRenderer from '../../components/customs/FormFieldRenderer.svelte'
   import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
   import Button from '@/components/ui/button/button.svelte';
   
@@ -143,7 +143,7 @@
       {/each}
 
       <div class="flex gap-3">
-        <Button type="submit" name="form_response[validate]" value="false" class="inline-flex items-center rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold">Save</Button>
+        <Button type="submit" name="form_response[validate]" value="false" class="inline-flex items-center rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground">Save</Button>
         <Button type="submit" name="form_response[validate]" value="true" class="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Submit & Validate</Button>
       </div>
     </Form>
