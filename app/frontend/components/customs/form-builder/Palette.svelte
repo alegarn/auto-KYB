@@ -4,10 +4,10 @@
   // Current behavior: click a field type to add to the canvas (emits `add` with field_type string)
   // Future: make each item a DnD drag source.
 
-  import type { FieldType } from "./types";
   import Button from "@/components/ui/button/button.svelte";
 
   const { add }: { add?: (type: string) => void } = $props();
+  // should move in a shared file later
   const categories = [
     { name: 'Basic', items: ['text','number','email','date','textarea','checkbox','select','radio','file'] },
     { name: 'Table', items: ['table'] },
