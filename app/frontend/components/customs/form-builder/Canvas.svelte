@@ -1,52 +1,67 @@
 <script lang="ts">
-  import Button from "@/components/ui/button/button.svelte";
-  // Canvas.svelte
-  // Shows the ordered list of fields currently on the form.
-  // Responsibilities:
-  // - Render `fields` in order
-  // - Provide actions: select, remove, duplicate, moveUp/moveDown (click-based for now)
-  // - Placeholder hooks for drop targets (DND integration point)
-
+  import FieldItem from "./FieldItem.svelte";
   import type { FormField } from "./types";
+  import { LayoutList } from "@lucide/svelte";
+  import { dropZone, type DropResult } from "@/lib/dnd";
 
-  const { fields = [], select, remove, duplicate, moveUp, moveDown }: { fields?: FormField[]; select?: (i:number)=>void; remove?: (i:number)=>void; duplicate?: (i:number)=>void; moveUp?: (i:number)=>void; moveDown?: (i:number)=>void } = $props();
+  interface Props {
+    fields?: FormField[];
+    selectedIndex?: number | null;
+    onselect?: (i: number) => void;
+    onremove?: (i: number) => void;
+    onduplicate?: (i: number) => void;
+    onmoveup?: (i: number) => void;
+    onmovedown?: (i: number) => void;
+    ondrop?: (result: DropResult) => void;
+  }
 
-  function selectIndex(index:number) { if (typeof select === 'function') select(index); }
-  function removeIndex(index:number) { if (typeof remove === 'function') remove(index); }
-  function duplicateIndex(index:number) { if (typeof duplicate === 'function') duplicate(index); }
-  function moveUpIndex(index:number) { if (typeof moveUp === 'function') moveUp(index); }
-  function moveDownIndex(index:number) { if (typeof moveDown === 'function') moveDown(index); }
+  const {
+    fields = [],
+    selectedIndex = null,
+    onselect,
+    onremove,
+    onduplicate,
+    onmoveup,
+    onmovedown,
+    ondrop,
+  }: Props = $props();
 </script>
 
-<style>
-  .field-row { padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center }
-  .controls { display:flex; gap:6px }
-</style>
-
-<div class="p-4">
+<div
+  class="rounded-lg border bg-card"
+  role="list"
+  aria-label="Form fields"
+  use:dropZone={{ onDrop: (r) => ondrop?.(r) }}
+>
   {#if fields.length === 0}
-    <div class="text-sm text-muted-foreground">No fields yet. Use the palette to add fields.</div>
-  {/if}
-
-  {#each fields as field, i}
-    <div class="field-row">
-      <div>
-        <div class="font-medium">{field.label || 'Untitled'}</div>
-        <div class="text-xs text-muted-foreground">{field.field_type} • position {field.position}</div>
+    <div class="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center" data-dnd-items>
+      <div class="rounded-full bg-muted p-3">
+        <LayoutList class="size-6 text-muted-foreground" />
       </div>
-      <div class="controls">
-        <Button onclick={() => selectIndex(i)}>Edit</Button>
-        <Button onclick={() => duplicateIndex(i)}>Duplicate</Button>
-        <Button onclick={() => removeIndex(i)}>Delete</Button>
-        <Button onclick={() => moveUpIndex(i)}>↑</Button>
-        <Button onclick={() => moveDownIndex(i)}>↓</Button>
+      <div>
+        <p class="text-sm font-medium">No fields yet</p>
+        <p class="mt-1 text-xs text-muted-foreground">Click or drag a field type from the palette to add it here.</p>
       </div>
     </div>
-  {/each}
+  {:else}
+    <div class="space-y-1.5 p-3" data-dnd-items>
+      {#each fields as field, i (field.id ?? `pos-${i}`)}
+        <FieldItem
+          {field}
+          index={i}
+          isSelected={selectedIndex === i}
+          isFirst={i === 0}
+          isLast={i === fields.length - 1}
+          {onselect}
+          {onremove}
+          {onduplicate}
+          {onmoveup}
+          {onmovedown}
+        />
+      {/each}
+    </div>
+    <div class="border-t px-3 py-2 text-xs text-muted-foreground">
+      {fields.length} field{fields.length === 1 ? '' : 's'}
+    </div>
+  {/if}
 </div>
-
-<!-- NOTE:
-  - Replace the dispatchEvent usages with Svelte component events (createEventDispatcher)
-    if you prefer the canonical Svelte pattern. Using `dispatchEvent` keeps this scaffold minimal.
-  - When integrating DnD, wrap each field-row with the drop target and update ordering accordingly.
--->

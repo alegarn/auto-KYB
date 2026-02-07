@@ -1,0 +1,12 @@
+<h1><%= h(@form.name) %></h1>
+<p><%= h(@form.description || '') %></p>
+
+<% @form.form_fields.order(:position).each do |f| %>
+  <div>
+    <label for="field_<%= f.id %>"><%= h(f.label) %><%= '*' if f.required %></label>
+    <input id="field_<%= f.id %>" name="field_<%= f.id %>" />
+  </div>
+<% end %>
+
+<button type="button">Submit Preview</button>
+<a href="<%= edit_form_path(@form) %>">Edit</a>
