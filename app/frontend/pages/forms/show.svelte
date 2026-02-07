@@ -1,8 +1,9 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import FormFieldRenderer from "/components/customs/FormFieldRenderer.svelte"
-  import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
+  import FormFieldRenderer from "@/components/customs/FormFieldRenderer.svelte"
+  import { isLayoutField } from "@/components/customs/form-builder/types"
+  import { Field, FieldLabel, FieldContent } from "@/components/ui/field/index";
   import Button from "/components/ui/button/button.svelte"
   import Card from "/components/ui/card/card.svelte"
   import CardContent from "/components/ui/card/card-content.svelte"
@@ -115,9 +116,19 @@
     {:else}
       {#if preview}
         <form onsubmit={handleSubmit}>
-          {#each form.form_fields as field (field['id'])}
-            <Field class="mb-4">
-              <FieldLabel for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
+          {#each form.form_fields as field (field['id'] ?? field['position'])}
+            {#if isLayoutField(field.field_type)}
+              <FormFieldRenderer
+                id={field['id'] ?? `field_${field['position']}`}
+                label={field['label']}
+                type={field.field_type || 'text'}
+                required={false}
+                inputOnly={true}
+                metadata={field.metadata}
+              />
+            {:else}
+              <Field class="mb-4">
+                <FieldLabel for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
                 <FieldContent>
                   <FormFieldRenderer
                     id={`field_${field['id']}`}
@@ -128,9 +139,11 @@
                     value={''}
                     inputOnly={true}
                     onChange={()=>{}}
+                    metadata={field.metadata}
                   />
                 </FieldContent>
-            </Field>
+              </Field>
+            {/if}
           {/each}
 
           <Button type="submit">Submit Preview</Button>

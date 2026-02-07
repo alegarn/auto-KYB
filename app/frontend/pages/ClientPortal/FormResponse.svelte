@@ -1,8 +1,9 @@
 <script lang="ts">
   import { Form } from '@inertiajs/svelte'
   import { client_portal_form_response_path } from '@/routes'
-  import FormFieldRenderer from '../../components/customs/FormFieldRenderer.svelte'
-  import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
+  import FormFieldRenderer from '@/components/customs/FormFieldRenderer.svelte'
+  import { isLayoutField } from '@/components/customs/form-builder/types'
+  import { Field, FieldLabel, FieldContent } from "@/components/ui/field/index";
   import Button from '@/components/ui/button/button.svelte';
   
   const props = $props()
@@ -124,22 +125,34 @@
     <Form method="post" action={client_portal_form_response_path()} onsubmit={submit} class="mt-4 space-y-4">
       <input type="hidden" name="_method" value="patch" />
 
-      {#each form.form_fields as field (field.id)}
-        <Field>
-          <FieldLabel for={field.id}>{field.label}{#if field.required}*{/if}</FieldLabel>
-          <FieldContent>
-            <FormFieldRenderer
-              id={field.id}
-              label={field.label}
-              type={field.field_type ?? field.type}
-              required={field.required}
-              name={`form_response[data][${field.id}]`}
-              value={formState[field.id] ?? ''}
-              inputOnly={true}
-              onChange={onChange}
-            />
-          </FieldContent>
-        </Field>
+      {#each form.form_fields as field (field.id ?? field.position)}
+        {#if isLayoutField(field.field_type ?? field.type)}
+          <FormFieldRenderer
+            id={field.id ?? `field_${field.position}`}
+            label={field.label}
+            type={field.field_type ?? field.type}
+            required={false}
+            inputOnly={true}
+            metadata={field.metadata}
+          />
+        {:else}
+          <Field>
+            <FieldLabel for={field.id}>{field.label}{#if field.required}*{/if}</FieldLabel>
+            <FieldContent>
+              <FormFieldRenderer
+                id={field.id}
+                label={field.label}
+                type={field.field_type ?? field.type}
+                required={field.required}
+                name={`form_response[data][${field.id}]`}
+                value={formState[field.id] ?? ''}
+                inputOnly={true}
+                onChange={onChange}
+                metadata={field.metadata}
+              />
+            </FieldContent>
+          </Field>
+        {/if}
       {/each}
 
       <div class="flex gap-3">
