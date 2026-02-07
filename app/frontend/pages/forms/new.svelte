@@ -6,13 +6,14 @@
   import { Input } from "/components/ui/input/index.js"
   import { Label } from "/components/ui/label/index.js"
   import FormBuilder from "/components/customs/FormBuilder.svelte"
-  import type { FormField } from "/components/customs/form-builder/types"
+  import type { FormField, FormSettings } from "/components/customs/form-builder/types"
   import { forms_path } from '@/routes';
 
   const { errors: serverErrors, session_id } = $props()
 
   let name = $state("")
   let fields = $state<FormField[]>([])
+  let settings = $state<FormSettings>({})
   let clientError = $state("")
   let submitting = $state(false)
 
@@ -28,6 +29,7 @@
       form: {
         name,
         structure: {
+          settings,
           fields: fields.map((f, i) => ({
             label: f.label,
             field_type: f.field_type,
@@ -86,7 +88,7 @@
         <Input id="form-name" bind:value={name} placeholder="Enter form name" />
       </div>
 
-      <FormBuilder bind:fields />
+      <FormBuilder bind:fields bind:settings />
     </section>
   </main>
 </Sidebar.Provider>

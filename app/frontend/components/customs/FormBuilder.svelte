@@ -2,16 +2,19 @@
   import Palette from "./form-builder/Palette.svelte";
   import Canvas from "./form-builder/Canvas.svelte";
   import FieldConfig from "./form-builder/FieldConfig.svelte";
-  import { createField, type FormField, type FieldType } from "./form-builder/types";
+  import FormSettingsPanel from "./form-builder/FormSettings.svelte";
+  import { createField, type FormField, type FieldType, type FormSettings } from "./form-builder/types";
   import type { DropResult } from "@/lib/dnd";
 
   interface Props {
     fields: FormField[];
+    settings?: FormSettings;
   }
 
-  let { fields = $bindable([]) }: Props = $props();
+  let { fields = $bindable([]), settings = $bindable({}) }: Props = $props();
 
   let selectedIndex = $state<number | null>(null);
+  let rightPanelView = $state<'field' | 'settings'>('field');
 
   function addField(fieldType: FieldType) {
     const newField = createField(fieldType, fields.length + 1);
@@ -122,7 +125,29 @@
   </div>
 
   <div class="lg:block">
-    {#if selectedField && selectedIndex !== null}
+    <div class="mb-3 flex rounded-lg border bg-muted p-1">
+      <button
+        type="button"
+        class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {rightPanelView === 'field' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => rightPanelView = 'field'}
+      >
+        Field
+      </button>
+      <button
+        type="button"
+        class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {rightPanelView === 'settings' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => rightPanelView = 'settings'}
+      >
+        Styling
+      </button>
+    </div>
+
+    {#if rightPanelView === 'settings'}
+      <FormSettingsPanel
+        {settings}
+        onupdate={(s) => settings = s}
+      />
+    {:else if selectedField && selectedIndex !== null}
       <FieldConfig
         field={selectedField}
         onupdate={(patch) => updateField(selectedIndex as number, patch)}

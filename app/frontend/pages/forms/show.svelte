@@ -2,7 +2,7 @@
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import FormFieldRenderer from "@/components/customs/FormFieldRenderer.svelte"
-  import { isLayoutField } from "@/components/customs/form-builder/types"
+  import { isLayoutField, type FormSettings } from "@/components/customs/form-builder/types"
   import { Field, FieldLabel, FieldContent } from "@/components/ui/field/index";
   import Button from "/components/ui/button/button.svelte"
   import Card from "/components/ui/card/card.svelte"
@@ -18,10 +18,13 @@
   // output format for preview results: 'json' or 'csv'
   let outputFormat = $state('json')
 
-  // formatted results string (JSON pretty or CSV)
+  // form settings for styling
+  const formSettings = $derived<FormSettings>(form?.structure?.settings || {})
+
+  // formatted results string (JSON pretty or CSV) - excludes layout fields
   function formattedResults(outputFormat: string, results: Record<string, any>): string {
     try {
-      const fields = form.form_fields || []
+      const fields = (form.form_fields || []).filter((f: any) => !isLayoutField(f.field_type))
 
       if (outputFormat === 'json') {
         const out: Record<string, any> = {}
@@ -66,6 +69,7 @@
     const fd = new FormData(formEl)
     const data: Record<string, any> = {};
     (form.form_fields || []).forEach((f: any) => {
+      if (isLayoutField(f.field_type)) return;
       const key = `field_${f.id}`
       const val = fd.get(key)
       if (val === null) {
@@ -115,39 +119,55 @@
       </div>
     {:else}
       {#if preview}
-        <form onsubmit={handleSubmit}>
-          {#each form.form_fields as field (field['id'] ?? field['position'])}
-            {#if isLayoutField(field.field_type)}
-              <FormFieldRenderer
-                id={field['id'] ?? `field_${field['position']}`}
-                label={field['label']}
-                type={field.field_type || 'text'}
-                required={false}
-                inputOnly={true}
-                metadata={field.metadata}
-              />
-            {:else}
-              <Field class="mb-4">
-                <FieldLabel for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
-                <FieldContent>
-                  <FormFieldRenderer
-                    id={`field_${field['id']}`}
-                    label={field['label']}
-                    type={field.field_type || 'text'}
-                    required={field.required}
-                    name={`field_${field['id']}`}
-                    value={''}
-                    inputOnly={true}
-                    onChange={()=>{}}
-                    metadata={field.metadata}
-                  />
-                </FieldContent>
-              </Field>
-            {/if}
-          {/each}
+        <div
+          class="rounded-lg border shadow-sm overflow-hidden"
+          style:background-color={formSettings.form_background_color || '#ffffff'}
+        >
+          {#if formSettings.header_background_color}
+            <div class="px-6 py-4" style:background-color={formSettings.header_background_color}>
+              <h2 class="text-lg font-semibold">{form.name}</h2>
+            </div>
+          {/if}
+          <form onsubmit={handleSubmit} class="p-6">
+            {#each form.form_fields as field (field['id'] ?? field['position'])}
+              {#if isLayoutField(field.field_type)}
+                <FormFieldRenderer
+                  id={field['id'] ?? `field_${field['position']}`}
+                  label={field['label']}
+                  type={field.field_type || 'text'}
+                  required={false}
+                  inputOnly={true}
+                  metadata={field.metadata}
+                />
+              {:else}
+                <Field class="mb-4">
+                  <FieldLabel for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
+                  <FieldContent>
+                    <FormFieldRenderer
+                      id={`field_${field['id']}`}
+                      label={field['label']}
+                      type={field.field_type || 'text'}
+                      required={field.required}
+                      name={`field_${field['id']}`}
+                      value={''}
+                      inputOnly={true}
+                      onChange={()=>{}}
+                      metadata={field.metadata}
+                    />
+                  </FieldContent>
+                </Field>
+              {/if}
+            {/each}
 
-          <Button type="submit">Submit Preview</Button>
-        </form>
+            <button
+              type="submit"
+              class="mt-4 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
+              style:background-color={formSettings.primary_color || '#2563eb'}
+            >
+              Submit Preview
+            </button>
+          </form>
+        </div>
       {:else}
         <div>
           <h2>Preview Results</h2>
