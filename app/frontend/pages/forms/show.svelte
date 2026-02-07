@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import Input from "/components/ui/input/input.svelte"
+  import FormFieldRenderer from "/components/customs/FormFieldRenderer.svelte"
   import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
   import Button from "/components/ui/button/button.svelte"
   import Card from "/components/ui/card/card.svelte"
@@ -84,9 +84,18 @@
           {#each form.form_fields as field (field['id'])}
             <Field class="mb-4">
               <FieldLabel for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
-              <FieldContent>
-                <Input id={`field_${field['id']}`} name={`field_${field['id']}`} type={field.field_type || 'text'} required={field.required} />
-              </FieldContent>
+                <FieldContent>
+                  <FormFieldRenderer
+                    id={`field_${field['id']}`}
+                    label={field['label']}
+                    type={field.field_type || 'text'}
+                    required={field.required}
+                    name={`field_${field['id']}`}
+                    value={''}
+                    inputOnly={true}
+                    onChange={()=>{}}
+                  />
+                </FieldContent>
             </Field>
           {/each}
 
