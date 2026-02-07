@@ -11,8 +11,8 @@
 
   let { form: initial, errors: serverErrors, error: serverError, session_id } = $props()
 
-  let name = $state(initial?.name || "")
-  let fields = $state<FormField[]>(
+  let name = $derived(initial?.name || "")
+  let fields = $derived<FormField[]>(
     (initial?.form_fields || []).map((f: any, i: number) => ({
       id: f.id,
       label: f.label,

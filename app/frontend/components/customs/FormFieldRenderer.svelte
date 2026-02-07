@@ -24,7 +24,7 @@
 
   const { id, label, type, required = false, value, name, onChange, inputOnly = false, metadata = {} }: Props = $props();
 
-  let currentValue = $state(value ?? '');
+  let currentValue = $derived(value ?? '');
   let tableRows = $state<Record<string, any>[]>([{}]);
   let checkboxValues = $state<string[]>([]);
 
