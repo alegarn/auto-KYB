@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FIELD_TYPE_LABELS, type FormField } from "./types";
+  import { FIELD_TYPE_LABELS, isLayoutField, type FormField } from "./types";
   import { Pencil, Copy, Trash2, ChevronUp, ChevronDown, GripVertical } from "@lucide/svelte";
   import { draggable } from "@/lib/dnd";
 
@@ -28,6 +28,8 @@
     onmoveup,
     onmovedown,
   }: Props = $props();
+
+  const isLayout = $derived(isLayoutField(field.field_type));
 </script>
 
 <div
@@ -57,12 +59,12 @@
       <p class="truncate text-sm font-medium">{field.label || 'Untitled'}</p>
       <p class="text-xs text-muted-foreground">
         {FIELD_TYPE_LABELS[field.field_type] || field.field_type}
-        {#if field.required}
+        {#if !isLayout && field.required}
           <span class="ml-1 text-destructive">*</span>
         {/if}
       </p>
     </div>
-    <span class="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+    <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase {isLayout ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-muted text-muted-foreground'}">
       {field.field_type}
     </span>
   </button>

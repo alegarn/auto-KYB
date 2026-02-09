@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { FIELD_TYPE_LABELS, type FormField, type FieldMetadata } from "./types";
+  import { FIELD_TYPE_LABELS, isLayoutField, type FormField, type FieldMetadata } from "./types";
   import { Input } from "@/components/ui/input/index.js";
   import { Label } from "@/components/ui/label/index.js";
   import { Separator } from "@/components/ui/separator/index.js";
+  import { Textarea } from "@/components/ui/textarea/index.js";
   import { X, Plus } from "@lucide/svelte";
 
   interface Props {
@@ -60,6 +61,19 @@
   const hasPlaceholder = $derived(
     ['text', 'number', 'email', 'textarea'].includes(field.field_type)
   );
+  const isLayout = $derived(isLayoutField(field.field_type));
+
+  function emitSection(key: string, value: any) {
+    emitMeta('section', { ...field.metadata.section, [key]: value });
+  }
+
+  function emitSeparator(key: string, value: any) {
+    emitMeta('separator', { ...field.metadata.separator, [key]: value });
+  }
+
+  function emitLogo(key: string, value: any) {
+    emitMeta('logo', { ...field.metadata.logo, [key]: value });
+  }
 </script>
 
 <aside class="rounded-lg border bg-card">
@@ -69,47 +83,229 @@
   </div>
 
   <div class="space-y-4 p-4">
-    <div>
-      <Label for="cfg-label" class="mb-1.5 block text-xs font-medium">Label</Label>
-      <Input
-        id="cfg-label"
-        value={field.label}
-        oninput={(e: any) => emit({ label: e.target.value })}
-        class="h-8 text-sm"
-      />
-    </div>
-
-    {#if hasPlaceholder}
+    {#if field.field_type === 'section'}
       <div>
-        <Label for="cfg-placeholder" class="mb-1.5 block text-xs font-medium">Placeholder</Label>
+        <Label for="cfg-label" class="mb-1.5 block text-xs font-medium">Section Title</Label>
         <Input
-          id="cfg-placeholder"
-          value={field.metadata.placeholder || ''}
-          oninput={(e: any) => emitMeta('placeholder', e.target.value)}
+          id="cfg-label"
+          value={field.label}
+          oninput={(e: any) => emit({ label: e.target.value })}
           class="h-8 text-sm"
         />
       </div>
+      <div>
+        <Label for="cfg-section-desc" class="mb-1.5 block text-xs font-medium">Description</Label>
+        <Input
+          id="cfg-section-desc"
+          value={field.metadata.description || ''}
+          oninput={(e: any) => emitMeta('description', e.target.value)}
+          class="h-8 text-sm"
+          placeholder="Optional section description"
+        />
+      </div>
+      <Separator />
+      <div>
+        <!-- <span class="mb-2 block text-xs font-medium">Section Options</span>
+        <label class="mb-2 flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={field.metadata.section?.collapsible || false}
+            onchange={(e: any) => emitSection('collapsible', e.target.checked)}
+            class="size-4 rounded border-border"
+          />
+          <span class="text-sm">Collapsible</span>
+        </label>
+        {#if field.metadata.section?.collapsible}
+          <label class="mb-2 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={field.metadata.section?.default_expanded !== false}
+              onchange={(e: any) => emitSection('default_expanded', e.target.checked)}
+              class="size-4 rounded border-border"
+            />
+            <span class="text-sm">Expanded by default</span>
+          </label>
+        {/if} -->
+        <div class="mt-3">
+          <Label for="cfg-border-style" class="mb-1.5 block text-xs font-medium">Border Style</Label>
+          <select
+            id="cfg-border-style"
+            class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={field.metadata.section?.border_style || 'subtle'}
+            onchange={(e: any) => emitSection('border_style', e.target.value)}
+          >
+            <option value="none">None</option>
+            <option value="subtle">Subtle</option>
+            <option value="prominent">Prominent</option>
+          </select>
+        </div>
+      </div>
+
+    {:else if field.field_type === 'subtitle'}
+      <div>
+        <Label for="cfg-label" class="mb-1.5 block text-xs font-medium">Subtitle Text</Label>
+        <Input
+          id="cfg-label"
+          value={field.label}
+          oninput={(e: any) => emit({ label: e.target.value })}
+          class="h-8 text-sm"
+        />
+      </div>
+      <div>
+        <Label for="cfg-subtitle-desc" class="mb-1.5 block text-xs font-medium">Description</Label>
+        <Input
+          id="cfg-subtitle-desc"
+          value={field.metadata.description || ''}
+          oninput={(e: any) => emitMeta('description', e.target.value)}
+          class="h-8 text-sm"
+          placeholder="Optional subtitle description"
+        />
+      </div>
+
+    {:else if field.field_type === 'static_text'}
+      <div>
+        <Label for="cfg-label" class="mb-1.5 block text-xs font-medium">Block Title</Label>
+        <Input
+          id="cfg-label"
+          value={field.label}
+          oninput={(e: any) => emit({ label: e.target.value })}
+          class="h-8 text-sm"
+          placeholder="Information"
+        />
+      </div>
+      <div>
+        <Label for="cfg-text-content" class="mb-1.5 block text-xs font-medium">Text Content</Label>
+        <Textarea
+          id="cfg-text-content"
+          value={field.metadata.text_content || ''}
+          oninput={(e: any) => emitMeta('text_content', e.target.value)}
+          class="min-h-[120px] text-sm"
+          placeholder="Enter text to display on the form..."
+        />
+      </div>
+
+    {:else if field.field_type === 'separator'}
+      <div>
+        <Label for="cfg-thickness" class="mb-1.5 block text-xs font-medium">Thickness</Label>
+        <select
+          id="cfg-thickness"
+          class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+          value={field.metadata.separator?.thickness || 'thin'}
+          onchange={(e: any) => emitSeparator('thickness', e.target.value)}
+        >
+          <option value="thin">Thin</option>
+          <option value="medium">Medium</option>
+          <option value="thick">Thick</option>
+        </select>
+      </div>
+      <div>
+        <Label for="cfg-margin" class="mb-1.5 block text-xs font-medium">Spacing</Label>
+        <select
+          id="cfg-margin"
+          class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+          value={field.metadata.separator?.margin || 'medium'}
+          onchange={(e: any) => emitSeparator('margin', e.target.value)}
+        >
+          <option value="small">Small</option>
+          <option value="medium">Medium</option>
+          <option value="large">Large</option>
+        </select>
+      </div>
+
+    {:else if field.field_type === 'logo'}
+      <div>
+        <Label for="cfg-logo-url" class="mb-1.5 block text-xs font-medium">Image URL</Label>
+        <Input
+          id="cfg-logo-url"
+          type="url"
+          value={field.metadata.logo?.image_url || ''}
+          oninput={(e: any) => emitLogo('image_url', e.target.value)}
+          class="h-8 text-sm"
+          placeholder="https://example.com/logo.png"
+        />
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <Label for="cfg-logo-width" class="mb-1.5 block text-xs font-medium">Width (px)</Label>
+          <Input
+            id="cfg-logo-width"
+            type="number"
+            value={field.metadata.logo?.width || ''}
+            oninput={(e: any) => emitLogo('width', e.target.value ? Number(e.target.value) : undefined)}
+            class="h-8 text-sm"
+            placeholder="200"
+          />
+        </div>
+        <div>
+          <Label for="cfg-logo-height" class="mb-1.5 block text-xs font-medium">Height (px)</Label>
+          <Input
+            id="cfg-logo-height"
+            type="number"
+            value={field.metadata.logo?.height || ''}
+            oninput={(e: any) => emitLogo('height', e.target.value ? Number(e.target.value) : undefined)}
+            class="h-8 text-sm"
+            placeholder="Auto"
+          />
+        </div>
+      </div>
+      <div>
+        <Label for="cfg-logo-align" class="mb-1.5 block text-xs font-medium">Alignment</Label>
+        <div class="flex gap-1">
+          {#each ['left', 'center', 'right'] as align}
+            <button
+              type="button"
+              class="flex-1 rounded-md border px-3 py-1.5 text-sm capitalize transition-colors {field.metadata.logo?.alignment === align ? 'border-primary bg-primary/10 text-primary' : 'border-input hover:bg-accent'}"
+              onclick={() => emitLogo('alignment', align)}
+            >
+              {align}
+            </button>
+          {/each}
+        </div>
+      </div>
+
+    {:else}
+      <div>
+        <Label for="cfg-label" class="mb-1.5 block text-xs font-medium">Label</Label>
+        <Input
+          id="cfg-label"
+          value={field.label}
+          oninput={(e: any) => emit({ label: e.target.value })}
+          class="h-8 text-sm"
+        />
+      </div>
+
+      {#if hasPlaceholder}
+        <div>
+          <Label for="cfg-placeholder" class="mb-1.5 block text-xs font-medium">Placeholder</Label>
+          <Input
+            id="cfg-placeholder"
+            value={field.metadata.placeholder || ''}
+            oninput={(e: any) => emitMeta('placeholder', e.target.value)}
+            class="h-8 text-sm"
+          />
+        </div>
+      {/if}
+
+      <div>
+        <Label for="cfg-desc" class="mb-1.5 block text-xs font-medium">Description</Label>
+        <Input
+          id="cfg-desc"
+          value={field.metadata.description || ''}
+          oninput={(e: any) => emitMeta('description', e.target.value)}
+          class="h-8 text-sm"
+        />
+      </div>
+
+      <label class="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={field.required}
+          onchange={(e: any) => emit({ required: e.target.checked })}
+          class="size-4 rounded border-border"
+        />
+        <span class="text-sm">Required</span>
+      </label>
     {/if}
-
-    <div>
-      <Label for="cfg-desc" class="mb-1.5 block text-xs font-medium">Description</Label>
-      <Input
-        id="cfg-desc"
-        value={field.metadata.description || ''}
-        oninput={(e: any) => emitMeta('description', e.target.value)}
-        class="h-8 text-sm"
-      />
-    </div>
-
-    <label class="flex items-center gap-2">
-      <input
-        type="checkbox"
-        checked={field.required}
-        onchange={(e: any) => emit({ required: e.target.checked })}
-        class="size-4 rounded border-border"
-      />
-      <span class="text-sm">Required</span>
-    </label>
 
     {#if hasOptions}
       <Separator />
