@@ -318,9 +318,9 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
 
       expect(response.content_type).to include("text/csv")
       expect(response.headers["Content-Disposition"]).to include("client-#{client.id}.csv")
-      # CSV should contain header and at least the client id
-      expect(response.body).to include("id,name,company_name")
-      expect(response.body).to include(client.id.to_s)
+      # CSV should contain header and at least the client name
+      expect(response.body).to include("name,company_name,email,phone,address,created_at,updated_at")
+      expect(response.body).to include(client.name)
     end
 
     it "raises when exporting another user's client" do
