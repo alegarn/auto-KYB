@@ -6,7 +6,10 @@
   import { Input } from "/components/ui/input/index.js"
   import { Label } from "/components/ui/label/index.js"
   import FormBuilder from "/components/customs/FormBuilder.svelte"
-  import type { FormField, FormSettings } from "/components/customs/form-builder/types"
+  import FormFieldRenderer from "@/components/customs/FormFieldRenderer.svelte"
+  import { isLayoutField, type FormSettings } from "@/components/customs/form-builder/types"
+  import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
+  import type { FormField } from "/components/customs/form-builder/types"
   import { forms_path } from '@/routes';
 
   const { errors: serverErrors, session_id } = $props()
@@ -16,6 +19,71 @@
   let settings = $state<FormSettings>({})
   let clientError = $state("")
   let submitting = $state(false)
+
+  // preview state
+  let preview = $state(false)
+  let results = $state<Record<string, any>>({})
+  let outputFormat = $state('json')
+  const formSettings = $derived<FormSettings>(settings || {})
+
+  function formattedResults(outputFormat: string, results: Record<string, any>): string {
+    try {
+      const flds = (fields || []).filter((f: any) => !isLayoutField(f.field_type))
+
+      if (outputFormat === 'json') {
+        const out: Record<string, any> = {}
+        flds.forEach((f: any) => {
+          const key = f.label != null ? String(f.label) : String(f.id)
+          const val = results[f.id]
+          out[key] = val === undefined ? null : val
+        })
+        return JSON.stringify(out, null, 2)
+      }
+
+      const rows: string[][] = [["label", "value"]]
+      flds.forEach((f: any) => {
+        const val = results[f.id]
+        let s = val === null || val === undefined ? '' : String(val)
+        if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+          s = '"' + s.replace(/"/g, '""') + '"'
+        }
+        rows.push([String(f.label), s])
+      })
+      return rows.map(r => r.join(',')).join('\n')
+    } catch (e) {
+      return String(results)
+    }
+  }
+
+  function handlePreviewSubmit(e: Event) {
+    e.preventDefault()
+    const formEl = (e.currentTarget || e.target) as HTMLFormElement
+    if (!formEl.checkValidity()) {
+      formEl.reportValidity()
+      return
+    }
+
+    const fd = new FormData(formEl)
+    const data: Record<string, any> = {};
+    (fields || []).forEach((f: any, i: number) => {
+      if (isLayoutField(f.field_type)) return;
+      const key = `field_${f.id ?? f.position ?? i}`
+      const val = fd.get(key)
+      if (val === null) {
+        data[f.id ?? f.position ?? i] = null
+      } else {
+        const s = String(val)
+        if (f.field_type === "number") {
+          data[f.id ?? f.position ?? i] = s === "" ? null : Number(s)
+        } else {
+          data[f.id ?? f.position ?? i] = s
+        }
+      }
+    })
+
+    results = data
+    preview = false
+  }
 
   function handleSubmit() {
     clientError = ""
@@ -88,7 +156,83 @@
         <Input id="form-name" bind:value={name} placeholder="Enter form name" />
       </div>
 
-      <FormBuilder bind:fields bind:settings />
+      <div class="mb-4 flex items-center gap-2">
+        <button type="button" class="px-3 py-1 rounded" class:font-semibold={!preview} onclick={() => { preview = false; results = {} }}>
+          Edit
+        </button>
+        <button type="button" class="px-3 py-1 rounded" class:font-semibold={preview} onclick={() => { preview = true; results = {} }}>
+          Preview
+        </button>
+      </div>
+
+      {#if preview}
+        <div
+          class="rounded-lg border shadow-sm overflow-hidden mb-4"
+          style:background-color={formSettings.form_background_color || '#ffffff'}
+        >
+          {#if formSettings.header_background_color}
+            <div class="px-6 py-4" style:background-color={formSettings.header_background_color}>
+              <h2 class="text-lg font-semibold">{name}</h2>
+            </div>
+          {/if}
+          <form onsubmit={handlePreviewSubmit} class="p-6">
+            {#each fields as field (field['id'] ?? field['position'])}
+              {#if isLayoutField(field.field_type)}
+                <FormFieldRenderer
+                  id={field['id'] ?? `field_${field['position']}`}
+                  label={field['label']}
+                  type={field.field_type || 'text'}
+                  required={false}
+                  inputOnly={true}
+                  metadata={field.metadata}
+                />
+              {:else}
+                <Field class="mb-4">
+                  <FieldLabel for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
+                  <FieldContent>
+                    <FormFieldRenderer
+                      id={`field_${field['id']}`}
+                      label={field['label']}
+                      type={field.field_type || 'text'}
+                      required={field.required}
+                      name={`field_${field['id']}`}
+                      value={''}
+                      inputOnly={true}
+                      onChange={()=>{}}
+                      metadata={field.metadata}
+                    />
+                  </FieldContent>
+                </Field>
+              {/if}
+            {/each}
+
+            <button
+              type="submit"
+              class="mt-4 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
+              style:background-color={formSettings.primary_color || '#2563eb'}
+            >
+              Submit Preview
+            </button>
+          </form>
+        </div>
+      {:else}
+        {#if Object.keys(results || {}).length > 0}
+          <div>
+            <h2>Preview Results</h2>
+            <div class="flex items-center gap-2 mb-2">
+              <button type="button" class="px-3 py-1 rounded bg-gray-100" onclick={() => (outputFormat = 'json')}>JSON</button>
+              <button type="button" class="px-3 py-1 rounded bg-gray-100" onclick={() => (outputFormat = 'csv')}>CSV</button>
+              <div class="text-sm text-muted-foreground ml-2">Format: {outputFormat}</div>
+            </div>
+            <pre class="whitespace-pre-wrap break-words max-w-full overflow-auto">{formattedResults(outputFormat, results)}</pre>
+            <div class="mt-4">
+              <button type="button" class="px-3 py-1 rounded" onclick={() => { preview = true; results = {} }}>Back to Preview</button>
+            </div>
+          </div>
+        {:else}
+          <FormBuilder bind:fields bind:settings />
+        {/if}
+      {/if}
     </section>
   </main>
 </Sidebar.Provider>
