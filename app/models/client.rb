@@ -19,6 +19,7 @@ class Client < ApplicationRecord
     q = query.to_s.downcase
     where('lower(name) LIKE :q OR lower(company_name) LIKE :q', q: "%#{q}%")
   }
+  scope :for_export, -> { select(:name, :company_name, :email, :phone, :address, :created_at, :updated_at) }
 
   private
 
