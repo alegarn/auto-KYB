@@ -26,24 +26,19 @@ vi.mock('@inertiajs/svelte', async () => {
   }
 })
 
-vi.mock('@/components/customs/FormBuilder.svelte', () => ({
-  default: vi.fn(() => ({
-    $$render: () => '<div data-testid="form-builder">Form Builder</div>'
-  }))
-}))
+// Mock both alias and absolute import paths used in the app
+const formBuilderMock = () => ({ $$render: () => '<div data-testid="form-builder">Form Builder</div>' })
+vi.mock('@/components/customs/FormBuilder.svelte', () => ({ default: vi.fn(formBuilderMock) }))
+vi.mock('/components/customs/FormBuilder.svelte', () => ({ default: vi.fn(formBuilderMock) }))
 
 // Mock FormFieldRenderer to render an input the tests can interact with
-vi.mock('@/components/customs/FormFieldRenderer.svelte', () => ({
-  default: vi.fn(() => ({
-    $$render: () => '<div data-testid="field-renderer"><label for="field_field-1">First Name</label><input id="field_field-1" name="field_field-1" /></div>'
-  }))
-}))
+const fieldRendererMock = () => ({ $$render: () => '<div data-testid="field-renderer"><label for="field_field-1">First Name</label><input id="field_field-1" name="field_field-1" /></div>' })
+vi.mock('@/components/customs/FormFieldRenderer.svelte', () => ({ default: vi.fn(fieldRendererMock) }))
+vi.mock('/components/customs/FormFieldRenderer.svelte', () => ({ default: vi.fn(fieldRendererMock) }))
 
-vi.mock('@/components/customs/app-sidebar.svelte', () => ({
-  default: vi.fn(() => ({
-    $$render: () => '<div data-testid="app-sidebar">Sidebar</div>'
-  }))
-}))
+const appSidebarMock = () => ({ $$render: () => '<div data-testid="app-sidebar">Sidebar</div>' })
+vi.mock('@/components/customs/app-sidebar.svelte', () => ({ default: vi.fn(appSidebarMock) }))
+vi.mock('/components/customs/app-sidebar.svelte', () => ({ default: vi.fn(appSidebarMock) }))
 
 describe('Forms Edit Page', () => {
   beforeEach(() => {
