@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import { clients_path, dashboard_path, edit_client_path, client_path, client_forms_path } from "@/routes";
+  import { clients_path, dashboard_path, edit_client_path, client_path, client_forms_path, export_responses_client_form_path, export_client_path } from "@/routes";
   import Button from '@/components/ui/button/button.svelte';
   import Modal from '@/components/ui/modal.svelte';
   import { Form as InertiaForm } from '@inertiajs/svelte';
@@ -142,8 +142,18 @@
             <!--
             <Button href={`/clients/${client['id']}/export.json`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as JSON">Export (JSON)</Button>
             -->
-            <Button href={`/clients/${client['id']}/export.csv`} target="_blank" rel="noopener" useInertia={false} variant="outline" aria-label="Export client as CSV">Export (CSV)</Button>
-            
+            <a href={export_client_path(client['id'], { format: "csv" })} target="_blank" rel="noopener" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold bg-background border shadow-xs" aria-label="Export client as CSV">Export client (CSV)</a>
+            {#if client_form && client_form.status === 'validated'}
+              <a
+                href={export_responses_client_form_path(client_form.id, { format: "csv" })}
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold bg-background border shadow-xs"
+                aria-label="Export form responses as CSV"
+              >
+                Export Form Responses (CSV)
+              </a>
+            {/if}
             <Modal
               open={showConfirm}
               onClose={closeConfirm}
@@ -157,21 +167,6 @@
               <p class="text-sm text-muted-foreground">Are you sure you want to delete this client?</p>
             </Modal>
           </div>
-
-          {#if client_form}
-            <div class="mt-3">
-              <!-- Use a plain anchor to force a full navigation/download (avoid Inertia XHR interception) -->
-              <a
-                href={`/client_forms/${client_form.id}/export_responses.csv`}
-                target="_blank"
-                rel="noopener"
-                class="inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold bg-background border shadow-xs"
-                aria-label="Export form responses as CSV"
-              >
-                Export Form Responses (CSV)
-              </a>
-            </div>
-          {/if}
         {:else}
           <p class="text-sm text-muted-foreground">Client not found.</p>
         {/if}
