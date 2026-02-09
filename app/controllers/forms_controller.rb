@@ -8,8 +8,10 @@ class FormsController < ApplicationController
   def show
     form = current_user.forms.find(params[:id])
     detail = FormDetailSerializer.new(form).as_json
-
-    render inertia: 'forms/show', props: default_inertia_props.merge(form: detail)
+    respond_to do |format|
+      format.json { render json: detail, status: :ok }
+      format.html { render inertia: 'forms/show', props: default_inertia_props.merge(form: detail) }
+    end
   end
 
   def new
