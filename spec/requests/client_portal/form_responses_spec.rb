@@ -29,6 +29,20 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
       expect(@client_form.status).to eq(ClientForm.statuses['validated'])
     end
 
+    it "returns inertia props on partial save" do
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect(response).to have_http_status(:found)
+
+      patch client_portal_form_response_path,
+            params: { form_response: { data: { foo: 'bar' }, partial: true } },
+            headers: { 'X-Inertia' => 'true' }
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body.dig('props', 'last_response', 'data')).to include('foo' => 'bar')
+      expect(body.dig('props', 'flash_message', 'type')).to eq('notice')
+    end
+
     it "rejects updates when client_form is locked (validated)" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
       expect(response).to have_http_status(:found)

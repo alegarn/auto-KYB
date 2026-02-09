@@ -1,5 +1,6 @@
 <script lang="ts">
   import { useForm } from '@inertiajs/svelte'
+  import { Check } from '@lucide/svelte'
   import { client_portal_form_response_path } from '@/routes'
   import FormFieldRenderer from '@/components/customs/FormFieldRenderer.svelte'
   import { isLayoutField, type FormSettings } from '@/components/customs/form-builder/types'
@@ -20,12 +21,21 @@
   // form state keyed by field id ------------------------------------------------------------
   type FlashMessage = { type: 'alert' | 'notice'; message?: string } | null
   let baseState = $state<Record<string, any>>({})
-  let baseVersion = $derived<number | null>(lastResponse?.version ?? null)
+  const baseVersion = $derived.by(() => lastResponse?.version ?? null)
   let flashMessage = $state<FlashMessage>(null)
   let autosaveHelpers: null | typeof import('@/lib/form-response/autosave') = $state(null)
   let autosaveController: null | { schedule: () => void; cancel: () => void; flush: () => Promise<void> } = $state(null)
   let initialized = $state(false)
   let lastVersionSeen = $state<number | null>(null)
+  let autosavedFieldIds = $state<string[]>([])
+  let autosavedFieldTimeout: ReturnType<typeof setTimeout> | null = $state(null)
+
+  type Submitter = {
+    submit: (event: SubmitEvent) => Promise<void>
+    savePartial: () => Promise<void>
+  }
+
+  let submitter: Submitter | null = $state(null)
 
   const form = useForm<Record<string, any>>({})
 
@@ -62,6 +72,45 @@
     return data
   }
 
+  function buildPartialData() {
+    if (!autosaveHelpers) return currentData()
+    return autosaveHelpers.buildDelta(currentData(), baseState)
+  }
+
+  function markAutosavedFields(fieldIds: string[]) {
+    if (fieldIds.length === 0) return
+    const next = new Set(autosavedFieldIds)
+    for (const id of fieldIds) next.add(String(id))
+    autosavedFieldIds = Array.from(next)
+
+    if (autosavedFieldTimeout) clearTimeout(autosavedFieldTimeout)
+    autosavedFieldTimeout = setTimeout(() => {
+      autosavedFieldIds = []
+      autosavedFieldTimeout = null
+    }, 3000)
+  }
+
+  function isAutosavedField(fieldId?: string | null) {
+    if (!fieldId) return false
+    return autosavedFieldIds.includes(String(fieldId))
+  }
+
+  async function ensureSubmitter() {
+    if (submitter) return submitter
+    const helpers = await import('@/lib/form-response/form-submit')
+    submitter = helpers.createFormSubmitter({
+      getForm: () => $form,
+      path: client_portal_form_response_path(),
+      getBaseVersion: () => baseVersion,
+      getCurrentData: () => currentData(),
+      getPartialData: () => buildPartialData(),
+      setFlashMessage: (message) => { flashMessage = message },
+      cancelAutosave: () => autosaveController?.cancel(),
+      onAutosaveSuccess: (fields) => markAutosavedFields(fields),
+    })
+    return submitter
+  }
+
   // initialize - skip layout fields as they don't collect data
   $effect(() => {
     if (!portalForm?.form_fields || initialized) return
@@ -71,8 +120,7 @@
       ;($form as Record<string, any>)[key] = value
     }
     baseState = { ...initial }
-    baseVersion = lastResponse?.version ?? null
-    lastVersionSeen = baseVersion
+    lastVersionSeen = lastResponse?.version ?? null
     initialized = true
   })
 
@@ -85,7 +133,6 @@
     if (!lastResponse?.version) return
     if (lastVersionSeen === lastResponse.version) return
     lastVersionSeen = lastResponse.version
-    baseVersion = lastResponse.version
     if (lastResponse?.data) {
       baseState = { ...baseState, ...lastResponse.data }
     }
@@ -119,42 +166,8 @@
 
   async function savePartial() {
     if (!autosaveHelpers) return
-    const delta = autosaveHelpers.buildDelta(currentData(), baseState)
-    if (Object.keys(delta).length === 0) return
-    await sendSave({ data: delta, validate: false, partial: true })
-  }
-
-  async function sendSave(payload: { data: Record<string, any>; validate: boolean; partial: boolean }) {
-    flashMessage = null
-    autosaveController?.cancel()
-
-    const options = {
-      preserveScroll: true,
-      preserveState: true,
-      only: payload.partial ? ['last_response', 'flash_message'] : undefined,
-      onSuccess: () => {
-        if (payload.partial) {
-          flashMessage = { type: 'notice', message: 'Form response saved successfully.' }
-        }
-      },
-      onError: () => {
-        flashMessage = {
-          type: 'alert',
-          message: 'Unable to submit the form right now. Please try again.'
-        }
-      }
-    }
-
-    $form
-      .transform(() => ({
-        form_response: {
-          data: payload.data,
-          validate: payload.validate,
-          partial: payload.partial,
-          base_version: baseVersion,
-        }
-      }))
-      .patch(client_portal_form_response_path(), options)
+    const handler = await ensureSubmitter()
+    await handler.savePartial()
   }
 
   async function submit(e: SubmitEvent) {
@@ -166,20 +179,8 @@
       return
     }
 
-    e.preventDefault()
-    const submitter = e.submitter as HTMLButtonElement | null
-    const validate = submitter?.value === 'true'
-    const partial = !validate
-    const data = partial && autosaveHelpers
-      ? autosaveHelpers.buildDelta(currentData(), baseState)
-      : currentData()
-
-    if (partial && Object.keys(data).length === 0) {
-      flashMessage = { type: 'notice', message: 'No changes to save.' }
-      return
-    }
-
-    await sendSave({ data, validate, partial })
+    const handler = await ensureSubmitter()
+    await handler.submit(e)
   }
 
 </script>
@@ -219,7 +220,15 @@
             />
           {:else}
             <Field>
-              <FieldLabel for={field.id}>{field.label}{#if field.required}*{/if}</FieldLabel>
+              <FieldLabel for={field.id}>
+                {field.label}{#if field.required}*{/if}
+                {#if isAutosavedField(field.id)}
+                  <span class="ml-2 inline-flex items-center gap-1 text-xs text-emerald-600">
+                    <Check class="size-3" aria-hidden="true" />
+                    Saved
+                  </span>
+                {/if}
+              </FieldLabel>
               <FieldContent>
                 <FormFieldRenderer
                   id={field.id}
