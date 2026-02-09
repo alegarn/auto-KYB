@@ -1,7 +1,7 @@
 require 'csv'
 
 class ClientExportService
-  ATTRS = %w[id name company_name email phone address created_at updated_at].freeze
+  ATTRS = %w[name company_name email phone address created_at updated_at].freeze
 
   def self.call(client)
     new(client).call

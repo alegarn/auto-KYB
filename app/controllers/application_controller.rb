@@ -27,15 +27,18 @@ class ApplicationController < ActionController::Base
   private
     def authenticate
       # Allow tests that set Current.session directly to bypass cookie-based lookup
-      return if Current.session.present?
+      return if Current.session&.user.present?
 
       token = cookies.signed[:session_token] || cookies[:session_token] || request.cookies["session_token"]
       Rails.logger.debug "[TEST LOG] ApplicationController#authenticate called; token=#{token.inspect}" if Rails.env.test?
       if session_record = Session.find_by(id: token)
-        Current.session = session_record
-      else
-        redirect_to sign_in_path
+        if session_record.user.present?
+          Current.session = session_record
+          return
+        end
       end
+
+      redirect_to(sign_in_path) and return
     end
 
     def set_current_request_details
