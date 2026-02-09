@@ -49,10 +49,11 @@ Rails.application.routes.draw do
   # root "posts#index"
   # Client portal (Phase 0) - placeholder routes
   resources :client_forms, only: [:create, :show, :destroy] do
-    member do
-      get :password_reveal
+      member do
+        get :password_reveal
+        get :export_responses
+      end
     end
-  end
 
   namespace :client_portal do
     get  "login/:access_token", to: "sessions#new", as: :login

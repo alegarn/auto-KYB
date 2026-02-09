@@ -135,14 +135,14 @@
 
           <div class="mt-6 flex gap-2">
             <Button href={edit_client_path(client['id'])} variant="secondary">Edit</Button>
-
+ 
             <Button onclick={openConfirm} class="btn-destructive" variant="destructive">Delete</Button>
-
+ 
             <!-- Export buttons for GDPR: JSON and CSV exports open in a new tab for download / machine consumption -->
-            <!-- 
+            <!--
             <Button href={`/clients/${client['id']}/export.json`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as JSON">Export (JSON)</Button>
             -->
-            <Button href={`/clients/${client['id']}/export.csv`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as CSV">Export (CSV)</Button>
+            <Button href={`/clients/${client['id']}/export.csv`} target="_blank" rel="noopener" useInertia={false} variant="outline" aria-label="Export client as CSV">Export (CSV)</Button>
             
             <Modal
               open={showConfirm}
@@ -157,6 +157,21 @@
               <p class="text-sm text-muted-foreground">Are you sure you want to delete this client?</p>
             </Modal>
           </div>
+
+          {#if client_form}
+            <div class="mt-3">
+              <!-- Use a plain anchor to force a full navigation/download (avoid Inertia XHR interception) -->
+              <a
+                href={`/client_forms/${client_form.id}/export_responses.csv`}
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold bg-background border shadow-xs"
+                aria-label="Export form responses as CSV"
+              >
+                Export Form Responses (CSV)
+              </a>
+            </div>
+          {/if}
         {:else}
           <p class="text-sm text-muted-foreground">Client not found.</p>
         {/if}
