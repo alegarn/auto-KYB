@@ -5,7 +5,7 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import UsersIcon from "@lucide/svelte/icons/users";
   import { Link, page } from "@inertiajs/svelte";
-  import { clients_path, dashboard_path, forms_path } from "/routes/index";
+  import { clients_path, dashboard_path, forms_path } from "@/routes";
 
   // Menu items.
   const items = [
