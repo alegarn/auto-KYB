@@ -17,7 +17,7 @@ createInertiaApp({
 
   resolve: (name) => {
     const pages = import.meta.glob<ResolvedComponent>('../pages/**/*.svelte', {
-      eager: true,
+      eager: false,
     })
     const page = pages[`../pages/${name}.svelte`]
     if (!page) {
@@ -30,7 +30,7 @@ createInertiaApp({
     //
     // return { default: page.default, layout: page.layout || Layout } as ResolvedComponent
 
-    return page
+    return page()
   },
 
   setup({ el, App, props }) {

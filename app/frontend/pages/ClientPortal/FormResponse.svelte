@@ -1,22 +1,33 @@
 <script lang="ts">
-  import { Form } from '@inertiajs/svelte'
+  import { useForm } from '@inertiajs/svelte'
   import { client_portal_form_response_path } from '@/routes'
   import FormFieldRenderer from '@/components/customs/FormFieldRenderer.svelte'
   import { isLayoutField, type FormSettings } from '@/components/customs/form-builder/types'
   import { Field, FieldLabel, FieldContent } from "@/components/ui/field/index";
   import Button from '@/components/ui/button/button.svelte';
 
+  // props ------------------------------------------------------------
   const props = $props()
-  const form = $derived(props.form)
+
+  // derived props ------------------------------------------------------------
+  const portalForm = $derived(props.form)
   const injectedOnSave = $derived(props.onSave)
   const lastResponse = $derived(props.last_response)
+  const incomingFlash = $derived(props.flash_message)
   const hasInjectedHandler = $derived(typeof injectedOnSave === 'function')
-  const formSettings = $derived<FormSettings>(form?.structure?.settings || {})
+  const formSettings = $derived<FormSettings>(portalForm?.structure?.settings || {})
 
-  // form state keyed by field id
+  // form state keyed by field id ------------------------------------------------------------
   type FlashMessage = { type: 'alert' | 'notice'; message?: string } | null
-  let formState = $state<Record<string, any>>({})
+  let baseState = $state<Record<string, any>>({})
+  let baseVersion = $derived<number | null>(lastResponse?.version ?? null)
   let flashMessage = $state<FlashMessage>(null)
+  let autosaveHelpers: null | typeof import('@/lib/form-response/autosave') = $state(null)
+  let autosaveController: null | { schedule: () => void; cancel: () => void; flush: () => Promise<void> } = $state(null)
+  let initialized = $state(false)
+  let lastVersionSeen = $state<number | null>(null)
+
+  const form = useForm<Record<string, any>>({})
 
   const flashClasses = $derived.by(() => {
     if (!flashMessage) return ''
@@ -25,30 +36,125 @@
       : 'mb-4 rounded-md p-4 text-sm bg-red-50 text-red-700'
   })
 
-  // initialize - skip layout fields as they don't collect data
-  $effect(() => {
+  function buildInitialState() {
+    const data: Record<string, any> = {}
     const lastData = lastResponse?.data || {}
-    if (form?.form_fields) {
-      for (const f of form.form_fields) {
-        if (isLayoutField(f.field_type ?? f.type)) continue;
+    if (portalForm?.form_fields) {
+      for (const f of portalForm.form_fields) {
+        if (isLayoutField(f.field_type ?? f.type)) continue
         const key = String(f.id)
         const existing = lastData[key] ?? lastData[f.id]
-        if (formState[f.id] === undefined) {
-          formState[f.id] = existing ?? f.value ?? ''
-        }
+        data[key] = existing ?? f.value ?? ''
       }
+    }
+    return data
+  }
+
+  function currentData() {
+    const data: Record<string, any> = {}
+    if (portalForm?.form_fields) {
+      for (const f of portalForm.form_fields) {
+        if (isLayoutField(f.field_type ?? f.type)) continue
+        const key = String(f.id)
+        data[key] = ($form as Record<string, any>)[key] ?? ''
+      }
+    }
+    return data
+  }
+
+  // initialize - skip layout fields as they don't collect data
+  $effect(() => {
+    if (!portalForm?.form_fields || initialized) return
+    const initial = buildInitialState()
+    $form.defaults(initial)
+    for (const [key, value] of Object.entries(initial)) {
+      ;($form as Record<string, any>)[key] = value
+    }
+    baseState = { ...initial }
+    baseVersion = lastResponse?.version ?? null
+    lastVersionSeen = baseVersion
+    initialized = true
+  })
+
+  $effect(() => {
+    if (!incomingFlash) return
+    flashMessage = incomingFlash
+  })
+
+  $effect(() => {
+    if (!lastResponse?.version) return
+    if (lastVersionSeen === lastResponse.version) return
+    lastVersionSeen = lastResponse.version
+    baseVersion = lastResponse.version
+    if (lastResponse?.data) {
+      baseState = { ...baseState, ...lastResponse.data }
     }
   })
 
+  // Functions ------------------------------------------------------------
   function onChange(detail: { id: string; value: any }) {
     const { id, value } = detail
-    const f = form.form_fields.find((x: any) => x.id === id)
+    const f = portalForm.form_fields.find((x: any) => x.id === id)
     const fieldType = f?.field_type ?? f?.type
     if (fieldType === 'number') {
-      formState[id] = value === '' ? null : Number(value)
+      ;($form as Record<string, any>)[id] = value === '' ? null : Number(value)
     } else {
-      formState[id] = value
+      ;($form as Record<string, any>)[id] = value
     }
+
+    if (!hasInjectedHandler) {
+      ensureAutosave().then(() => autosaveController?.schedule())
+    }
+  }
+
+  async function ensureAutosave() {
+    if (autosaveHelpers) return
+    autosaveHelpers = await import('@/lib/form-response/autosave')
+    autosaveController = autosaveHelpers.createAutosave({
+      onSave: () => savePartial(),
+      delayMs: 3000,
+      minIntervalMs: 3000,
+    })
+  }
+
+  async function savePartial() {
+    if (!autosaveHelpers) return
+    const delta = autosaveHelpers.buildDelta(currentData(), baseState)
+    if (Object.keys(delta).length === 0) return
+    await sendSave({ data: delta, validate: false, partial: true })
+  }
+
+  async function sendSave(payload: { data: Record<string, any>; validate: boolean; partial: boolean }) {
+    flashMessage = null
+    autosaveController?.cancel()
+
+    const options = {
+      preserveScroll: true,
+      preserveState: true,
+      only: payload.partial ? ['last_response', 'flash_message'] : undefined,
+      onSuccess: () => {
+        if (payload.partial) {
+          flashMessage = { type: 'notice', message: 'Form response saved successfully.' }
+        }
+      },
+      onError: () => {
+        flashMessage = {
+          type: 'alert',
+          message: 'Unable to submit the form right now. Please try again.'
+        }
+      }
+    }
+
+    $form
+      .transform(() => ({
+        form_response: {
+          data: payload.data,
+          validate: payload.validate,
+          partial: payload.partial,
+          base_version: baseVersion,
+        }
+      }))
+      .patch(client_portal_form_response_path(), options)
   }
 
   async function submit(e: SubmitEvent) {
@@ -56,60 +162,24 @@
       e.preventDefault()
       const submitter = e.submitter as HTMLButtonElement | null
       const validate = submitter?.value === 'true'
-      injectedOnSave?.({ data: formState, validate })
+      injectedOnSave?.({ data: currentData(), validate })
       return
     }
 
     e.preventDefault()
-    flashMessage = null
     const submitter = e.submitter as HTMLButtonElement | null
     const validate = submitter?.value === 'true'
+    const partial = !validate
+    const data = partial && autosaveHelpers
+      ? autosaveHelpers.buildDelta(currentData(), baseState)
+      : currentData()
 
-    const response = await fetch(client_portal_form_response_path(), {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify({ form_response: { data: formState, validate } }),
-    })
-
-    if (response?.status === 429) {
-      const data = await response.json().catch(() => null)
-      data?.error ? flashMessage = {type: "alert", message: data?.error} : null;
+    if (partial && Object.keys(data).length === 0) {
+      flashMessage = { type: 'notice', message: 'No changes to save.' }
       return
     }
 
-    if (response?.status === 403) {
-      flashMessage = {
-        type: "alert", 
-        message: 'This form is locked or no longer available.'
-      }
-      return
-    }
-
-    if (response?.redirected) {
-      window.location.href = response.url
-      return
-    }
-
-    if (response?.ok) {
-      const data = await response.json().catch(() => null)
-      flashMessage =  {
-          type: "notice", 
-          message: data?.notice
-        };
-      return
-    }
-
-
-    if (!response?.ok) {
-      flashMessage = {
-        type: "alert", 
-        message: 'Unable to submit the form right now. Your form may be revoked or locked. Please try again or contact your form provider.'
-      }
-    }
+    await sendSave({ data, validate, partial })
   }
 
 </script>
@@ -121,7 +191,7 @@
   >
     {#if formSettings.header_background_color}
       <div class="px-6 py-4" style:background-color={formSettings.header_background_color}>
-        <h1 class="text-xl font-semibold text-foreground">{form.name}</h1>
+        <h1 class="text-xl font-semibold text-foreground">{portalForm.name}</h1>
       </div>
     {/if}
 
@@ -133,13 +203,11 @@
       {/if}
 
       {#if !formSettings.header_background_color}
-        <h1 class="text-xl font-semibold text-foreground mb-4">{form.name}</h1>
+        <h1 class="text-xl font-semibold text-foreground mb-4">{portalForm.name}</h1>
       {/if}
 
-      <Form method="post" action={client_portal_form_response_path()} onsubmit={submit} class="space-y-4">
-        <input type="hidden" name="_method" value="patch" />
-
-        {#each form.form_fields as field (field.id ?? field.position)}
+      <form onsubmit={submit} class="space-y-4" aria-busy={$form.processing}>
+        {#each portalForm.form_fields as field (field.id ?? field.position)}
           {#if isLayoutField(field.field_type ?? field.type)}
             <FormFieldRenderer
               id={field.id ?? `field_${field.position}`}
@@ -159,7 +227,7 @@
                   type={field.field_type ?? field.type}
                   required={field.required}
                   name={`form_response[data][${field.id}]`}
-                  value={formState[field.id] ?? ''}
+                  value={($form as Record<string, any>)[field.id] ?? ''}
                   inputOnly={true}
                   onChange={onChange}
                   metadata={field.metadata}
@@ -181,7 +249,7 @@
             Submit & Validate
           </button>
         </div>
-      </Form>
+      </form>
     </div>
   </section>
 </main>
