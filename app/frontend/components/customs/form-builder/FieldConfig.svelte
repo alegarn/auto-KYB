@@ -105,7 +105,7 @@
       </div>
       <Separator />
       <div>
-        <span class="mb-2 block text-xs font-medium">Section Options</span>
+        <!-- <span class="mb-2 block text-xs font-medium">Section Options</span>
         <label class="mb-2 flex items-center gap-2">
           <input
             type="checkbox"
@@ -125,7 +125,7 @@
             />
             <span class="text-sm">Expanded by default</span>
           </label>
-        {/if}
+        {/if} -->
         <div class="mt-3">
           <Label for="cfg-border-style" class="mb-1.5 block text-xs font-medium">Border Style</Label>
           <select
