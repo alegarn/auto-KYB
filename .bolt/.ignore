@@ -15,3 +15,4 @@ vendor/
 .gitattributes
 package-lock.json
 Gemfile.lock
+package-lock.json
