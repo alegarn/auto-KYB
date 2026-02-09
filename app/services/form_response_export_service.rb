@@ -15,15 +15,13 @@ class FormResponseExportService
 
   # Build CSV explicitly using CSV.generate_line and join with CRLF to avoid platform-specific newline issues
   def call
-    lines = []
-    lines << CSV.generate_line(build_header(form_fields))
+    CSV.generate(row_sep: "\r\n") do |csv|
+      csv << build_header(form_fields)
 
-    form_responses.each do |response|
-      lines << CSV.generate_line(build_row(response, form_fields))
+      form_responses.each do |response|
+        csv << build_row(response, form_fields)
+      end
     end
-
-    # Join with CRLF and ensure file ends with newline
-    lines.join("\r\n") + "\r\n"
   end
 
   def as_json_payload
