@@ -3,14 +3,11 @@ class ClientFormsController < ApplicationController
 
   # POST /client_forms
   def create
-    authorize_user!
-
     client = current_user.clients.find(params.dig(:client_form, :client_id))
     form = current_user.forms.find(params.dig(:client_form, :form_id))
 
     if client.client_forms.exists?
       redirect_to(client_path(client), alert: "Client already has a subspace") and return
-      return
     end
 
     result = ClientInvitationService.create_invitation(client: client, form: form, expires_in: params.dig(:client_form, :expires_in) || 7.days)
@@ -58,8 +55,6 @@ class ClientFormsController < ApplicationController
 
   # GET /client_forms/:id/export_responses(.csv)
   def export_responses
-    authorize_user!
-
     respond_to do |format|
       format.csv do
         csv_data = FormResponseExportService.call(@client_form)
@@ -72,7 +67,7 @@ class ClientFormsController < ApplicationController
       end
 
       format.json do
-        render json: FormResponseExportService.to_json(@client_form)
+        render json: FormResponseExportService.as_json_payload(@client_form)
       end
 
       format.any { head :not_acceptable }
@@ -81,13 +76,8 @@ class ClientFormsController < ApplicationController
 
   private
 
-  def authorize_user!
-    return if current_user
-    redirect_to(sign_in_path) and return
-  end
-
   def set_client_form
-    @client_form = ClientForm.includes(:form, :form_responses, :client).find(params[:id])
+    @client_form = ClientForm.includes({ form: :form_fields }, :form_responses, :client).find(params[:id])
 
     # ensure the current_user owns the underlying client
     if current_user && @client_form.client.user_id != current_user.id

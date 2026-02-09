@@ -5,8 +5,8 @@ class FormResponseExportService
     new(client_form).call
   end
 
-  def self.to_json(client_form)
-    new(client_form).to_json
+  def self.as_json_payload(client_form)
+    new(client_form).as_json_payload
   end
 
   def initialize(client_form)
@@ -15,9 +15,6 @@ class FormResponseExportService
 
   # Build CSV explicitly using CSV.generate_line and join with CRLF to avoid platform-specific newline issues
   def call
-    form_responses = @client_form.form_responses.order(:version)
-    form_fields = @client_form.form.form_fields.order(:position)
-
     lines = []
     lines << CSV.generate_line(build_header(form_fields))
 
@@ -29,10 +26,7 @@ class FormResponseExportService
     lines.join("\r\n") + "\r\n"
   end
 
-  def to_json
-    form_responses = @client_form.form_responses.order(:version)
-    form_fields = @client_form.form.form_fields.order(:position)
-
+  def as_json_payload
     {
       client_form: {
         id: @client_form.id,
@@ -69,9 +63,20 @@ class FormResponseExportService
   def extract_data_by_labels(data, form_fields)
     result = {}
     form_fields.each do |field|
-      result[field.label] = data[field.id.to_s]
+      result[field.id.to_s] = {
+        label: field.label,
+        value: data[field.id.to_s]
+      }
     end
     result
+  end
+
+  def form_responses
+    @form_responses ||= @client_form.form_responses.order(:version)
+  end
+
+  def form_fields
+    @form_fields ||= @client_form.form.form_fields.order(:position)
   end
 
   def format_for_csv(value)
