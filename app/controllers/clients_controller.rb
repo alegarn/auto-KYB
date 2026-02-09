@@ -50,7 +50,13 @@ class ClientsController < ApplicationController
       format.json { render json: ClientSerializer.new(@client).as_json }
 
       format.csv do
-        csv_data = ClientExportService.call(@client)
+        # re-query selecting only the attributes we want to return (exclude id)
+        client_for_export = current_user.clients
+                             .where(id: @client.id)
+                             .select(:name, :company_name, :email, :phone, :address, :created_at, :updated_at)
+                             .first!
+
+        csv_data = ClientExportService.call(client_for_export)
 
         send_data csv_data, filename: "client-#{@client.id}.csv", type: 'text/csv'
       end

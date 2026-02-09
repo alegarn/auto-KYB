@@ -1,71 +1,116 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import { Form, page } from '@inertiajs/svelte'
+  import { router } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
-  import { Checkbox } from "/components/ui/checkbox/index.js"
   import { Label } from "/components/ui/label/index.js"
-  import BasicDropdown from '/components/ui/dropdown/basic-dropdown.svelte'
+  import FormBuilder from "/components/customs/FormBuilder.svelte"
+  import FormFieldRenderer from "@/components/customs/FormFieldRenderer.svelte"
+  import { isLayoutField, type FormSettings } from "@/components/customs/form-builder/types"
+  import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
+  import type { FormField } from "/components/customs/form-builder/types"
   import { forms_path } from '@/routes';
-
-  let name = $state("")
-  let fields = $state<Array<{ label: string; field_type: string; required: boolean }>>([])
 
   const { errors: serverErrors, session_id } = $props()
 
-  let clientErrors = $state<{ name?: string; fieldErrors: Array<{ label?: string; field_type?: string }> }>({ fieldErrors: [] })
+  let name = $state("")
+  let fields = $state<FormField[]>([])
+  let settings = $state<FormSettings>({})
+  let clientError = $state("")
+  let submitting = $state(false)
 
-  function addField() {
-    fields = [...fields, { label: '', field_type: 'text', required: false }]
-  }
+  // preview state
+  let preview = $state(false)
+  let results = $state<Record<string, any>>({})
+  let outputFormat = $state('json')
+  const formSettings = $derived<FormSettings>(settings || {})
 
-  function removeField(index: number) {
-    fields = fields.filter((_, i) => i !== index)
-  }
+  function formattedResults(outputFormat: string, results: Record<string, any>): string {
+    try {
+      const flds = (fields || []).filter((f: any) => !isLayoutField(f.field_type))
 
-  function updateField(index: number, key: keyof typeof fields[number], value: any) {
-    const next = fields.slice()
-    // @ts-ignore - keep simple copy update
-    next[index] = { ...next[index], [key]: value }
-    fields = next
-  }
+      if (outputFormat === 'json') {
+        const out: Record<string, any> = {}
+        flds.forEach((f: any) => {
+          const key = f.label != null ? String(f.label) : String(f.id)
+          const val = results[f.id]
+          out[key] = val === undefined ? null : val
+        })
+        return JSON.stringify(out, null, 2)
+      }
 
-  function validate(): boolean {
-    let ok = true
-    const nextFieldErrors: Array<{ label?: string; field_type?: string }> = []
-
-    if (!name || !name.trim()) {
-      clientErrors = { ...clientErrors, name: 'Name is required' }
-      ok = false
-    } else {
-      clientErrors = { ...clientErrors, name: undefined }
+      const rows: string[][] = [["label", "value"]]
+      flds.forEach((f: any) => {
+        const val = results[f.id]
+        let s = val === null || val === undefined ? '' : String(val)
+        if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+          s = '"' + s.replace(/"/g, '""') + '"'
+        }
+        rows.push([String(f.label), s])
+      })
+      return rows.map(r => r.join(',')).join('\n')
+    } catch (e) {
+      return String(results)
     }
-
-    fields.forEach((f, i) => {
-      const fe: { label?: string; field_type?: string } = {}
-      if (!f.label || !f.label.trim()) {
-        fe.label = 'Label is required'
-        ok = false
-      }
-      if (!['text', 'number', 'date'].includes(f.field_type)) {
-        fe.field_type = 'Invalid type'
-        ok = false
-      }
-      nextFieldErrors[i] = fe
-    })
-
-    clientErrors = { ...clientErrors, fieldErrors: nextFieldErrors }
-    return ok
   }
 
-  function handleSubmit(e: Event) {
-    if (!validate()) {
-      e.preventDefault()
+  function handlePreviewSubmit(e: Event) {
+    e.preventDefault()
+    const formEl = (e.currentTarget || e.target) as HTMLFormElement
+    if (!formEl.checkValidity()) {
+      formEl.reportValidity()
       return
     }
-    // allow native submit to proceed; server errors (if any) will be available
-    // in `page.props.errors` (shared by the Rails adapter) and shown below
+
+    const fd = new FormData(formEl)
+    const data: Record<string, any> = {};
+    (fields || []).forEach((f: any, i: number) => {
+      if (isLayoutField(f.field_type)) return;
+      const key = `field_${f.id ?? f.position ?? i}`
+      const val = fd.get(key)
+      if (val === null) {
+        data[f.id ?? f.position ?? i] = null
+      } else {
+        const s = String(val)
+        if (f.field_type === "number") {
+          data[f.id ?? f.position ?? i] = s === "" ? null : Number(s)
+        } else {
+          data[f.id ?? f.position ?? i] = s
+        }
+      }
+    })
+
+    results = data
+    preview = false
+  }
+
+  function handleSubmit() {
+    clientError = ""
+    if (!name.trim()) {
+      clientError = "Name is required"
+      return
+    }
+
+    submitting = true
+    router.post(forms_path(), {
+      form: {
+        name,
+        structure: {
+          settings,
+          fields: fields.map((f, i) => ({
+            label: f.label,
+            field_type: f.field_type,
+            required: f.required,
+            position: i + 1,
+            metadata: f.metadata || {},
+          })),
+        },
+      },
+    } as any, {
+      preserveState: true,
+      onFinish: () => { submitting = false },
+    })
   }
 
   function cancel() {
@@ -77,85 +122,117 @@
   <AppSidebar session_id={session_id} />
   <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
     <Sidebar.Trigger class="mb-4" />
-    <section class="p-6 max-w-3xl mx-auto">
-      <h1 class="text-2xl font-semibold mb-4">Create Form</h1>
-  <Form action={forms_path()} method="post" on:submit={handleSubmit}>
-    {#if serverErrors}
-      {#if Array.isArray(serverErrors) && serverErrors.length}
-        <ul class="text-red-600">
-          {#each serverErrors as msg}
-            <li>{msg}</li>
+    <section class="mx-auto max-w-7xl">
+      <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-semibold">Create Form</h1>
+        <div class="flex gap-2">
+          <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
+          <Button type="button" onclick={handleSubmit} disabled={submitting}>
+            {submitting ? 'Creating...' : 'Create Form'}
+          </Button>
+        </div>
+      </div>
+
+      {#if serverErrors}
+        {#if Array.isArray(serverErrors) && serverErrors.length}
+          <div class="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">
+            {#each serverErrors as msg}
+              <p class="text-sm text-destructive">{msg}</p>
+            {/each}
+          </div>
+        {:else if typeof serverErrors === 'object'}
+          {#each Object.values(serverErrors) as msg}
+            <p class="mb-4 text-sm text-destructive">{msg}</p>
           {/each}
-        </ul>
-      {:else if serverErrors.name}
-        <p class="text-red-600">{serverErrors.name}</p>
+        {/if}
       {/if}
-    {/if}
-    {#if clientErrors.name}
-      <p class="text-red-600">{clientErrors.name}</p>
-    {/if}
-    <div class="mb-4">
-      <label for="name" class="block font-medium mb-1">Name</label>
-      <Input id="name" bind:value={name} name="form[name]" class="w-full" />
-    </div>
 
-    <div>
-      <h2 class="text-lg font-medium mb-2">Fields</h2>
-      <div class="flex flex-col space-y-4">
-        {#each fields as field, i (i)}
-          <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div class="flex-1">
-              <Input
-                bind:value={field.label}
-                name={`form[structure][fields][${i}][label]`}
-                placeholder="Label"
-                oninput={(e: any) => { updateField(i, 'label', (e.target as HTMLInputElement).value); }}
-                class="w-full"
-              />
-              {#if clientErrors.fieldErrors[i] && clientErrors.fieldErrors[i].label}
-                <p class="text-red-600 mt-1">{clientErrors.fieldErrors[i].label}</p>
+      {#if clientError}
+        <p class="mb-4 text-sm text-destructive">{clientError}</p>
+      {/if}
+
+      <div class="mb-6 max-w-md">
+        <Label for="form-name" class="mb-1.5 block text-sm font-medium">Form Name</Label>
+        <Input id="form-name" bind:value={name} placeholder="Enter form name" />
+      </div>
+
+      <div class="mb-4 flex items-center gap-2">
+        <button type="button" class="px-3 py-1 rounded" class:font-semibold={!preview} onclick={() => { preview = false; results = {} }}>
+          Edit
+        </button>
+        <button type="button" class="px-3 py-1 rounded" class:font-semibold={preview} onclick={() => { preview = true; results = {} }}>
+          Preview
+        </button>
+      </div>
+
+      {#if preview}
+        <div
+          class="rounded-lg border shadow-sm overflow-hidden mb-4"
+          style:background-color={formSettings.form_background_color || '#ffffff'}
+        >
+          {#if formSettings.header_background_color}
+            <div class="px-6 py-4" style:background-color={formSettings.header_background_color}>
+              <h2 class="text-lg font-semibold">{name}</h2>
+            </div>
+          {/if}
+          <form onsubmit={handlePreviewSubmit} class="p-6">
+            {#each fields as field (field['id'] ?? field['position'])}
+              {#if isLayoutField(field.field_type)}
+                <FormFieldRenderer
+                  id={field['id'] ?? `field_${field['position']}`}
+                  label={field['label']}
+                  type={field.field_type || 'text'}
+                  required={false}
+                  inputOnly={true}
+                  metadata={field.metadata}
+                />
+              {:else}
+                <Field class="mb-4">
+                  <FieldLabel for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
+                  <FieldContent>
+                    <FormFieldRenderer
+                      id={`field_${field['id']}`}
+                      label={field['label']}
+                      type={field.field_type || 'text'}
+                      required={field.required}
+                      name={`field_${field['id']}`}
+                      value={''}
+                      inputOnly={true}
+                      onChange={()=>{}}
+                      metadata={field.metadata}
+                    />
+                  </FieldContent>
+                </Field>
               {/if}
-            </div>
+            {/each}
 
-            <div class="w-40 flex-shrink-0">
-              <BasicDropdown
-                value={field.field_type}
-                items={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'date', label: 'Date' }]}
-                on:select={(e: any) => updateField(i, 'field_type', e.detail.value)}
-              />
-              <input type="hidden" name={`form[structure][fields][${i}][field_type]`} value={field.field_type} />
-              {#if clientErrors.fieldErrors[i] && clientErrors.fieldErrors[i].field_type}
-                <p class="text-red-600 mt-1">{clientErrors.fieldErrors[i].field_type}</p>
-              {/if}
+            <button
+              type="submit"
+              class="mt-4 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
+              style:background-color={formSettings.primary_color || '#2563eb'}
+            >
+              Submit Preview
+            </button>
+          </form>
+        </div>
+      {:else}
+        {#if Object.keys(results || {}).length > 0}
+          <div>
+            <h2>Preview Results</h2>
+            <div class="flex items-center gap-2 mb-2">
+              <button type="button" class="px-3 py-1 rounded bg-gray-100" onclick={() => (outputFormat = 'json')}>JSON</button>
+              <button type="button" class="px-3 py-1 rounded bg-gray-100" onclick={() => (outputFormat = 'csv')}>CSV</button>
+              <div class="text-sm text-muted-foreground ml-2">Format: {outputFormat}</div>
             </div>
-
-            <div class="flex items-center gap-2">
-              <Checkbox
-                id={`required-${i}`}
-                name={`form[structure][fields][${i}][required]`}
-                checked={field.required}
-                onchange={(e) => updateField(i, 'required', (e.target as HTMLInputElement).checked)}
-              />
-              <Label for={`required-${i}`}>Required</Label>
-            </div>
-
-            <div class="flex-shrink-0">
-              <Button type="button" variant="destructive" onclick={() => removeField(i)}>Remove</Button>
+            <pre class="whitespace-pre-wrap break-words max-w-full overflow-auto">{formattedResults(outputFormat, results)}</pre>
+            <div class="mt-4">
+              <button type="button" class="px-3 py-1 rounded" onclick={() => { preview = true; results = {} }}>Back to Preview</button>
             </div>
           </div>
-        {/each}
-      </div>
-
-      <div class="mt-3">
-        <Button type="button" onclick={addField}>Add field</Button>
-      </div>
-    </div>
-
-    <div class="mt-4 flex gap-2">
-      <Button type="submit">Create</Button>
-      <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
-    </div>
-  </Form>
+        {:else}
+          <FormBuilder bind:fields bind:settings />
+        {/if}
+      {/if}
     </section>
   </main>
 </Sidebar.Provider>

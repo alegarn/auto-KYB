@@ -48,7 +48,7 @@
 
 <Sidebar.Provider>
   <AppSidebar session_id={session_id} />
-  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
+  <main class="min-h-screen w-full bg-muted/40 px-4 py-6 md:px-8">
     <Sidebar.Trigger class="mb-4" />
     <section class="p-6 max-w-3xl mx-auto">
       <header class="mb-4">

@@ -1,42 +1,77 @@
-import { render, screen } from '@testing-library/svelte'
-import userEvent from '@testing-library/user-event'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, fireEvent, waitFor } from '@testing-library/svelte'
+import { describe, it, expect, vi } from 'vitest'
+import FormResponse from '@/pages/ClientPortal/FormResponse.svelte'
 
-import FormResponse from '../../../../app/frontend/pages/ClientPortal/FormResponse.svelte'
-
-describe('ClientPortal/FormResponse', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  const form = {
-    id: 'f1',
-    name: 'Test Form',
-    form_fields: [
-      { id: 'a', label: 'First Name', type: 'text', value: '' },
-      { id: 'b', label: 'Age', type: 'number', value: null },
-      { id: 'c', label: 'Birthday', type: 'date', value: null }
-    ]
+vi.mock('@inertiajs/svelte', async () => {
+  const { writable } = await import('svelte/store')
+  return {
+    useForm: (initial: Record<string, any> = {}) => {
+      const store = writable<any>(null)
+      const form: any = {
+        subscribe: (run: any) => store.subscribe(run),
+        defaults: (data: Record<string, any>) => {
+          Object.assign(form, data)
+          store.set(form)
+        },
+        transform: () => form,
+        patch: (_url: string, options?: { onSuccess?: () => void }) => {
+          options?.onSuccess?.()
+        }
+      }
+      // initialize the store value to the form object so `$form` in components
+      // refers to the object with methods (defaults/patch/transform)
+      Object.assign(form, initial)
+      store.set(form)
+      return form
+    }
   }
+})
 
-  it('renders text, number and date fields and emits save with values', async () => {
-    const user = userEvent.setup()
-    const onSave = vi.fn()
-    render(FormResponse, { form, onSave })
+vi.mock('@/lib/form-response/autosave', () => ({
+  createAutosave: ({ onSave }: { onSave: () => Promise<void> }) => ({
+    schedule: () => { void onSave() },
+    cancel: () => {},
+    flush: () => onSave(),
+  }),
+  buildDelta: () => ({ 'field-1': 'value' }),
+  mergeBase: (base: Record<string, any>, patch: Record<string, any>) => ({ ...base, ...patch }),
+}))
 
-    expect(screen.getByLabelText(/first name/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/age/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/birthday/i)).toBeInTheDocument()
+vi.mock('@/lib/form-response/form-submit', () => ({
+  createFormSubmitter: (deps: { onAutosaveSuccess: (fields: string[]) => void }) => ({
+    submit: async () => {},
+    savePartial: async () => { deps.onAutosaveSuccess(['field-1']) },
+  })
+}))
 
-    // use callback prop for Svelte 5 compatibility
+describe('ClientPortal FormResponse', () => {
+  it('shows an autosave indicator after autosave', async () => {
+    const portalForm = {
+      name: 'Test Form',
+      structure: { settings: {} },
+      form_fields: [
+        {
+          id: 'field-1',
+          label: 'First name',
+          field_type: 'text',
+          required: false,
+          metadata: {},
+        }
+      ]
+    }
 
-    await user.type(screen.getByLabelText(/first name/i), 'Alice')
-    await user.type(screen.getByLabelText(/age/i), '30')
-    await user.type(screen.getByLabelText(/birthday/i), '1990-01-01')
+    const { getByLabelText, getByText } = render(FormResponse, {
+      props: {
+        form: portalForm,
+        last_response: null,
+      }
+    })
 
-    const save = screen.getByRole('button', { name: /save/i })
-    await user.click(save)
+    const input = getByLabelText('First name')
+    await fireEvent.input(input, { target: { value: 'Ada' } })
 
-    expect(onSave).toHaveBeenCalledWith({ data: { a: 'Alice', b: 30, c: '1990-01-01' }, validate: false })
+    await waitFor(() => {
+      expect(getByText('Saved')).toBeInTheDocument()
+    })
   })
 })

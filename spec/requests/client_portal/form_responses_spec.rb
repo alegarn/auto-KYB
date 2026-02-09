@@ -29,6 +29,20 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
       expect(@client_form.status).to eq(ClientForm.statuses['validated'])
     end
 
+    it "returns inertia props on partial save" do
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect(response).to have_http_status(:found)
+
+      patch client_portal_form_response_path,
+            params: { form_response: { data: { foo: 'bar' }, partial: true } },
+            headers: { 'X-Inertia' => 'true' }
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body.dig('props', 'last_response', 'data')).to include('foo' => 'bar')
+      expect(body.dig('props', 'flash_message', 'type')).to eq('notice')
+    end
+
     it "rejects updates when client_form is locked (validated)" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
       expect(response).to have_http_status(:found)
@@ -39,44 +53,35 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
 
       # Login again to get cookie (session cleared on validate)
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect(response).to have_http_status(:found)
+      expect(response).to have_http_status(:gone)
 
-      # Attempt to save after validation should redirect to login (session cleared/locked)
-      patch client_portal_form_response_path, params: { form_response: { data: { foo: 'baz' } } }
+      # Attempt to save after validation should render inertia redirect to root (session cleared/locked)
+      patch client_portal_form_response_path, params: { form_response: { data: { foo: 'baz' } } }, headers: { 'X-Inertia' => 'true' }
       expect(response).to have_http_status(:see_other)
-      expect(response.headers["Location"]).to include("/client_portal/login")
+      body = JSON.parse(response.body)
+      expect(body['component']).to eq('/')
+      expect(body['props']['errors']).to eq({})
     end
 
     it "rejects updates when client_form is expired" do
       @client_form.update!(expires_at: 1.day.ago)
 
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect(response).to have_http_status(:found)
+      expect(response).to have_http_status(:gone)
 
-      patch client_portal_form_response_path, params: { form_response: { data: { foo: 'bar' } } }
+      # Attempt to save should render inertia redirect to root (form expired)
+      patch client_portal_form_response_path, params: { form_response: { data: { foo: 'bar' } } }, headers: { 'X-Inertia' => 'true' }
       expect(response).to have_http_status(:see_other)
-      expect(response.headers["Location"]).to include("/client_portal/login")
+      body = JSON.parse(response.body)
+      expect(body['component']).to eq('/')
+      expect(body['props']['errors']).to eq({})
     end
-  end
-end
-require "rails_helper"
-
-RSpec.describe "ClientPortal::FormResponses", type: :request do
-  let(:user) { create(:user) }
-  let(:client) { create(:client, user: user) }
-  let(:form) { create(:form, user: user) }
-
-  before do
-    @client_form = ClientForm.create!(client: client, form: form)
-    password = "secret-pass-#{SecureRandom.hex(4)}"
-    @client_form.password = password
-    @client_form.save!
-    @password = password
   end
 
   describe "GET /client_portal/form_response (show)" do
     it "renders the form payload when authenticated" do
-      allow(ClientPortal::SessionService).to receive(:current_client_form).with(anything).and_return(@client_form)
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect(response).to have_http_status(:found)
 
       get client_portal_form_response_path
       expect(response).to have_http_status(:ok)
@@ -84,12 +89,15 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
     end
   end
 
-  describe "POST /client_portal/form_response (update)" do
+  describe "PATCH /client_portal/form_response (update)" do
     it "creates a FormResponse and sets status to filled on first save" do
-      allow(ClientPortal::SessionService).to receive(:current_client_form).with(anything).and_return(@client_form)
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect(response).to have_http_status(:found)
 
       expect {
-        patch client_portal_form_response_path, params: { form_response: { data: { foo: "bar" } } }, as: :json
+        patch client_portal_form_response_path,
+              params: { form_response: { data: { foo: "bar" } } },
+              headers: { 'X-Inertia' => 'true' }
       }.to change { FormResponse.count }.by(1)
 
       @client_form.reload
@@ -100,18 +108,20 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
     end
 
     it "validates and locks the client_form when validate flag is true" do
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect(response).to have_http_status(:found)
 
-      allow(ClientPortal::SessionService).to receive(:current_client_form).with(anything).and_return(@client_form)
-
-      patch client_portal_form_response_path, params: { form_response: { data: { ok: true }, validate: true } }, as: :json
+      patch client_portal_form_response_path,
+            params: { form_response: { data: { ok: true }, validate: true } },
+            headers: { 'X-Inertia' => 'true' }
 
       @client_form.reload
       expect(@client_form.status).to eq(ClientForm.statuses['validated'])
       expect(@client_form.validated_at).not_to be_nil
-      # session cookie should be cleared; subsequent access should redirect to login
-      get client_portal_form_response_path
-      expect(response).to have_http_status(:see_other)
-      expect(response.headers["Location"]).to include("/client_portal/login")
+      # session cookie should be cleared; subsequent access should return 409 (version mismatch due to locked form)
+      get client_portal_form_response_path, headers: { 'X-Inertia' => 'true' }
+      expect(response).to have_http_status(:conflict)
+      expect(response.headers['X-Inertia-Location']).to be_present
     end
   end
 end
