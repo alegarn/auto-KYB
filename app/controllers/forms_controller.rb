@@ -37,13 +37,24 @@ class FormsController < ApplicationController
   def destroy
     form = current_user.forms.find(params[:id])
     form.destroy!
-    redirect_to forms_path, status: :see_other
+    respond_to do |format|
+      format.json { head :no_content }
+      format.html do
+        forms = FormSerializer.collection(current_user.forms.order(created_at: :desc))
+        render inertia: 'forms/index', props: default_inertia_props.merge(forms: forms)
+      end
+    end
   end
 
   def update
     form = current_user.forms.find(params[:id])
     FormService.update_form(current_user, form, form_params.to_h)
-    redirect_to form_path(form), notice: 'Form updated'
+    respond_to do |format|
+      format.json { render json: FormDetailSerializer.new(form).as_json, status: :ok }
+      format.html do
+        render inertia: 'forms/show', props: default_inertia_props.merge(form: FormDetailSerializer.new(form).as_json)
+      end
+    end
   rescue FormService::DataLossWarning => e
     render inertia: 'forms/edit', props: {
       session_id: current_session_id,
@@ -61,11 +72,13 @@ class FormsController < ApplicationController
   private
 
   def form_params
-    base = params.require(:form).permit(:name, :description)
-    if params[:form][:structure].present?
-      raw = params[:form][:structure]
-      base[:structure] = raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : raw.to_h
-    end
-    base
+    params.require(:form).permit(
+      :name,
+      :description,
+      structure: {
+        settings: {},
+        fields: [:id, :label, :field_type, :required, :position, { metadata: {} }]
+      }
+    )
   end
 end

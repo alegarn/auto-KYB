@@ -2,7 +2,7 @@ require 'benchmark'
 
 RSpec.describe 'Form list performance' do
   it 'returns forms list within 2s (SC-001)' do
-    user = User.create!(email: 'perf@example.com', password: 'password')
+    user = User.create!(email: 'perf@example.com', password: 'securepassword123')
     # create a moderate number of forms to emulate load
     1000.times do |i|
       user.forms.create!(name: "Form #{i}")

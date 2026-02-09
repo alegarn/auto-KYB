@@ -1,22 +1,15 @@
 require 'rails_helper'
 
 RSpec.describe 'Forms authorization', type: :request do
-  let!(:owner) { User.create!(email: 'owner@example.com', password: 'password') }
-  let!(:other) { User.create!(email: 'other@example.com', password: 'password') }
-  let!(:form) { owner.forms.create!(name: 'Owner Form') }
-
-  around do |example|
-    orig = Current.session
-    Current.session = Struct.new(:user, :id).new(owner, SecureRandom.uuid)
-    example.run
-    Current.session = orig
-  end
+  let!(:owner) { FactoryBot.create(:user, password: 'securepassword123') }
+  let!(:other) { FactoryBot.create(:user, password: 'securepassword123') }
+  let!(:form) { FormService.create_form(owner, { name: 'Owner Form', structure: { fields: [] } }) }
 
   it 'prevents other users from accessing a form' do
-    # act as other
-    Current.session = Struct.new(:user, :id).new(other, SecureRandom.uuid)
+    sign_in_user(other)
+    session_id = other.sessions.last.id
 
-    get "/forms/#{form.id}"
+    get "/forms/#{form.id}", headers: { 'Cookie' => "session_token=#{session_id}" }
 
     expect(response).to have_http_status(:not_found)
   end
