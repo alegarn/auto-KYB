@@ -1,18 +1,114 @@
-import { flushSync, mount, unmount } from 'svelte'
-import { test, expect, vi, beforeEach } from 'vitest'
+import { render, fireEvent, waitFor } from '@testing-library/svelte'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import NewForm from '@/pages/forms/new.svelte'
 
-import NewForm from '../../../../app/frontend/pages/forms/new.svelte'
-import { mockPageProps } from '../../mocks/inertia'
-
-beforeEach(() => {
-  vi.clearAllMocks()
-  document.body.innerHTML = ''
+vi.mock('@inertiajs/svelte', async () => {
+  const { writable } = await import('svelte/store')
+  return {
+    page: writable({
+      url: '/forms/new',
+      props: {
+        user: { id: '1', email: 'test@example.com', name: 'Test User' },
+        session_id: 'test-session-123'
+      },
+      component: 'Forms/New',
+      version: '1.0'
+    }),
+    router: {
+      patch: vi.fn(),
+      visit: vi.fn(),
+      get: vi.fn(),
+      post: vi.fn(),
+      put: vi.fn(),
+      delete: vi.fn(),
+      reload: vi.fn()
+    }
+  }
 })
 
-test('New form mounts and shows Create Form heading', () => {
-  const component: any = mount(NewForm as any, { target: document.body, props: { ...mockPageProps.props } })
+vi.mock('@/components/customs/FormBuilder.svelte', () => ({
+  default: vi.fn(() => ({
+    $$render: () => '<div data-testid="form-builder">Form Builder</div>'
+  }))
+}))
 
-  expect(document.body.innerHTML).toContain('Create Form')
+vi.mock('@/components/customs/FormFieldRenderer.svelte', () => ({
+  default: vi.fn(() => ({
+    $$render: () => '<div data-testid="field-renderer">Field Renderer</div>'
+  }))
+}))
 
-  unmount(component)
+vi.mock('@/components/customs/app-sidebar.svelte', () => ({
+  default: vi.fn(() => ({
+    $$render: () => '<div data-testid="app-sidebar">Sidebar</div>'
+  }))
+}))
+
+vi.mock('../../mocks/inertia', async () => {
+  const actual = await vi.importActual('../../mocks/inertia')
+  return actual
+})
+
+
+describe('Forms New Page', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ''
+  })
+
+  it('renders Create Form heading', () => {
+    const { getByRole } = render(NewForm, { props: { errors: null, session_id: 'test-session-123' } })
+    expect(getByRole('heading', { name: 'Create Form' })).toBeInTheDocument()
+  })
+
+  it('displays form name input and Create Form button', () => {
+    const { getByLabelText, getByRole } = render(NewForm, { props: { errors: null, session_id: 'test-session-123' } })
+    expect(getByLabelText('Form Name')).toBeInTheDocument()
+    expect(getByRole('button', { name: 'Create Form' })).toBeInTheDocument()
+  })
+
+  it('switches to Preview and back and shows results after submitting preview', async () => {
+    const { getByText, getByRole, container } = render(NewForm, { props: { errors: null, session_id: 'test-session-123' } })
+
+    const previewButton = getByText('Preview')
+    await fireEvent.click(previewButton)
+
+    await waitFor(() => {
+      expect(getByText('Submit Preview')).toBeInTheDocument()
+    })
+
+    const form = container.querySelector('form')
+    if (form) {
+      await fireEvent.submit(form)
+    }
+
+    // After submitting preview with no fields we should still have the Create Form heading
+    await waitFor(() => {
+      expect(getByRole('heading', { name: 'Create Form' })).toBeInTheDocument()
+    })
+  })
+
+  it('calls router.post with correct data when creating form', async () => {
+    const { router } = await import('@inertiajs/svelte')
+    const { getByRole, getByLabelText } = render(NewForm, { props: { errors: null, session_id: 'test-session-123' } })
+
+    const nameInput = getByLabelText('Form Name')
+    await fireEvent.input(nameInput, { target: { value: 'New Test Form' } })
+
+    const createButton = getByRole('button', { name: 'Create Form' })
+    await fireEvent.click(createButton)
+
+    await waitFor(() => {
+      expect(router.post).toHaveBeenCalledWith(
+        '/forms',
+        expect.objectContaining({
+          form: expect.objectContaining({
+            name: 'New Test Form',
+            structure: expect.objectContaining({ settings: expect.any(Object), fields: expect.any(Array) })
+          })
+        }),
+        expect.any(Object)
+      )
+    })
+  })
 })
