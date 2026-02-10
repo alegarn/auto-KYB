@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Clients API", type: :request do
   let(:user) { create(:user) }
   let(:session) { user.sessions.create! }
-  let(:inertia_headers) { { 'X-Inertia' => 'true' } }
+  let(:inertia_headers) { { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest } }
 
   before do
     cookies.signed[:session_token] = session.id

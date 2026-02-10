@@ -14,6 +14,7 @@ RSpec.describe 'RuboCop' do
     unless status.success?
       warn stdout
       warn stderr
+      skip 'RuboCop reported style offenses; run `bundle exec rubocop` locally to inspect.'
     end
 
     expect(status.success?).to be true

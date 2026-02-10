@@ -8,7 +8,7 @@ RSpec.describe "Homes", type: :request do
     end
 
     it "renders the Home/Index Inertia component" do
-      get "/", headers: { 'X-Inertia' => 'true' }
+      get "/", headers: { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest }
 
       expect(response.headers["X-Inertia"]).to eq("true")
       payload = JSON.parse(response.body)

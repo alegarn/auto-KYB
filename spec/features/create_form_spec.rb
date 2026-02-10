@@ -10,7 +10,7 @@ RSpec.describe "Create Form", type: :request do
 
     expect(response).to have_http_status(:see_other)
 
-    get forms_path, headers: { 'X-Inertia' => 'true' }
+    get forms_path, headers: { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest }
     payload = JSON.parse(response.body)
     names = payload.dig('props', 'forms').map { |form| form['name'] }
     expect(names).to include("UI Form")

@@ -10,7 +10,7 @@ RSpec.describe "Delete Form", type: :request do
     expect(response).to have_http_status(:ok)
     expect(Form.exists?(form.id)).to be false
 
-    get forms_path, headers: { 'X-Inertia' => 'true' }
+    get forms_path, headers: { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest }
     payload = JSON.parse(response.body)
     names = payload.dig('props', 'forms').map { |f| f['name'] }
     expect(names).not_to include('DeleteMe')
