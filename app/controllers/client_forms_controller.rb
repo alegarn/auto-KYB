@@ -1,5 +1,6 @@
 class ClientFormsController < ApplicationController
-  before_action :set_client_form, only: [:password_reveal, :export_responses]
+
+  before_action :set_client_form, only: [ :password_reveal, :export_responses ]
 
   # POST /client_forms
   def create
@@ -28,9 +29,9 @@ class ClientFormsController < ApplicationController
     entry = (session[:client_form_one_time_passwords] || {})[@client_form.id.to_s]
 
     if entry
-      expires_at_val = entry[:expires_at] || entry['expires_at']
+      expires_at_val = entry[:expires_at] || entry["expires_at"]
       if expires_at_val && Time.zone.parse(expires_at_val) > Time.current
-        @password = entry[:password] || entry['password']
+        @password = entry[:password] || entry["password"]
         # remove so it is shown only once
         session[:client_form_one_time_passwords].delete(@client_form.id.to_s)
       else
@@ -43,14 +44,14 @@ class ClientFormsController < ApplicationController
       flash.now[:alert] = "Password no longer available or expired."
     end
 
-    render inertia: 'Clients/PasswordReveal', props: {
+    render inertia: "Clients/PasswordReveal", props: {
       client: { id: @client_form.client.id, name: @client_form.client.name },
       form: FormDetailSerializer.new(@client_form.form).as_json,
       access_url: client_portal_login_path(@client_form.access_token),
       password: @password
     }
   rescue ActiveRecord::RecordNotFound
-    redirect_to clients_path, alert: 'Link not found'
+    redirect_to clients_path, alert: "Link not found"
   end
 
   # GET /client_forms/:id/export_responses(.csv)
@@ -61,8 +62,8 @@ class ClientFormsController < ApplicationController
 
         send_data csv_data,
                   filename: "form-responses-#{@client_form.id}-#{Date.current}.csv",
-                  type: 'text/csv; charset=utf-8',
-                  disposition: 'attachment'
+                  type: "text/csv; charset=utf-8",
+                  disposition: "attachment"
         return
       end
 
@@ -84,4 +85,5 @@ class ClientFormsController < ApplicationController
       redirect_to(clients_path, alert: "You don't have permission to access this form") and return
     end
   end
+
 end

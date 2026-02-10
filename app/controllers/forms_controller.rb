@@ -1,4 +1,5 @@
 class FormsController < ApplicationController
+
   def index
     forms = current_user ? FormSerializer.collection(current_user.forms.order(created_at: :desc)) : []
 
@@ -79,8 +80,9 @@ class FormsController < ApplicationController
       :description,
       structure: {
         settings: {},
-        fields: [:id, :label, :field_type, :required, :position, { metadata: {} }]
+        fields: [ :id, :label, :field_type, :required, :position, { metadata: {} } ]
       }
     )
   end
+
 end

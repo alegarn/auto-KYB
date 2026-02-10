@@ -1,8 +1,9 @@
 class DashboardQuery
+
   def initialize(user)
     @user = user
   end
-=begin 
+=begin
   def stats
     {
       total_clients: client_scope.count,
@@ -34,4 +35,5 @@ class DashboardQuery
       @user.respond_to?(:forms) ? @user.forms : Form.none
     )
   end
+
 end

@@ -1,4 +1,5 @@
 class FormService
+
   class DataLossWarning < StandardError; end
 
   def self.initialize_default_for_user(user)
@@ -98,4 +99,5 @@ class FormService
     raise ActiveRecord::RecordNotFound unless form.user_id == user.id
     form.destroy!
   end
+
 end

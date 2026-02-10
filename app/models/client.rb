@@ -1,4 +1,5 @@
 class Client < ApplicationRecord
+
   belongs_to :user
   has_many :client_forms, dependent: :destroy
   has_many :form_responses, through: :client_forms
@@ -17,7 +18,7 @@ class Client < ApplicationRecord
   scope :by_user, ->(user_id) { where(user_id: user_id) }
   scope :search_by_name_or_company, ->(query) {
     q = query.to_s.downcase
-    where('lower(name) LIKE :q OR lower(company_name) LIKE :q', q: "%#{q}%")
+    where("lower(name) LIKE :q OR lower(company_name) LIKE :q", q: "%#{q}%")
   }
   scope :for_export, -> { select(:name, :company_name, :email, :phone, :address, :created_at, :updated_at) }
 
@@ -26,4 +27,5 @@ class Client < ApplicationRecord
   def ensure_form_status
     self.form_status = :inactive if form_status.nil?
   end
+
 end

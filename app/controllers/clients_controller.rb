@@ -1,5 +1,6 @@
 class ClientsController < ApplicationController
-  FILTER_ALL = 'all'
+
+  FILTER_ALL = "all"
 
   before_action :set_client, only: %i[show edit update destroy export]
 
@@ -13,7 +14,7 @@ class ClientsController < ApplicationController
 
     @pagy, clients_page = pagy(scope, limit: 10, page: params[:page])
 
-    render inertia: 'Clients/Index', props: default_inertia_props.merge(
+    render inertia: "Clients/Index", props: default_inertia_props.merge(
       clients: ClientSerializer.collection(clients_page),
       meta: {
         page: @pagy.page,
@@ -26,7 +27,7 @@ class ClientsController < ApplicationController
   def show
     client_form = @client.client_forms.includes(:form).order(created_at: :desc).first
 
-    render inertia: 'Clients/Show', props: default_inertia_props.merge(
+    render inertia: "Clients/Show", props: default_inertia_props.merge(
       client: ClientSerializer.new(@client).as_json,
       client_form: ClientFormSerializer.new(client_form).as_json,
       forms: forms_for_select
@@ -40,7 +41,7 @@ class ClientsController < ApplicationController
       format.csv do
         client_for_export = current_user.clients.where(id: @client.id).for_export.first!
         csv_data = ClientExportService.call(client_for_export)
-        send_data csv_data, filename: "client-#{@client.id}.csv", type: 'text/csv', disposition: 'attachment'
+        send_data csv_data, filename: "client-#{@client.id}.csv", type: "text/csv", disposition: "attachment"
       end
 
       format.any { render json: ClientSerializer.new(@client).as_json }
@@ -48,7 +49,7 @@ class ClientsController < ApplicationController
   end
 
   def new
-    render inertia: 'Clients/New', props: default_inertia_props.merge(
+    render inertia: "Clients/New", props: default_inertia_props.merge(
       client: {},
       forms: forms_for_select
     )
@@ -63,7 +64,7 @@ class ClientsController < ApplicationController
       if form_id.present?
         form = find_form_for_user(form_id)
         unless form
-          render_form_not_found(view: 'Clients/New', client: client, include_user: true)
+          render_form_not_found(view: "Clients/New", client: client, include_user: true)
           return
         end
 
@@ -80,7 +81,7 @@ class ClientsController < ApplicationController
 
       redirect_to clients_path, status: :see_other
     else
-      render inertia: 'Clients/New', props: default_inertia_props.merge(
+      render inertia: "Clients/New", props: default_inertia_props.merge(
         client: ClientSerializer.new(client).as_json,
         errors: client.errors.messages,
         forms: forms_for_select
@@ -89,7 +90,7 @@ class ClientsController < ApplicationController
   end
 
   def edit
-    render inertia: 'Clients/Edit', props: {
+    render inertia: "Clients/Edit", props: {
       session_id: current_session_id,
       client: ClientSerializer.new(@client).as_json,
       forms: forms_for_select,
@@ -103,7 +104,7 @@ class ClientsController < ApplicationController
     if new_form_id.present?
       new_form = find_form_for_user(new_form_id)
       unless new_form
-        render_form_not_found(view: 'Clients/Edit', client: @client)
+        render_form_not_found(view: "Clients/Edit", client: @client)
         return
       end
     end
@@ -121,7 +122,7 @@ class ClientsController < ApplicationController
       store_client_form_one_time_password(result.client_form, result.password)
       redirect_to password_reveal_client_form_path(result.client_form), status: :see_other
     when :confirm_replace
-      render inertia: 'Clients/Edit', props: {
+      render inertia: "Clients/Edit", props: {
         session_id: current_session_id,
         client: ClientSerializer.new(@client).as_json,
         confirm_replace_required: true,
@@ -130,10 +131,10 @@ class ClientsController < ApplicationController
         attempted_form_id: result.attempted_form_id
       }, status: :unprocessable_entity
     when :success
-      redirect_to client_path(@client), notice: 'Client updated'
+      redirect_to client_path(@client), notice: "Client updated"
     end
   rescue ActiveRecord::RecordInvalid => e
-    render inertia: 'Clients/Edit', props: {
+    render inertia: "Clients/Edit", props: {
       session_id: current_session_id,
       client: ClientSerializer.new(@client).as_json,
       errors: e.record.errors.full_messages,
@@ -143,7 +144,7 @@ class ClientsController < ApplicationController
 
   def destroy
     @client.destroy!
-    redirect_to clients_path, notice: 'Client deleted', status: :see_other
+    redirect_to clients_path, notice: "Client deleted", status: :see_other
   end
 
   private
@@ -174,7 +175,7 @@ class ClientsController < ApplicationController
     props = {
       session_id: current_session_id,
       client: client ? ClientSerializer.new(client).as_json : nil,
-      errors: { form_id: ['Form not found'] },
+      errors: { form_id: [ "Form not found" ] },
       forms: forms_for_select
     }
 
@@ -182,4 +183,5 @@ class ClientsController < ApplicationController
 
     render inertia: view, props: props, status: :unprocessable_entity
   end
+
 end

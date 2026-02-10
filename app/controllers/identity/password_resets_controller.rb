@@ -1,4 +1,5 @@
 class Identity::PasswordResetsController < ApplicationController
+
   skip_before_action :authenticate
 
   before_action :set_user, only: %i[ edit update ]
@@ -40,4 +41,5 @@ class Identity::PasswordResetsController < ApplicationController
     def send_password_reset_email
       UserMailer.with(user: @user).password_reset.deliver_later
     end
+
 end

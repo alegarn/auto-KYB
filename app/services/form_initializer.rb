@@ -1,4 +1,5 @@
 class FormInitializer
+
   DEFAULT_KYB = {
     name: "Default KYB Form",
     fields: [
@@ -16,4 +17,5 @@ class FormInitializer
     end
     form
   end
+
 end

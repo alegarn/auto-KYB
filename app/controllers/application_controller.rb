@@ -1,4 +1,5 @@
 class ApplicationController < ActionController::Base
+
   include Pagy::Backend
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
@@ -59,4 +60,5 @@ class ApplicationController < ActionController::Base
       Current.user_agent = request.env["HTTP_USER_AGENT"] || request.headers["User-Agent"] || request.user_agent
       Current.ip_address = request.env["REMOTE_ADDR"] || request.remote_ip || request.ip
     end
+
 end

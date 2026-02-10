@@ -1,6 +1,7 @@
 require "test_helper"
 
 class Identity::PasswordResetsControllerTest < ActionDispatch::IntegrationTest
+
   setup do
     @user = users(:lazaro_nixon)
   end
@@ -62,4 +63,5 @@ class Identity::PasswordResetsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to new_identity_password_reset_url
     assert_equal "That password reset link is invalid", flash[:alert]
   end
+
 end

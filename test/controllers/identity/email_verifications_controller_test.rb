@@ -1,6 +1,7 @@
 require "test_helper"
 
 class Identity::EmailVerificationsControllerTest < ActionDispatch::IntegrationTest
+
   setup do
     @user = sign_in_as(users(:lazaro_nixon))
     @user.update! verified: false
@@ -31,4 +32,5 @@ class Identity::EmailVerificationsControllerTest < ActionDispatch::IntegrationTe
     assert_redirected_to edit_identity_email_url
     assert_equal "That email verification link is invalid", flash[:alert]
   end
+
 end

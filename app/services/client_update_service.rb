@@ -1,4 +1,5 @@
 class ClientUpdateService
+
   Result = Struct.new(:action, :client_form, :password, :message, :attempted_form_id, keyword_init: true) do
     def success?
       action == :success
@@ -74,4 +75,5 @@ class ClientUpdateService
       attempted_form_id: e.attempted_form_id
     )
   end
+
 end

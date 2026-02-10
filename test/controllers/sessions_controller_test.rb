@@ -1,6 +1,7 @@
 require "test_helper"
 
 class SessionsControllerTest < ActionDispatch::IntegrationTest
+
   setup do
     @user = users(:lazaro_nixon)
   end
@@ -43,4 +44,5 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_redirected_to sign_in_url
   end
+
 end

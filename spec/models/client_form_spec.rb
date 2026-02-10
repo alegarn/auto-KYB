@@ -9,7 +9,7 @@ RSpec.describe ClientForm, type: :model do
   end
 
   it 'has enum statuses' do
-    cf = ClientForm.new(status: :draft)
+    ClientForm.new(status: :draft)
     expect(ClientForm.statuses.keys).to include('draft', 'filled', 'validated') if defined?(ClientForm)
   end
 

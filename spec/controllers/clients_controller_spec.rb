@@ -23,7 +23,7 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       expect(inertia.props[:meta][:total_count]).to eq(15)
       # ensure returned clients belong to user
       returned_ids = inertia.props[:clients].map { |c| c['id'] }
-      expect(Client.where(id: returned_ids).pluck(:user_id).uniq).to eq([user.id])
+      expect(Client.where(id: returned_ids).pluck(:user_id).uniq).to eq([ user.id ])
     end
 
     it "filters by search query" do

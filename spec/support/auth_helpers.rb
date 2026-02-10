@@ -34,7 +34,7 @@ module TestAuthHelpers
                 browser.manage.add_cookie(name: 'session_token', value: session_record.id.to_s, path: '/')
               rescue StandardError
                 begin
-                  page.execute_script("document.cookie = 'session_token=#{session_record.id.to_s}; path=/';")
+                  page.execute_script("document.cookie = 'session_token=#{session_record.id}; path=/';")
                 rescue StandardError
                 end
               end

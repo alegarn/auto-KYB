@@ -1,5 +1,6 @@
 module ClientPortal
   class SessionService
+
     COOKIE_NAME = :client_form_session
 
     def self.set_cookie(cookies, client_form)
@@ -19,8 +20,9 @@ module ClientPortal
 
     def self.current_client_form(cookies)
       token = cookies.signed[COOKIE_NAME]
-      return nil unless token.present?
+      return nil if token.blank?
       ClientForm.find_by(access_token: token)
     end
+
   end
 end
