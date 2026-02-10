@@ -15,7 +15,9 @@ RSpec.describe 'Delete client', type: :system do
     visit '/clients'
 
     # Navigate to show page
-    click_link client.name
+    within('li', text: client.name) do
+      click_link client.name
+    end
     expect(URI.parse(current_url).path).to eq("/clients/#{client.id}")
 
     # Open confirmation dialog

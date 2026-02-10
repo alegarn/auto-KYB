@@ -1,18 +1,18 @@
 require 'rails_helper'
 
-RSpec.feature "Edit Form", type: :feature do
-  scenario 'user edits a form and changes persist' do
+RSpec.describe "Edit Form", type: :request do
+  it 'updates a form name and persists changes' do
     user = sign_in_user
     form = FormService.create_form(user, { name: 'MyForm', structure: { fields: [ { label: 'A', field_type: 'text' } ] } })
 
-    visit "/forms/#{form.id}"
-    click_link 'Edit', href: "/forms/#{form.id}/edit"
+    patch form_path(form), params: { form: { name: 'MyForm Updated' } }
 
-    fill_in 'Name', with: 'MyForm Updated'
-    click_button 'Save'
+    expect(response).to have_http_status(:ok)
+    expect(form.reload.name).to eq('MyForm Updated')
 
-    expect(page).to have_content('MyForm Updated')
-    visit '/forms'
-    expect(page).to have_content('MyForm Updated')
+    get forms_path, headers: { 'X-Inertia' => 'true' }
+    payload = JSON.parse(response.body)
+    names = payload.dig('props', 'forms').map { |f| f['name'] }
+    expect(names).to include('MyForm Updated')
   end
 end

@@ -1,8 +1,8 @@
 require 'rails_helper'
 
-RSpec.describe 'Create client', type: :system do
+RSpec.describe 'Create client', type: :system, js: true do
   it 'allows user to open new client form and create a client' do
-    user = sign_in_user
+    sign_in_user
 
     visit '/clients'
 
@@ -10,21 +10,23 @@ RSpec.describe 'Create client', type: :system do
     expect(URI.parse(current_url).path).to eq('/clients/new')
 
     # Fill form
-    find('input[name="client[name]"]').fill_in(with: 'Acme')
-    find('input[name="client[company_name]"]').fill_in(with: 'Acme Co')
-    find('input[name="client[email]"]').fill_in(with: 'info@acme.test')
+    select 'Default KYB Form', from: 'client-form'
+    fill_in 'client-name', with: 'Acme'
+    fill_in 'client-company', with: 'Acme Co'
+    fill_in 'client-email', with: 'info@acme.test'
 
     click_button 'Create client'
 
-    # Expect redirect to clients list and to see new client
-    expect(URI.parse(current_url).path).to eq('/clients')
-    expect(page).to have_content('Acme')
-    expect(page).to have_content('Acme Co')
+    # Expect redirect to password reveal for newly linked form
+    expect(URI.parse(current_url).path).to match(%r{\A/client_forms/.+/password_reveal\z})
+    expect(page).to have_content('Password Reveal')
+    expect(Client.where(name: 'Acme', company_name: 'Acme Co')).to exist
   end
 
   it 'shows validation errors when required fields are missing' do
     sign_in_user
     visit '/clients/new'
+    select 'Default KYB Form', from: 'client-form'
     click_button 'Create client'
 
     # Expect to see validation errors on the page

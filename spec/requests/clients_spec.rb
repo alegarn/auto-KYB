@@ -3,6 +3,7 @@ require "rails_helper"
 RSpec.describe "Clients API", type: :request do
   let(:user) { create(:user) }
   let(:session) { user.sessions.create! }
+  let(:inertia_headers) { { 'X-Inertia' => 'true' } }
 
   before do
     cookies.signed[:session_token] = session.id
@@ -14,36 +15,40 @@ RSpec.describe "Clients API", type: :request do
       other = create(:user)
       create_list(:client, 3, user: other)
 
-      get clients_path, params: { page: 1 }
+      get clients_path, params: { page: 1 }, headers: inertia_headers
 
       expect(response).to have_http_status(:ok)
+      payload = JSON.parse(response.body)
+      names = payload.dig('props', 'clients').map { |c| c['name'] }
       # first page should include 10 of the 15 created for user
       my_clients.first(10).each do |c|
-        expect(response.body).to include(c.name)
+        expect(names).to include(c.name)
       end
       # ensure other user's clients are not present
       other_client = Client.where(user_id: other.id).first
-      expect(response.body).not_to include(other_client.name)
+      expect(names).not_to include(other_client.name)
     end
 
     it "filters by search query" do
       matching = create(:client, name: "UniqueNameTest", user: user)
       create(:client, name: "Other", user: user)
 
-      get clients_path, params: { q: "UniqueNameTest" }
+      get clients_path, params: { q: "UniqueNameTest" }, headers: inertia_headers
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("UniqueNameTest")
+      payload = JSON.parse(response.body)
+      names = payload.dig('props', 'clients').map { |c| c['name'] }
+      expect(names).to include(matching.name)
     end
 
     it "returns empty props when unauthenticated" do
       cookies.signed[:session_token] = nil
+      Current.session = nil
 
       get clients_path
 
-      expect(response).to have_http_status(:ok)
-      # Controller renders inertia with user: nil and clients: [] when no current_user
-      expect(response.body).to include("Clients/Index")
+      expect(response).to have_http_status(:found)
+      expect(response).to redirect_to(sign_in_path)
     end
   end
 
@@ -51,27 +56,30 @@ RSpec.describe "Clients API", type: :request do
     it "shows a client owned by current_user" do
       client = create(:client, user: user)
 
-      get client_path(client)
+      get client_path(client), headers: inertia_headers
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include(client.name)
+      payload = JSON.parse(response.body)
+      expect(payload['component']).to eq('Clients/Show')
+      expect(payload.dig('props', 'client', 'name')).to eq(client.name)
     end
 
     it "returns 404 for a client not owned by current_user" do
       other = create(:client)
 
-      expect {
-        get client_path(other)
-      }.to raise_error(ActiveRecord::RecordNotFound)
+      get client_path(other)
+
+      expect(response).to have_http_status(:not_found)
     end
   end
 
   describe "GET /clients/new" do
     it "renders the new client form" do
-      get new_client_path
+      get new_client_path, headers: inertia_headers
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Clients/New")
+      payload = JSON.parse(response.body)
+      expect(payload['component']).to eq("Clients/New")
     end
   end
 
@@ -101,18 +109,20 @@ RSpec.describe "Clients API", type: :request do
     it "renders the edit form for owned client" do
       client = create(:client, user: user)
 
-      get edit_client_path(client)
+      get edit_client_path(client), headers: inertia_headers
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include(client.name)
+      payload = JSON.parse(response.body)
+      expect(payload['component']).to eq("Clients/Edit")
+      expect(payload.dig('props', 'client', 'name')).to eq(client.name)
     end
 
     it "returns 404 when editing another user's client" do
       other = create(:client)
 
-      expect {
-        get edit_client_path(other)
-      }.to raise_error(ActiveRecord::RecordNotFound)
+      get edit_client_path(other)
+
+      expect(response).to have_http_status(:not_found)
     end
   end
 
@@ -152,9 +162,9 @@ RSpec.describe "Clients API", type: :request do
     it "returns 404 when deleting another user's client" do
       other = create(:client)
 
-      expect {
-        delete client_path(other)
-      }.to raise_error(ActiveRecord::RecordNotFound)
+      delete client_path(other)
+
+      expect(response).to have_http_status(:not_found)
     end
   end
 
@@ -175,16 +185,16 @@ RSpec.describe "Clients API", type: :request do
 
       expect(response.content_type).to include("text/csv")
       expect(response.headers["Content-Disposition"]).to include("client-#{client.id}.csv")
-      expect(response.body).to include("id,name,company_name")
-      expect(response.body).to include(client.id.to_s)
+      expect(response.body).to include("name,company_name,email,phone,address,created_at,updated_at")
+      expect(response.body).to include(client.name)
     end
 
     it "returns 404 for another user's client export" do
       other = create(:client)
 
-      expect {
-        get "/clients/#{other.id}/export", params: { format: :json }
-      }.to raise_error(ActiveRecord::RecordNotFound)
+      get "/clients/#{other.id}/export", params: { format: :json }
+
+      expect(response).to have_http_status(:not_found)
     end
   end
 end

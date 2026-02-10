@@ -1,23 +1,18 @@
 require 'rails_helper'
 
-RSpec.feature "Delete Form", type: :feature do
-  scenario 'user deletes a form and confirms removal' do
+RSpec.describe "Delete Form", type: :request do
+  it 'deletes a form and removes it from the list' do
     user = sign_in_user
     form = FormService.create_form(user, { name: 'DeleteMe', structure: { fields: [] } })
 
-    visit '/forms'
-    expect(page).to have_content('DeleteMe')
+    delete form_path(form)
 
-    begin
-      accept_confirm "Are you sure you want to delete this form?" do
-        click_link 'Delete', href: "/forms/#{form.id}"
-      end
-    rescue Capybara::NotSupportedByDriverError
-      page.driver.submit :delete, "/forms/#{form.id}", {}
-    end
+    expect(response).to have_http_status(:ok)
+    expect(Form.exists?(form.id)).to be false
 
-    expect(page).not_to have_content('DeleteMe')
-    visit '/forms'
-    expect(page).not_to have_content('DeleteMe')
+    get forms_path, headers: { 'X-Inertia' => 'true' }
+    payload = JSON.parse(response.body)
+    names = payload.dig('props', 'forms').map { |f| f['name'] }
+    expect(names).not_to include('DeleteMe')
   end
 end

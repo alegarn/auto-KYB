@@ -8,9 +8,11 @@ RSpec.describe "Homes", type: :request do
     end
 
     it "renders the Home/Index Inertia component" do
-      get "/"
+      get "/", headers: { 'X-Inertia' => 'true' }
+
       expect(response.headers["X-Inertia"]).to eq("true")
-      expect(response.parsed_body["component"]).to eq("Home/Index")
+      payload = JSON.parse(response.body)
+      expect(payload["component"]).to eq("Home/Index")
     end
   end
 end
