@@ -1,4 +1,5 @@
 class ApplicationController < ActionController::Base
+
   include Pagy::Backend
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
@@ -6,7 +7,7 @@ class ApplicationController < ActionController::Base
   before_action :set_current_request_details
   before_action :authenticate
 
-  helper_method :current_user, :current_session_id
+  helper_method :current_user, :current_session_id, :user_props, :default_inertia_props
 
   def current_user
     Current.session&.user
@@ -14,6 +15,19 @@ class ApplicationController < ActionController::Base
 
   def current_session_id
     Current.session&.id
+  end
+
+  def user_props
+    return nil unless current_user
+
+    { id: current_user.id, email: current_user.email }
+  end
+
+  def default_inertia_props
+    {
+      user: user_props,
+      session_id: current_session_id
+    }
   end
 
   def store_client_form_one_time_password(client_form, password, expires_in: 5.minutes)
@@ -46,4 +60,5 @@ class ApplicationController < ActionController::Base
       Current.user_agent = request.env["HTTP_USER_AGENT"] || request.headers["User-Agent"] || request.user_agent
       Current.ip_address = request.env["REMOTE_ADDR"] || request.remote_ip || request.ip
     end
+
 end

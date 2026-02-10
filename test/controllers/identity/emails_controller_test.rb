@@ -1,6 +1,7 @@
 require "test_helper"
 
 class Identity::EmailsControllerTest < ActionDispatch::IntegrationTest
+
   setup do
     @user = sign_in_as(users(:lazaro_nixon))
   end
@@ -22,4 +23,5 @@ class Identity::EmailsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_select "li", /Password challenge is invalid/
   end
+
 end

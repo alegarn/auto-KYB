@@ -1,9 +1,10 @@
 class ClientInvitationService
+
   # Creates a ClientForm for a client & form, generates an access token and one-time password.
   # Returns a hash: { client_form: ClientForm, password: String }
   def self.create_invitation(client:, form:, expires_in: 7.days)
     # ensure status saved as integer to satisfy NOT NULL constraint
-    status_value = ClientForm.statuses['draft']
+    status_value = ClientForm.statuses["draft"]
     client_form = ClientForm.create!(client: client, form: form, status: status_value, expires_at: Time.current + expires_in)
 
     # generate a random, human-friendly one-time password
@@ -31,4 +32,5 @@ class ClientInvitationService
 
     { client_form: client_form, password: password }
   end
+
 end

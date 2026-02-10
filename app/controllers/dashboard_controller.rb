@@ -1,4 +1,5 @@
 class DashboardController < ApplicationController
+
   def index
     q = DashboardQuery.new(current_user)
     @pagy, clients_page = pagy(q.clients_scope.order(created_at: :desc), items: 10, page: params[:page])
@@ -9,14 +10,15 @@ class DashboardController < ApplicationController
       session_id: current_session_id,
       clients: clients,
       recent_forms: FormSerializer.collection(q.recent_forms),
-      meta: { 
-        page: @pagy.page, 
-        per_page: (@pagy.vars[:items] || clients_page.size), 
-        total_count: q.clients_scope.count 
+      meta: {
+        page: @pagy.page,
+        per_page: (@pagy.vars[:items] || clients_page.size),
+        total_count: q.clients_scope.count
       }
     }
   end
 
   private
   # `current_user` and `current_session_id` provided by ApplicationController
+
 end

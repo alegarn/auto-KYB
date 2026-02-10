@@ -2,6 +2,7 @@
 
 module ClientPortal
   class FormResponseSaver
+
     Result = Struct.new(:response, :merged_data, :conflict, :error, keyword_init: true)
 
     def initialize(client_form:, data:, validate:, partial:, base_version: nil)
@@ -39,5 +40,6 @@ module ClientPortal
       return {} unless data.is_a?(Hash)
       data.deep_transform_keys(&:to_s)
     end
+
   end
 end

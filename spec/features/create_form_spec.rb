@@ -1,16 +1,20 @@
 require 'rails_helper'
 
-RSpec.feature "Create Form", type: :feature do
-  scenario "user creates a new form from UI" do
+RSpec.describe "Create Form", type: :request do
+  it "creates a new form via request" do
     user = sign_in_user
 
-    visit "/forms"
-    click_link "New Form"
+    expect {
+      post forms_path,
+           params: { form: { name: "UI Form", structure: { fields: [] } } },
+           headers: { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest, 'Accept' => 'application/json' }
+    }.to change { user.forms.count }.by(1)
 
-    fill_in "name", with: "UI Form"
-    fill_in "field_label_1", with: "Address"
-    click_button "Create"
+    expect(response).to have_http_status(:see_other)
 
-    expect(page).to have_content("UI Form")
+    get forms_path, headers: { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest, 'Accept' => 'application/json' }
+    payload = JSON.parse(response.body)
+    names = payload.dig('props', 'forms').map { |form| form['name'] }
+    expect(names).to include("UI Form")
   end
 end

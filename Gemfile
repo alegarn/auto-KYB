@@ -55,10 +55,10 @@ gem "rack-attack"
 gem "pgcrypto"
 
 # Pagination library
-gem 'pagy', '~> 9.3', '>= 9.3.4'
+gem "pagy", "~> 9.3", ">= 9.3.4"
 
 # CSV
-gem 'csv', '~> 3.0'
+gem "csv", "~> 3.0"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem

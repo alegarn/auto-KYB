@@ -13,8 +13,8 @@ RSpec.describe FormResponseExportService, type: :service do
 
   describe "CSV generation" do
     it "includes header row with field labels" do
-      f1 = create(:form_field, form: form, label: "First")
-      f2 = create(:form_field, form: form, label: "Second")
+      create(:form_field, form: form, label: "First")
+      create(:form_field, form: form, label: "Second")
       # reload client_form associations
       client_form.form.reload
 
@@ -39,7 +39,7 @@ RSpec.describe FormResponseExportService, type: :service do
     end
 
     it "still generates header when there are no responses" do
-      f1 = create(:form_field, form: form, label: "Only")
+      create(:form_field, form: form, label: "Only")
       client_form.form.reload
 
       csv = FormResponseExportService.call(client_form)
@@ -54,7 +54,7 @@ RSpec.describe FormResponseExportService, type: :service do
       f2 = create(:form_field, form: form, label: "Hsh")
       client_form.form.reload
 
-      resp = client_form.form_responses.create!(data: { f1.id.to_s => ["a", "b"], f2.id.to_s => { x: 1, y: 2 } })
+      client_form.form_responses.create!(data: { f1.id.to_s => [ "a", "b" ], f2.id.to_s => { x: 1, y: 2 } })
 
       csv = FormResponseExportService.call(client_form)
       rows = CSV.parse(csv, row_sep: "\r\n")
@@ -69,7 +69,7 @@ RSpec.describe FormResponseExportService, type: :service do
       f1 = create(:form_field, form: form, label: "IdKey")
       client_form.form.reload
 
-      resp = client_form.form_responses.create!(data: { f1.id.to_s => "value123" })
+      client_form.form_responses.create!(data: { f1.id.to_s => "value123" })
 
       payload = FormResponseExportService.as_json_payload(client_form)
 

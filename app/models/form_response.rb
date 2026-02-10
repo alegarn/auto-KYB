@@ -1,4 +1,5 @@
 class FormResponse < ApplicationRecord
+
   belongs_to :client_form
 
   validates :client_form, presence: true
@@ -11,4 +12,5 @@ class FormResponse < ApplicationRecord
     max = FormResponse.where(client_form_id: client_form_id).maximum(:version) || 0
     self.version = max + 1
   end
+
 end

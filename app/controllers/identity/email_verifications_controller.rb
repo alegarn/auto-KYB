@@ -1,4 +1,5 @@
 class Identity::EmailVerificationsController < ApplicationController
+
   skip_before_action :authenticate, only: :show
 
   before_action :set_user, only: :show
@@ -23,4 +24,5 @@ class Identity::EmailVerificationsController < ApplicationController
     def send_email_verification
       UserMailer.with(user: Current.user).email_verification.deliver_later
     end
+
 end

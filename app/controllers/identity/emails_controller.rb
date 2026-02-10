@@ -1,4 +1,5 @@
 class Identity::EmailsController < ApplicationController
+
   before_action :set_user
 
   def edit
@@ -33,4 +34,5 @@ class Identity::EmailsController < ApplicationController
     def resend_email_verification
       UserMailer.with(user: @user).email_verification.deliver_later
     end
+
 end

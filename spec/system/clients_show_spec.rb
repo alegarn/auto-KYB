@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-RSpec.describe 'View client details', type: :system do
+RSpec.describe 'View client details', type: :system, js: true do
   it 'navigates to client detail page and shows client info' do
     user = sign_in_user
 
@@ -15,15 +15,21 @@ RSpec.describe 'View client details', type: :system do
     visit '/clients'
 
     # Click the client link to go to show page
-    click_link client.name
+    within('li', text: client.name) do
+      click_link client.name
+    end
 
     expect(URI.parse(current_url).path).to eq("/clients/#{client.id}")
 
+    # Wait for Inertia navigation to finish: either the page heading
+    # or the component content (client name) should appear.
+    expect(page).to have_content('Client details').or have_content(client.name)
+
     # Verify client details displayed
-    expect(page).to have_content('Acme')
-    expect(page).to have_content('Acme Co')
-    expect(page).to have_content('info@acme.test')
-    expect(page).to have_content('+33123456789')
+    expect(page).to have_content(client.name)
+    expect(page).to have_content(client.company_name)
+    expect(page).to have_content(client.email)
+    expect(page).to have_content(client.phone)
     expect(page).to have_content('Paris').or have_content('75001')
   end
 end

@@ -1,4 +1,5 @@
 class RegistrationsController < ApplicationController
+
   skip_before_action :authenticate
 
   def new
@@ -28,4 +29,5 @@ class RegistrationsController < ApplicationController
     def send_email_verification
       UserMailer.with(user: @user).email_verification.deliver_later
     end
+
 end

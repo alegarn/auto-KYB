@@ -1,4 +1,5 @@
 class User < ApplicationRecord
+
   has_secure_password
 
   generates_token_for :email_verification, expires_in: 2.days do
@@ -36,4 +37,5 @@ class User < ApplicationRecord
   rescue => e
     Rails.logger.error("User: failed to initialize default forms for user=#{id} - #{e.message}")
   end
+
 end

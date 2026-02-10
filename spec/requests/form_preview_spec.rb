@@ -4,9 +4,9 @@ RSpec.describe "Form Preview API", type: :request do
   it "returns form detail with fields" do
     user = sign_in_user
     form = FactoryBot.create(:form, user: user)
-    ff = FactoryBot.create(:form_field, form: form, label: 'Address', position: 1, required: true)
+    FactoryBot.create(:form_field, form: form, label: 'Address', position: 1, required: true)
 
-    get "/forms/#{form.id}"
+    get "/forms/#{form.id}", params: { format: :json }
 
     expect(response).to have_http_status(:success)
     json = JSON.parse(response.body)

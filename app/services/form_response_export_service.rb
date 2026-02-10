@@ -1,6 +1,7 @@
-require 'csv'
+require "csv"
 
 class FormResponseExportService
+
   def self.call(client_form)
     new(client_form).call
   end
@@ -45,7 +46,7 @@ class FormResponseExportService
   private
 
   def build_header(form_fields)
-    ['Version', 'Created At'] + form_fields.map(&:label)
+    [ "Version", "Created At" ] + form_fields.map(&:label)
   end
 
   def build_row(response, form_fields)
@@ -55,7 +56,7 @@ class FormResponseExportService
       format_for_csv(data[field.id.to_s])
     end
 
-    [response.version, response.created_at.iso8601] + values
+    [ response.version, response.created_at.iso8601 ] + values
   end
 
   def extract_data_by_labels(data, form_fields)
@@ -80,13 +81,14 @@ class FormResponseExportService
   def format_for_csv(value)
     case value
     when Array
-      value.join('; ')
+      value.join("; ")
     when Hash
-      value.map { |k, v| "#{k}: #{v}" }.join('; ')
+      value.map { |k, v| "#{k}: #{v}" }.join("; ")
     when NilClass
-      ''
+      ""
     else
       value.to_s
     end
   end
+
 end

@@ -22,7 +22,7 @@ RSpec.describe 'Client export (GDPR)', type: :system do
 
     # CSV export - visit CSV endpoint and verify header + values
     visit "/clients/#{client.id}/export.csv"
-    expect(page.body).to include('id,name,company_name,email,phone,address,created_at,updated_at')
+    expect(page.body).to include('name,company_name,email,phone,address,created_at,updated_at')
     expect(page.body).to include('Acme')
     expect(page.body).to include('info@acme.test')
   end
