@@ -80,7 +80,7 @@
 				<p class="text-sm text-muted-foreground">{user?.email}</p>
 			</div>
 			<div class="flex flex-col gap-2 sm:flex-row">
-				<Button variant="secondary">Review submissions</Button>
+				<!-- <Button variant="secondary">Review submissions</Button> -->
 				<Sheet.Root>
 					<Button href={new_form_path()} variant="default">
 						New form
