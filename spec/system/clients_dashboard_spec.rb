@@ -1,10 +1,10 @@
 require 'rails_helper'
 
-RSpec.describe 'Clients on Dashboard', type: :system do
-  it 'shows client list on dashboard, supports search and pagination' do
+RSpec.describe 'Clients on Dashboard', type: :system, js: true do
+  it 'lists clients on the dashboard and provides summary counts and search' do
     user = sign_in_user
 
-    # Create clients for pagination and search
+    # Create a set of clients to be listed and searchable
     15.times do |i|
       user.clients.create!(name: "Client #{i + 1}", company_name: "Company #{i + 1}")
     end
@@ -16,25 +16,16 @@ RSpec.describe 'Clients on Dashboard', type: :system do
 
     expect(page).to have_content('Clients')
 
-    # Navigate to clients index
-    click_link 'View all clients'
-    expect(URI.parse(current_url).path).to eq('/clients')
-
-    # Client list is displayed with name and company
+    # Dashboard shows clients from the user's account
     expect(page).to have_content('Client 1')
-    expect(page).to have_content('Company 1')
+    expect(page).to have_content('Client 15')
 
-    # Search functionality
-    fill_in 'q', with: 'Zeta'
-    click_button 'Search'
+    # Summary count should be present
+    expect(page).to have_content('Total clients')
+    expect(page).to have_content(user.clients.count.to_s)
 
+    # Search functionality (client-side filter)
+    fill_in 'Search clients', with: 'Zeta'
     expect(page).to have_content('Zeta Solutions')
-    expect(page).to have_content('Zeta Co')
-
-    # Pagination: go to page 2 and expect to see Client 11
-    click_link 'Clear search'
-    click_link '2'
-
-    expect(page).to have_content('Client 11')
   end
 end

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useForm } from '@inertiajs/svelte'
+  import { Form, useForm } from '@inertiajs/svelte'
   import { Check } from '@lucide/svelte'
   import { client_portal_form_response_path } from '@/routes'
   import FormFieldRenderer from '@/components/customs/FormFieldRenderer.svelte'
@@ -207,7 +207,7 @@
         <h1 class="text-xl font-semibold text-foreground mb-4">{portalForm.name}</h1>
       {/if}
 
-      <form onsubmit={submit} class="space-y-4" aria-busy={$form.processing}>
+      <Form method="patch" onsubmit={submit} class="space-y-4" aria-busy={$form.processing}>
         {#each portalForm.form_fields as field (field.id ?? field.position)}
           {#if isLayoutField(field.field_type ?? field.type)}
             <FormFieldRenderer
@@ -258,7 +258,7 @@
             Submit & Validate
           </button>
         </div>
-      </form>
+      </Form>
     </div>
   </section>
 </main>
