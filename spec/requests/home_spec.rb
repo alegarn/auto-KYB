@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe "Homes", type: :request do
   describe "GET /index" do
     it "returns http success" do
-      get "/"
+      get "/", headers: { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest }
       expect(response).to have_http_status(:success)
     end
 

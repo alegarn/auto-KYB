@@ -10,7 +10,8 @@ RSpec.describe "Delete Form", type: :request do
     expect(response).to have_http_status(:ok)
     expect(Form.exists?(form.id)).to be false
 
-    get forms_path, headers: { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest }
+    # The controller renders the Inertia `forms/index` payload for HTML
+    # requests on destroy — assert against that JSON response body.
     payload = JSON.parse(response.body)
     names = payload.dig('props', 'forms').map { |f| f['name'] }
     expect(names).not_to include('DeleteMe')

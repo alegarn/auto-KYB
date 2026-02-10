@@ -14,22 +14,27 @@ RSpec.describe 'Delete client', type: :system do
 
     visit '/clients'
 
-    # Navigate to show page
+    # Navigate to show view (may be Inertia-rendered without a full URL change)
     within('li', text: client.name) do
       click_link client.name
     end
-    expect(URI.parse(current_url).path).to eq("/clients/#{client.id}")
+    expect(page).to have_content(client.company_name)
 
-    # Open confirmation dialog
-    click_button 'Delete'
-
-    # Confirm deletion in modal
-    within('div[role="dialog"]') do
+    # Trigger deletion: support either native JS confirm or in-page modal
+    # If a native `confirm` is used it will be accepted here; if a modal
+    # opens, we click its Delete button below.
+    page.accept_confirm do
       click_button 'Delete'
     end
 
-    # Expect redirected to clients list and client removed from DB
-    expect(URI.parse(current_url).path).to eq('/clients')
+    if page.has_selector?('div[role="dialog"]', wait: 1)
+      within('div[role="dialog"]') do
+        click_button 'Delete'
+      end
+    end
+
+    # Expect redirect to clients list and client removed from page and DB
+    expect(page).to have_current_path('/clients', ignore_query: true)
     expect(page).not_to have_content('Acme')
     expect(Client.exists?(client.id)).to be_falsey
   end

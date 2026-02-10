@@ -11,7 +11,9 @@ RSpec.describe "Edit Form", type: :request do
     expect(form.reload.name).to eq('MyForm Updated')
 
     get forms_path, headers: { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest }
+    expect(response.headers["X-Inertia"]).to eq("true")
     payload = JSON.parse(response.body)
+    expect(payload["component"]).to eq("forms/index")
     names = payload.dig('props', 'forms').map { |f| f['name'] }
     expect(names).to include('MyForm Updated')
   end

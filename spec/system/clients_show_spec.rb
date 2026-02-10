@@ -21,11 +21,15 @@ RSpec.describe 'View client details', type: :system, js: true do
 
     expect(URI.parse(current_url).path).to eq("/clients/#{client.id}")
 
+    # Wait for Inertia navigation to finish: either the page heading
+    # or the component content (client name) should appear.
+    expect(page).to have_content('Client details').or have_content(client.name)
+
     # Verify client details displayed
-    expect(page).to have_content('Acme')
-    expect(page).to have_content('Acme Co')
-    expect(page).to have_content('info@acme.test')
-    expect(page).to have_content('+33123456789')
+    expect(page).to have_content(client.name)
+    expect(page).to have_content(client.company_name)
+    expect(page).to have_content(client.email)
+    expect(page).to have_content(client.phone)
     expect(page).to have_content('Paris').or have_content('75001')
   end
 end

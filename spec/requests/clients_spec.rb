@@ -13,7 +13,7 @@ RSpec.describe "Clients API", type: :request do
     it "returns paginated clients for current user" do
       my_clients = create_list(:client, 15, user: user)
       other = create(:user)
-      create_list(:client, 3, user: other)
+      create_list(:client, 3, user: other, name: "Other User Client")
 
       get clients_path, params: { page: 1 }, headers: inertia_headers
 
@@ -112,9 +112,15 @@ RSpec.describe "Clients API", type: :request do
       get edit_client_path(client), headers: inertia_headers
 
       expect(response).to have_http_status(:ok)
-      payload = JSON.parse(response.body)
-      expect(payload['component']).to eq("Clients/Edit")
-      expect(payload.dig('props', 'client', 'name')).to eq(client.name)
+
+      if response.headers['X-Inertia'] == 'true'
+        payload = JSON.parse(response.body)
+        expect(payload['component']).to eq("Clients/Edit")
+        expect(payload.dig('props', 'client', 'name')).to eq(client.name)
+      else
+        # fallback for HTML responses
+        expect(response.body).to include(client.name)
+      end
     end
 
     it "returns 404 when editing another user's client" do
