@@ -26,7 +26,7 @@ export function createFormSubmitter(deps: SubmitterDeps) {
     const options = {
       preserveScroll: true,
       preserveState: true,
-      only: payload.partial ? ['last_response', 'flash_message'] : undefined,
+      only: payload.partial ? ['last_response', 'flash_message'] : [],
       onSuccess: () => {
         if (payload.partial) {
           deps.setFlashMessage({ type: 'notice', message: 'Form response saved successfully.' })
