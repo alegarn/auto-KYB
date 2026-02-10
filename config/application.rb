@@ -8,6 +8,7 @@ Bundler.require(*Rails.groups)
 
 module QuickKyb
   class Application < Rails::Application
+
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
 
@@ -32,5 +33,6 @@ module QuickKyb
       "Referrer-Policy" => "strict-origin-when-cross-origin",
       "Permissions-Policy" => "camera=(), microphone=(), geolocation=()"
     })
+
   end
 end

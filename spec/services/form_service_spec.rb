@@ -4,7 +4,7 @@ RSpec.describe FormService do
   describe '.create_form' do
     it 'creates a form and its fields' do
       user = User.create!(email: 'svc1@example.com', password: 'securepassword123')
-      params = { name: 'Svc Form', structure: { fields: [{ label: 'Name', field_type: 'text', required: true }] } }
+      params = { name: 'Svc Form', structure: { fields: [ { label: 'Name', field_type: 'text', required: true } ] } }
 
       form = FormService.create_form(user, params)
 
@@ -18,7 +18,7 @@ RSpec.describe FormService do
     it 'updates form name and structure' do
       user = User.create!(email: 'svc2@example.com', password: 'securepassword123')
       form = user.forms.create!(name: 'Old')
-      params = { name: 'New', structure: { fields: [{ label: 'Email', field_type: 'text' }] } }
+      params = { name: 'New', structure: { fields: [ { label: 'Email', field_type: 'text' } ] } }
 
       updated = FormService.update_form(user, form, params)
 
@@ -29,16 +29,18 @@ RSpec.describe FormService do
     it 'raises DataLossWarning when removing field with submissions' do
       user = User.create!(email: 'svc3@example.com', password: 'securepassword123')
       form = user.forms.create!(name: 'WithField')
-      ff = form.form_fields.create!(label: 'ToRemove', field_type: 'text')
+      form.form_fields.create!(label: 'ToRemove', field_type: 'text')
 
       # stub Form.has_submissions_for_field? using singleton class if method missing
       if Form.respond_to?(:has_submissions_for_field?)
         allow(Form).to receive(:has_submissions_for_field?).with(form.id, 'ToRemove').and_return(true)
       else
         class << Form
+
           def has_submissions_for_field?(_form_id, _field_label)
             false
           end
+
         end
         allow(Form).to receive(:has_submissions_for_field?).with(form.id, 'ToRemove').and_return(true)
       end

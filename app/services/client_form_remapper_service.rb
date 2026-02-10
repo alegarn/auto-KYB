@@ -1,11 +1,14 @@
 class ClientFormRemapperService
+
   class ConfirmReplaceRequired < StandardError
+
     attr_reader :attempted_form_id
 
     def initialize(attempted_form_id, message = nil)
       @attempted_form_id = attempted_form_id
-      super(message || 'Changing the active form will delete existing form responses. Confirm to proceed.')
+      super(message || "Changing the active form will delete existing form responses. Confirm to proceed.")
     end
+
   end
 
   # Performs the remap: deletes old responses and creates a new ClientForm invitation.
@@ -37,4 +40,5 @@ class ClientFormRemapperService
       { status: :created, client_form: result[:client_form], password: result[:password] }
     end
   end
+
 end

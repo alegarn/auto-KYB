@@ -13,9 +13,9 @@ RSpec.describe "Form Preview", type: :request do
     expect(response).to have_http_status(:success)
     payload = JSON.parse(response.body)
     labels = payload['form_fields'].map { |f| f['label'] }
-    required_map = payload['form_fields'].map { |f| [f['label'], f['required']] }.to_h
+    required_map = payload['form_fields'].map { |f| [ f['label'], f['required'] ] }.to_h
 
-    expect(labels).to eq(["Address", "City"])
+    expect(labels).to eq([ "Address", "City" ])
     expect(required_map["Address"]).to be true
     expect(required_map["City"]).to be false
   end

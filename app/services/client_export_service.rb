@@ -1,6 +1,7 @@
-require 'csv'
+require "csv"
 
 class ClientExportService
+
   ATTRS = %w[name company_name email phone address created_at updated_at].freeze
 
   def self.call(client)
@@ -17,4 +18,5 @@ class ClientExportService
       csv << ATTRS.map { |a| @client.as_json[a] }
     end
   end
+
 end

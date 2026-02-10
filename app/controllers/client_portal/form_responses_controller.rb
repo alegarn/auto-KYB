@@ -1,12 +1,13 @@
 module ClientPortal
   class FormResponsesController < ClientPortal::BaseController
-    skip_before_action :verify_authenticity_token, only: [:update]
+
+    skip_before_action :verify_authenticity_token, only: [ :update ]
     before_action :authenticate_client_form!
 
     def show
       client_form = Current.client_form
 
-      render inertia: 'ClientPortal/FormResponse', props: {
+      render inertia: "ClientPortal/FormResponse", props: {
         client: { id: client_form.client.id, name: client_form.client.name },
         form: FormDetailSerializer.new(client_form.form).as_json,
         last_response: last_response_payload(client_form)
@@ -33,18 +34,18 @@ module ClientPortal
       begin
         result = saver.save
       rescue ActiveRecord::RecordInvalid
-        return render inertia: 'ClientPortal/FormResponse', props: {
+        return render inertia: "ClientPortal/FormResponse", props: {
           flash_message: {
-            type: 'alert',
-            message: 'This form is locked or no longer available.'
+            type: "alert",
+            message: "This form is locked or no longer available."
           }
         }, status: :ok
       end
 
       if result.conflict
-        return render inertia: 'ClientPortal/FormResponse', props: {
+        return render inertia: "ClientPortal/FormResponse", props: {
           flash_message: {
-            type: 'alert',
+            type: "alert",
             message: result.error
           }
         }, status: :ok
@@ -54,9 +55,9 @@ module ClientPortal
         ClientPortal::SessionService.clear_cookie(cookies)
         redirect_to client_portal_confirmation_path, status: :see_other
       else
-        render inertia: 'ClientPortal/FormResponse', props: {
+        render inertia: "ClientPortal/FormResponse", props: {
           last_response: last_response_payload(client_form),
-          flash_message: { type: 'notice', message: 'Form response saved successfully.' }
+          flash_message: { type: "notice", message: "Form response saved successfully." }
         }, status: :ok
       end
     end
@@ -68,5 +69,6 @@ module ClientPortal
       return nil unless lr
       { data: lr.data, version: lr.version, created_at: lr.created_at.iso8601 }
     end
+
   end
 end

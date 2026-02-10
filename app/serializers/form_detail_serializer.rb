@@ -1,4 +1,5 @@
 class FormDetailSerializer
+
   def initialize(form)
     @form = form
   end
@@ -29,4 +30,5 @@ class FormDetailSerializer
       }
     end
   end
+
 end
