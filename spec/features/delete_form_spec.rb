@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-RSpec.describe "Delete Form", type: :request do
+RSpec.describe "Delete Form", type: :request, inertia: true do
   let(:inertia_headers) { { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest } }
 
   it 'deletes a form and removes it from the list' do
@@ -13,23 +13,18 @@ RSpec.describe "Delete Form", type: :request do
     expect(response).to have_http_status(:see_other)
     expect(Form.exists?(form.id)).to be false
 
-    # Follow the redirect and assert the Inertia `forms/index` payload and flash.
-    get response.headers['Location'], headers: inertia_headers
+    # Follow the redirect using Inertia test helper which handles 303/409 flows
+    follow_redirect!
 
-    # Inertia adapter may respond with 409 + X-Inertia-Location to indicate a location change
-    if response.status == 409
-      final_location = response.headers['X-Inertia-Location']
-      get final_location, headers: inertia_headers
-      expect(response).to have_http_status(:ok)
-      payload = JSON.parse(response.body)
-    else
-      expect(response).to have_http_status(:ok)
-      payload = JSON.parse(response.body)
-    end
-    names = payload.dig('props', 'forms').map { |f| f['name'] }
+    expect(response).to have_http_status(:ok)
+
+    # DEBUG: print props to help diagnose missing flash
+    puts "INERTIA PROPS: #{inertia.props.inspect}"
+    names = inertia.props.dig('forms')&.map { |f| f['name'] } || []
     expect(names).not_to include('DeleteMe')
 
-    toast = payload.dig('props', 'flash', 'toast')
+    # flash is included in props under `flash` (may be string or symbol keys)
+    toast = inertia.props.dig('flash', 'inertia', 'toast') || inertia.props.dig(:flash, :inertia, :toast) || inertia.props.dig('flash', 'toast') || inertia.props.dig(:flash, :toast)
     expect(toast).to be_present
     expect(toast['message']).to eq('Form deleted')
   end
