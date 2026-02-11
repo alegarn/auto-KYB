@@ -76,7 +76,7 @@
   }
 </script>
 
-<aside class="rounded-lg border bg-card">
+<aside class="rounded-lg border bg-card w-full max-w-full box-border">
   <div class="border-b px-4 py-3">
     <h3 class="text-sm font-semibold">Field Settings</h3>
     <p class="text-xs text-muted-foreground">{FIELD_TYPE_LABELS[field.field_type]}</p>
@@ -224,7 +224,7 @@
           placeholder="https://example.com/logo.png"
         />
       </div>
-      <div class="grid grid-cols-2 gap-2">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div>
           <Label for="cfg-logo-width" class="mb-1.5 block text-xs font-medium">Width (px)</Label>
           <Input
@@ -348,7 +348,7 @@
       <Separator />
       <div>
         <span class="mb-2 block text-xs font-medium">Validation</span>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <Label for="cfg-minlen" class="mb-1 block text-[11px] text-muted-foreground">Min length</Label>
             <Input
@@ -386,7 +386,7 @@
       <Separator />
       <div>
         <span class="mb-2 block text-xs font-medium">Validation</span>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <Label for="cfg-min" class="mb-1 block text-[11px] text-muted-foreground">Min</Label>
             <Input
@@ -456,7 +456,7 @@
                   <X class="size-3" />
                 </button>
               </div>
-              <div class="grid grid-cols-2 gap-1.5">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 <Input value={col.key} oninput={(e: any) => updateColumn(ci, 'key', e.target.value)} placeholder="Key" class="h-6 text-[11px]" />
                 <Input value={col.label} oninput={(e: any) => updateColumn(ci, 'label', e.target.value)} placeholder="Label" class="h-6 text-[11px]" />
               </div>

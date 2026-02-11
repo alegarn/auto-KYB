@@ -130,15 +130,15 @@
 
 <Sidebar.Provider>
   <AppSidebar session_id={session_id} />
-  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
+  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8 flex-grow">
     <Sidebar.Trigger class="mb-4" />
-    <section class="mx-auto max-w-7xl">
+    <section class="mx-auto w-full max-w-full">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-semibold">Edit Form</h1>
         <div class="flex gap-2">
           <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
           <Button type="button" onclick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Saving...' : 'Save Changes and View'}
+            {submitting ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </div>
@@ -183,7 +183,7 @@
 
       {#if preview}
         <div
-          class="rounded-lg border shadow-sm overflow-hidden mb-4"
+          class="rounded-lg border shadow-sm overflow-hidden mb-4 w-full"
           style:background-color={formSettings.form_background_color || '#ffffff'}
         >
           {#if formSettings.header_background_color}
@@ -191,7 +191,7 @@
               <h2 class="text-lg font-semibold">{name}</h2>
             </div>
           {/if}
-          <form onsubmit={handlePreviewSubmit} class="p-6">
+          <form onsubmit={handlePreviewSubmit} class="p-6 w-full">
             {#each fields as field (field['id'] ?? field['position'])}
               {#if isLayoutField(field.field_type)}
                 <FormFieldRenderer

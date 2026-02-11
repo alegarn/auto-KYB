@@ -46,19 +46,19 @@
   }
 </script>
 
-<aside class="rounded-lg border bg-card p-4">
+<aside class="rounded-lg border bg-card p-3 sm:p-4 w-full max-w-full box-border">
   <h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
     Field Types
   </h3>
   {#each FIELD_CATEGORIES as category}
     <div class="mb-4 last:mb-0">
       <p class="mb-2 text-xs font-medium text-muted-foreground">{category.name}</p>
-      <div class="grid grid-cols-2 gap-1.5">
+      <div class="grid grid-cols-2 gap-1 sm:gap-1.5">
         {#each category.types as fieldType}
           {@const Icon = iconMap[fieldType]}
           <button
             type="button"
-            class="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-2 text-left text-sm transition-colors hover:border-border hover:bg-accent"
+            class="flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 sm:px-2.5 sm:py-2 text-left text-xs sm:text-sm transition-colors hover:border-border hover:bg-accent"
             onclick={() => handleAdd(fieldType)}
             use:draggable={{
               data: () => ({
