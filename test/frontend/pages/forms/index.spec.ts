@@ -1,8 +1,8 @@
 import { mount, tick, unmount } from 'svelte'
 import { test, expect, vi, beforeEach } from 'vitest'
 
-import FormsIndex from '../../../../app/frontend/pages/forms/index.svelte'
 import { mockPageProps, resetPageProps, updatePageProps } from '../../mocks/inertia'
+import FormsIndex from '../../../../app/frontend/pages/forms/index.svelte'
 import { screen } from '@testing-library/svelte'
 
 beforeEach(() => {
