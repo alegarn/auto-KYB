@@ -21,7 +21,7 @@
   };
 </script>
 
-<aside class="rounded-lg border bg-card">
+<aside class="rounded-lg border bg-card w-full max-w-full box-border">
   <div class="border-b px-4 py-3">
     <h3 class="text-sm font-semibold">Form Styling</h3>
     <p class="text-xs text-muted-foreground">Customize form appearance</p>

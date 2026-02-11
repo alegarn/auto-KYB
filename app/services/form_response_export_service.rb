@@ -35,7 +35,7 @@ class FormResponseExportService
       fields: form_fields.map { |f| { id: f.id, label: f.label, field_type: f.field_type } },
       responses: form_responses.map do |response|
         {
-          version: response.version,
+          # version: response.version, --- IGNORE ---
           created_at: response.created_at.iso8601,
           data: extract_data_by_labels(response.data || {}, form_fields)
         }
@@ -46,7 +46,8 @@ class FormResponseExportService
   private
 
   def build_header(form_fields)
-    [ "Version", "Created At" ] + form_fields.map(&:label)
+    # ignore version in export
+    [ "Created At" ] + form_fields.map(&:label)
   end
 
   def build_row(response, form_fields)
@@ -56,7 +57,8 @@ class FormResponseExportService
       format_for_csv(data[field.id.to_s])
     end
 
-    [ response.version, response.created_at.iso8601 ] + values
+    # ignore version in export
+    [ response.created_at.iso8601 ] + values
   end
 
   def extract_data_by_labels(data, form_fields)
@@ -71,7 +73,8 @@ class FormResponseExportService
   end
 
   def form_responses
-    @form_responses ||= @client_form.form_responses.order(:version)
+    # Order by creation time; version is not exported anymore
+    @form_responses ||= @client_form.form_responses.order(:created_at)
   end
 
   def form_fields

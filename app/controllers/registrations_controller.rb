@@ -4,26 +4,38 @@ class RegistrationsController < ApplicationController
 
   def new
     @user = User.new
-    render inertia: "Registrations/New", props: { user: @user }
+    render inertia: "registrations/new", props: { user: @user }
   end
 
   def create
     @user = User.new(user_params)
-
     if @user.save
       session_record = @user.sessions.create!
       cookies.signed.permanent[:session_token] = { value: session_record.id, httponly: true }
 
-      send_email_verification
-      redirect_to root_path, notice: "Welcome! You have signed up successfully"
+      #send_email_verification
+      redirect_to dashboard_path, notice: "Welcome! You have signed up successfully"
     else
-      render inertia: "Registrations/New", props: { user: @user }, status: :unprocessable_entity
+      flash.now.inertia[:alert] = 'There was an error with your registration'
+      render inertia: 'registrations/new', props: { user: @user }, status: :unprocessable_entity
     end
   end
 
   private
     def user_params
-      params.permit(:email, :password, :password_confirmation)
+      # Accept either top-level params or nested under :registration
+      source = params[:registration] || params
+      permitted = source.permit(:email, :password, :password_confirmation)
+
+      result = {}
+      result[:email] = permitted[:email] if permitted[:email].present?
+      result[:password] = permitted[:password]
+
+      if permitted[:password_confirmation].present?
+        result[:password_confirmation] = permitted[:password_confirmation]
+      end
+
+      result
     end
 
     def send_email_verification

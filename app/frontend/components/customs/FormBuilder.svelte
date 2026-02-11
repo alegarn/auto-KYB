@@ -106,8 +106,8 @@
   );
 </script>
 
-<div class="grid gap-4 lg:grid-cols-[240px_1fr_280px]">
-  <div class="lg:block">
+<div class="grid gap-4 lg:grid-cols-[240px_1fr_280px] w-full">
+  <div class="block lg:block">
     <Palette add={addField} />
   </div>
 
@@ -124,7 +124,7 @@
     />
   </div>
 
-  <div class="lg:block">
+  <div class="block lg:block">
     <div class="mb-3 flex rounded-lg border bg-muted p-1">
       <button
         type="button"

@@ -1,16 +1,29 @@
 <script>
+  import { Form } from "@inertiajs/svelte";
   import Button from "/components/ui/button/button.svelte";
   import Input from "/components/ui/input/input.svelte";
   import Label from "/components/ui/label/label.svelte";
-  import { sign_in_path } from "@/routes";
+  import { sign_in_path, sign_up_path } from "@/routes";
+  import { page } from "@inertiajs/svelte";
 
 </script>
+
+{#if $page?.flash?.alert}
+  <div
+    class="mb-4 rounded-(--radius) bg-red-100 p-4 text-sm text-red-800 dark:bg-red-200"
+    role="alert"
+  >
+    {$page?.flash?.alert}
+  </div>
+{/if}
 
 <section
   class="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent"
 >
-  <form
-    action=""
+
+  <Form
+    action={sign_up_path()}
+    method="post"
     class="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md dark:[--color-muted:var(--color-zinc-900)]"
   >
     <div class="p-8 pb-6">
@@ -49,7 +62,7 @@
         </svg>
         </a>
         <h1 class="text-title mb-1 mt-4 text-xl font-semibold">
-          Create a Tailus UI Account
+          Create a Quick KYB Account
         </h1>
         <p class="text-sm">Welcome! Create an account to get started</p>
       </div>
@@ -100,6 +113,7 @@
       <hr class="my-4 border-dashed" />
 
       <div class="space-y-5">
+        <!-- 
         <div class="grid grid-cols-2 gap-3">
           <div class="space-y-2">
             <Label for="firstname" class="block text-sm">Firstname</Label>
@@ -110,24 +124,35 @@
             <Input type="text" required name="lastname" id="lastname" />
           </div>
         </div>
-
+ -->
         <div class="space-y-2">
-          <Label for="email" class="block text-sm">Username</Label>
+          <Label for="email" class="block text-sm">Email</Label>
           <Input type="email" required name="email" id="email" />
         </div>
 
         <div class="space-y-2">
-          <Label for="pwd" class="text-title text-sm">Password</Label>
+          <Label for="password" class="text-title text-sm">Password</Label>
           <Input
             type="password"
             required
-            name="pwd"
-            id="pwd"
+            name="password"
+            id="password"
             class="input sz-md variant-mixed"
           />
         </div>
 
-        <Button class="w-full">Continue</Button>
+        <div class="space-y-2">
+          <Label for="password_confirmation" class="text-title text-sm">Confirm Password</Label>
+          <Input
+            type="password"
+            required
+            name="password_confirmation"
+            id="password_confirmation"
+            class="input sz-md variant-mixed"
+          />
+        </div>
+
+        <Button class="w-full" type="submit">Sign up</Button>
       </div>
     </div>
 
@@ -137,5 +162,5 @@
         <Button href={sign_in_path()} variant="link" class="px-2">Sign in</Button>
       </p>
     </div>
-  </form>
+  </Form>
 </section>

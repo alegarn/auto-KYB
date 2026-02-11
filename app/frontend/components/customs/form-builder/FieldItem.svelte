@@ -33,7 +33,7 @@
 </script>
 
 <div
-  class="group flex items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors {isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-card hover:border-primary/30'}"
+  class="group flex items-center gap-2 rounded-lg border px-2 py-2 transition-colors sm:px-3 sm:py-2.5 w-full max-w-full box-border {isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-card hover:border-primary/30'}"
   data-dnd-item
   role="listitem"
   use:draggable={{
@@ -56,15 +56,15 @@
     onclick={() => onselect?.(index)}
   >
     <div class="min-w-0 flex-1">
-      <p class="truncate text-sm font-medium">{field.label || 'Untitled'}</p>
-      <p class="text-xs text-muted-foreground">
+        <p class="truncate text-sm sm:text-sm font-medium">{field.label || 'Untitled'}</p>
+        <p class="text-[11px] sm:text-xs text-muted-foreground">
         {FIELD_TYPE_LABELS[field.field_type] || field.field_type}
         {#if !isLayout && field.required}
           <span class="ml-1 text-destructive">*</span>
         {/if}
       </p>
     </div>
-    <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase {isLayout ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-muted text-muted-foreground'}">
+    <span class="shrink-0 rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-medium uppercase {isLayout ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-muted text-muted-foreground'}">
       {field.field_type}
     </span>
   </button>

@@ -7,8 +7,10 @@
 	import { Input } from "/components/ui/input";
 	import * as Sheet from "/components/ui/sheet";
 	import { Skeleton } from "/components/ui/skeleton";
-	import { Form as InertiaForm, inertia } from '@inertiajs/svelte'
+	import { Form as InertiaForm, inertia, useForm } from '@inertiajs/svelte'
+	import Modal from "/components/ui/modal.svelte";
 	import { new_form_path, form_path, edit_form_path } from "@/routes";
+	import { page } from '@inertiajs/svelte'
 
 	type FormStatus = "draft" | "submitted" | "approved" | "rejected";
 	type Form = {
@@ -19,15 +21,38 @@
     updated_at: string;
 	};
 
-	let { children, user, session_id, forms: serverForms } = $props();
-	let showModal = $state(false);
-	let selectedToDelete = $state(null as Form | null);
+	let { children, user, session_id, forms: serverForms, active_form_ids: serverActiveFormIds } = $props();
+  let showModal = $state(false);
+  let selectedToDelete = $state(null as Form | null);
+
+  const deleteForm = useForm({});
+
+  function openDeleteModal(f: Form) {
+    selectedToDelete = f;
+    showModal = true;
+  }
+
+  function confirmDelete() {
+    if (!selectedToDelete) return;
+    $deleteForm.delete(form_path(selectedToDelete.id), {
+      onSuccess: () => {
+        selectedToDelete = null;
+        showModal = false;
+      },
+    });
+  }
 
 	const statusFilters = ["all", "draft", "submitted", "approved", "rejected"] as const;
 	type StatusFilter = (typeof statusFilters)[number];
 
 	// Use server-provided list instead of mock data
 	let forms = $derived<Form[]>(serverForms || []);
+	const activeFormIdSet = $derived(
+		new Set((serverActiveFormIds || []) as string[])
+	);
+	const selectedIsActive = $derived.by(
+		() => (selectedToDelete ? activeFormIdSet.has(selectedToDelete.id) : false)
+	);
 	let loading = $state(false);
 	let search = $state("");
 	let selectedStatus = $state<StatusFilter>("all");
@@ -65,6 +90,20 @@
 		if (status === "all") return "All";
 		return status.charAt(0).toUpperCase() + status.slice(1);
 	};
+
+	// The Inertia `page.flash.toast` prop exists at runtime but the
+	// upstream `FlashData` type doesn't include `toast`. This is a
+	// false-positive TypeScript error; it's intentional and safe to
+	// ignore here so the UI can read the runtime flash structure.
+	// @ts-ignore: Property 'toast' does not exist on type 'FlashData'
+	const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null);
+	const flashClasses: string = $derived(
+		flashToast
+			? flashToast.type === 'notice'
+				? 'mb-4 rounded-md p-4 text-sm bg-green-50 text-green-700'
+				: 'mb-4 rounded-md p-4 text-sm bg-red-50 text-red-700'
+		: ''
+	);
 </script>
 
 <Sidebar.Provider>
@@ -73,6 +112,12 @@
 		<Sidebar.Trigger class="mb-4" />
 		{@render children?.()}
 
+		{#if flashToast}
+			<div role="alert" class={flashClasses}>
+				<span class="text-sm">{flashToast.message}</span>
+			</div>
+		{/if}
+
 		<section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 			<div>
 				<p class="text-sm text-muted-foreground">Workspace</p>
@@ -80,7 +125,7 @@
 				<p class="text-sm text-muted-foreground">{user?.email}</p>
 			</div>
 			<div class="flex flex-col gap-2 sm:flex-row">
-				<Button variant="secondary">Review submissions</Button>
+				<!-- <Button variant="secondary">Review submissions</Button> -->
 				<Sheet.Root>
 					<Button href={new_form_path()} variant="default">
 						New form
@@ -214,9 +259,7 @@
 											{form.status}
 										</span>
 										<Button href={edit_form_path(form.id)} class="no-underline" size="sm" variant="secondary">Update</Button>
-										<InertiaForm action={form_path(form.id)} method="delete">
-											<Button type="submit" variant="destructive" size="sm">Delete</Button>
-										</InertiaForm>
+										<Button type="button" variant="destructive" size="sm" onclick={() => openDeleteModal(form)}>Delete</Button>
 									</div>
 								</div>
 							{/each}
@@ -226,4 +269,12 @@
 			</Card.Root>
 		</section>
 	</main>
-</Sidebar.Provider>
+		<Modal bind:showModal={showModal} title="Delete form" description={selectedToDelete ? `Delete "${selectedToDelete.name}"?` : ''} onConfirm={confirmDelete} onClose={() => { selectedToDelete = null; showModal = false; }}>
+			<p>Are you sure you want to delete "{selectedToDelete?.name}"?</p>
+			{#if selectedIsActive}
+				<p class="mt-2 text-sm text-amber-700">This form is active in one or more client portals. Deleting it will revoke access and remove saved responses on the server.</p>
+			{:else}
+				<p class="mt-2 text-sm text-muted-foreground">Deleting this form may prevent active clients from filling it. Update linked clients before deleting.</p>
+			{/if}
+		</Modal>
+	</Sidebar.Provider>
