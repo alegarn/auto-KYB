@@ -7,7 +7,8 @@
 	import { Input } from "/components/ui/input";
 	import * as Sheet from "/components/ui/sheet";
 	import { Skeleton } from "/components/ui/skeleton";
-	import { Form as InertiaForm, inertia } from '@inertiajs/svelte'
+	import { Form as InertiaForm, inertia, useForm } from '@inertiajs/svelte'
+	import Modal from "/components/ui/modal.svelte";
 	import { new_form_path, form_path, edit_form_path } from "@/routes";
 
 	type FormStatus = "draft" | "submitted" | "approved" | "rejected";
@@ -20,8 +21,25 @@
 	};
 
 	let { children, user, session_id, forms: serverForms } = $props();
-	let showModal = $state(false);
-	let selectedToDelete = $state(null as Form | null);
+  let showModal = $state(false);
+  let selectedToDelete = $state(null as Form | null);
+
+  const deleteForm = useForm({});
+
+  function openDeleteModal(f: Form) {
+    selectedToDelete = f;
+    showModal = true;
+  }
+
+  function confirmDelete() {
+    if (!selectedToDelete) return;
+    $deleteForm.delete(form_path(selectedToDelete.id), {
+      onSuccess: () => {
+        selectedToDelete = null;
+        showModal = false;
+      },
+    });
+  }
 
 	const statusFilters = ["all", "draft", "submitted", "approved", "rejected"] as const;
 	type StatusFilter = (typeof statusFilters)[number];
@@ -214,9 +232,7 @@
 											{form.status}
 										</span>
 										<Button href={edit_form_path(form.id)} class="no-underline" size="sm" variant="secondary">Update</Button>
-										<InertiaForm action={form_path(form.id)} method="delete">
-											<Button type="submit" variant="destructive" size="sm">Delete</Button>
-										</InertiaForm>
+										<Button type="button" variant="destructive" size="sm" onclick={() => openDeleteModal(form)}>Delete</Button>
 									</div>
 								</div>
 							{/each}
@@ -226,4 +242,8 @@
 			</Card.Root>
 		</section>
 	</main>
-</Sidebar.Provider>
+		<Modal bind:showModal={showModal} title="Delete form" description={selectedToDelete ? `Delete "${selectedToDelete.name}"?` : ''} onConfirm={confirmDelete} onClose={() => { selectedToDelete = null; showModal = false; }}>
+			<p>Are you sure you want to delete "{selectedToDelete?.name}"?</p>
+			<p class="text-sm text-muted-foreground mt-2">Deleting this form may prevent active clients from filling it. Update linked clients before deleting.</p>
+		</Modal>
+	</Sidebar.Provider>
