@@ -21,7 +21,7 @@
     updated_at: string;
 	};
 
-	let { children, user, session_id, forms: serverForms } = $props();
+	let { children, user, session_id, forms: serverForms, active_form_ids: serverActiveFormIds } = $props();
   let showModal = $state(false);
   let selectedToDelete = $state(null as Form | null);
 
@@ -47,6 +47,12 @@
 
 	// Use server-provided list instead of mock data
 	let forms = $derived<Form[]>(serverForms || []);
+	const activeFormIdSet = $derived(
+		new Set((serverActiveFormIds || []) as string[])
+	);
+	const selectedIsActive = $derived.by(
+		() => (selectedToDelete ? activeFormIdSet.has(selectedToDelete.id) : false)
+	);
 	let loading = $state(false);
 	let search = $state("");
 	let selectedStatus = $state<StatusFilter>("all");
@@ -85,7 +91,11 @@
 		return status.charAt(0).toUpperCase() + status.slice(1);
 	};
 
-	// Inertia flash (one-time) handling from `page.flash` using Svelte 5 $derived runes
+	// The Inertia `page.flash.toast` prop exists at runtime but the
+	// upstream `FlashData` type doesn't include `toast`. This is a
+	// false-positive TypeScript error; it's intentional and safe to
+	// ignore here so the UI can read the runtime flash structure.
+	// @ts-ignore: Property 'toast' does not exist on type 'FlashData'
 	const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null);
 	const flashClasses: string = $derived(
 		flashToast
@@ -261,6 +271,10 @@
 	</main>
 		<Modal bind:showModal={showModal} title="Delete form" description={selectedToDelete ? `Delete "${selectedToDelete.name}"?` : ''} onConfirm={confirmDelete} onClose={() => { selectedToDelete = null; showModal = false; }}>
 			<p>Are you sure you want to delete "{selectedToDelete?.name}"?</p>
-			<p class="text-sm text-muted-foreground mt-2">Deleting this form may prevent active clients from filling it. Update linked clients before deleting.</p>
+			{#if selectedIsActive}
+				<p class="mt-2 text-sm text-amber-700">This form is active in one or more client portals. Deleting it will revoke access and remove saved responses on the server.</p>
+			{:else}
+				<p class="mt-2 text-sm text-muted-foreground">Deleting this form may prevent active clients from filling it. Update linked clients before deleting.</p>
+			{/if}
 		</Modal>
 	</Sidebar.Provider>

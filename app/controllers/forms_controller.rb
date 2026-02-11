@@ -3,7 +3,10 @@ class FormsController < ApplicationController
   def index
     forms = current_user ? FormSerializer.collection(current_user.forms.order(created_at: :desc)) : []
 
-    render inertia: "forms/index", props: default_inertia_props.merge(forms: forms)
+    render inertia: "forms/index", props: default_inertia_props.merge(
+      forms: forms,
+      active_form_ids: InertiaRails.defer { active_form_ids }
+    )
   end
 
   def show
@@ -72,6 +75,16 @@ class FormsController < ApplicationController
   end
 
   private
+
+  def active_form_ids
+    return [] unless current_user
+
+    form_ids = current_user.forms.select(:id)
+    ClientForm.joins(:form_responses)
+              .where(form_id: form_ids)
+              .distinct
+              .pluck(:form_id)
+  end
 
   def form_params
     params.require(:form).permit(
