@@ -6,7 +6,6 @@ Rails.application.routes.draw do
 
   root "home#index"
 
-  # Countries list endpoint (serves config/countries.yml)
   get "countries", to: "countries#index", defaults: { format: :json }
 
   get "dashboard", to: "dashboard#index"
