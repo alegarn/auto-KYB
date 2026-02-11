@@ -33,7 +33,7 @@
     date: Calendar,
     file: Upload,
     table: Table,
-    button: MousePointerClick,
+    /* button: MousePointerClick, */
     buttons: MousePointerClick,
     section: LayoutList,
     subtitle: Heading2,

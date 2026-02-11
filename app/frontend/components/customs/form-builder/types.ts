@@ -10,7 +10,7 @@ export type FieldType =
   | 'radio'
   | 'file'
   | 'table'
-  | 'button'
+  /* | 'button' */
   | 'section'
   | 'subtitle'
   | 'static_text'
@@ -106,7 +106,7 @@ export const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   radio: 'Radio',
   file: 'File Upload',
   table: 'Table',
-  button: 'Button',
+  /* button: 'Button', */
   buttons: 'Buttons',
   section: 'Section',
   subtitle: 'Subtitle',
@@ -121,7 +121,7 @@ export const FIELD_CATEGORIES: { name: string; types: FieldType[] }[] = [
   { name: 'Choice (UI)', types: ['buttons'] },
   { name: 'Data', types: ['date', 'file', 'table'] },
   { name: 'Layout', types: ['section', 'subtitle', 'static_text', 'separator', 'logo'] },
-  { name: 'Action', types: ['button'] },
+  /* { name: 'Action', types: ['button'] }, */
 ];
 
 export function isLayoutField(fieldType: FieldType): boolean {
