@@ -2,11 +2,37 @@
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { Form as InertiaForm } from '@inertiajs/svelte';
+  import { onMount } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
+  import { fetchCountriesData } from '/lib/countries';
 
   let { user, errors = {}, session_id, forms = [] } = $props();
+
+  let countries = $state([{ name: 'United States', code: 'US', flag: '🇺🇸' }]);
+  let countryOptions = $derived((countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag })));
+  let selectedCountry = $state('');
+  let countriesLoading = $state(false);
+  let countriesError = $state(null);
+
+  async function fetchCountries() {
+    countriesLoading = true;
+    countriesError = null;
+    try {
+      const data = await fetchCountriesData();
+      countries = data;
+    } catch (err: any) {
+      console.error('Failed to load countries', err);
+      countriesError = err?.message || 'Failed to load countries';
+    } finally {
+      countriesLoading = false;
+    }
+  }
+
+  onMount(() => {
+    fetchCountries();
+  });
 
   const hasError = (field: string) => {
     if (!errors) return false;
@@ -113,7 +139,21 @@
 
       <div>
         <Label for="client-country" class="block text-sm font-medium">Country</Label>
-        <Input id="client-country" name="client[country]" class={`w-full ${hasError('country') ? 'border-rose-600' : ''}`} />
+        {#if countriesLoading}
+          <select id="client-country" name="client[country]" disabled class="w-full border rounded px-3 py-2 bg-muted/10">
+            <option>Loading countries...</option>
+          </select>
+        {:else}
+          <select id="client-country" name="client[country]" bind:value={selectedCountry} class={`w-full border rounded px-3 py-2 bg-background ${hasError('country') ? 'border-rose-600' : ''}`}>
+            <option value="">Select a country</option>
+            {#each countryOptions as opt}
+              <option value={opt?.value}>{opt?.flag} {opt?.label}</option>
+            {/each}
+          </select>
+        {/if}
+        {#if countriesError}
+          <div class="text-rose-600 text-sm mt-1">Error loading countries: {countriesError} <button class="ml-2 underline" onclick={fetchCountries}>Retry</button></div>
+        {/if}
         {#if hasError('country')}
           <div class="text-rose-600 text-sm mt-1">{errors['country']?.[0]}</div>
         {/if}
@@ -135,8 +175,8 @@
             <Input id="client-postal" name="client[address][postal_code]" />
           </div>
           <div>
-            <Label for="client-country" class="block text-sm">Country</Label>
-            <Input id="client-country" name="client[address][country]" />
+            <Label for="client-address-country" class="block text-sm">Country</Label>
+            <Input id="client-address-country" name="client[address][country]" />
           </div>
         </div>
       </fieldset>
