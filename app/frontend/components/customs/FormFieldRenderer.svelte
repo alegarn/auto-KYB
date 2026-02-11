@@ -8,6 +8,7 @@
   import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table/index.js";
   import { Label } from "@/components/ui/label/index.js";
   import { Plus, Trash2 } from "@lucide/svelte";
+  import ButtonsField from './form-builder/ButtonsField.svelte';
   import type { FieldType, FieldMetadata, TableColumn } from "./form-builder/types";
 
   interface Props {
@@ -218,6 +219,17 @@
     {/each}
   {/if}
 
+{:else if type === 'buttons'}
+  <ButtonsField
+    options={options.map((o) => ({ label: o, value: o }))}
+    multiple={metadata.allow_multiple}
+    name={name}
+    value={currentValue}
+    onChange={(v: any) => onChange?.({ id, value: v })}
+    onValue={(v: any) => onChange?.({ id, value: v })}
+    className="w-full"
+  />
+
 {:else if type === 'table'}
   <div class="space-y-2">
     <div class="rounded-md border">
@@ -353,4 +365,5 @@
       />
     </label>
   {/if}
+
 {/if}

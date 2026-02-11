@@ -34,6 +34,7 @@
     file: Upload,
     table: Table,
     button: MousePointerClick,
+    buttons: MousePointerClick,
     section: LayoutList,
     subtitle: Heading2,
     static_text: FileText,

@@ -5,6 +5,7 @@ export type FieldType =
   | 'date'
   | 'textarea'
   | 'checkbox'
+  | 'buttons'
   | 'select'
   | 'radio'
   | 'file'
@@ -106,6 +107,7 @@ export const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   file: 'File Upload',
   table: 'Table',
   button: 'Button',
+  buttons: 'Buttons',
   section: 'Section',
   subtitle: 'Subtitle',
   static_text: 'Text Block',
@@ -116,6 +118,7 @@ export const FIELD_TYPE_LABELS: Record<FieldType, string> = {
 export const FIELD_CATEGORIES: { name: string; types: FieldType[] }[] = [
   { name: 'Input', types: ['text', 'number', 'email', 'textarea'] },
   { name: 'Choice', types: ['select', 'radio', 'checkbox'] },
+  { name: 'Choice (UI)', types: ['buttons'] },
   { name: 'Data', types: ['date', 'file', 'table'] },
   { name: 'Layout', types: ['section', 'subtitle', 'static_text', 'separator', 'logo'] },
   { name: 'Action', types: ['button'] },
@@ -138,6 +141,10 @@ export function createField(fieldType: FieldType, position: number): FormField {
     case 'select':
     case 'radio':
       base.metadata.options = ['Option 1', 'Option 2'];
+      break;
+    case 'buttons':
+      base.metadata.options = ['Option 1', 'Option 2'];
+      base.metadata.allow_multiple = false;
       break;
     case 'checkbox':
       base.metadata.options = ['Option 1'];

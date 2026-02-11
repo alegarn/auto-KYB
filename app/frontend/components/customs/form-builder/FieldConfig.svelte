@@ -52,7 +52,7 @@
   }
 
   const hasOptions = $derived(
-    field.field_type === 'select' || field.field_type === 'radio' || field.field_type === 'checkbox'
+    field.field_type === 'select' || field.field_type === 'radio' || field.field_type === 'checkbox' || field.field_type === 'buttons'
   );
   const hasTextValidation = $derived(
     field.field_type === 'text' || field.field_type === 'email' || field.field_type === 'textarea'
@@ -330,7 +330,7 @@
             </div>
           {/each}
         </div>
-        {#if field.field_type === 'checkbox'}
+        {#if field.field_type === 'checkbox' || field.field_type === 'buttons'}
           <label class="mt-2 flex items-center gap-2">
             <input
               type="checkbox"
