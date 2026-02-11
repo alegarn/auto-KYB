@@ -10,6 +10,7 @@
 	import { Form as InertiaForm, inertia, useForm } from '@inertiajs/svelte'
 	import Modal from "/components/ui/modal.svelte";
 	import { new_form_path, form_path, edit_form_path } from "@/routes";
+	import { page } from '@inertiajs/svelte'
 
 	type FormStatus = "draft" | "submitted" | "approved" | "rejected";
 	type Form = {
@@ -83,6 +84,16 @@
 		if (status === "all") return "All";
 		return status.charAt(0).toUpperCase() + status.slice(1);
 	};
+
+	// Inertia flash (one-time) handling from `page.flash` using Svelte 5 $derived runes
+	const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null);
+	const flashClasses: string = $derived(
+		flashToast
+			? flashToast.type === 'notice'
+				? 'mb-4 rounded-md p-4 text-sm bg-green-50 text-green-700'
+				: 'mb-4 rounded-md p-4 text-sm bg-red-50 text-red-700'
+		: ''
+	);
 </script>
 
 <Sidebar.Provider>
@@ -90,6 +101,12 @@
 	<main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8 flex-grow">
 		<Sidebar.Trigger class="mb-4" />
 		{@render children?.()}
+
+		{#if flashToast}
+			<div role="alert" class={flashClasses}>
+				<span class="text-sm">{flashToast.message}</span>
+			</div>
+		{/if}
 
 		<section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 			<div>

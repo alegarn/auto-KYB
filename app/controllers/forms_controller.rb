@@ -43,8 +43,7 @@ class FormsController < ApplicationController
     respond_to do |format|
       format.json { head :no_content }
       format.html do
-        forms = FormSerializer.collection(current_user.forms.order(created_at: :desc))
-        render inertia: "forms/index", props: default_inertia_props.merge(forms: forms)
+        redirect_to forms_path, flash: { inertia: { toast: { message: "Form deleted", type: "notice" } } }, status: :see_other
       end
     end
   end
