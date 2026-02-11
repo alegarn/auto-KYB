@@ -62,7 +62,7 @@
         </svg>
         </a>
         <h1 class="text-title mb-1 mt-4 text-xl font-semibold">
-          Create a Tailus UI Account
+          Create a Quick KYB Account
         </h1>
         <p class="text-sm">Welcome! Create an account to get started</p>
       </div>
@@ -131,12 +131,23 @@
         </div>
 
         <div class="space-y-2">
-          <Label for="pwd" class="text-title text-sm">Password</Label>
+          <Label for="password" class="text-title text-sm">Password</Label>
           <Input
             type="password"
             required
-            name="pwd"
-            id="pwd"
+            name="password"
+            id="password"
+            class="input sz-md variant-mixed"
+          />
+        </div>
+
+        <div class="space-y-2">
+          <Label for="password_confirmation" class="text-title text-sm">Confirm Password</Label>
+          <Input
+            type="password"
+            required
+            name="password_confirmation"
+            id="password_confirmation"
             class="input sz-md variant-mixed"
           />
         </div>

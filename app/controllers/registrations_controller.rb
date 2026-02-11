@@ -25,14 +25,17 @@ class RegistrationsController < ApplicationController
     def user_params
       # Accept either top-level params or nested under :registration
       source = params[:registration] || params
-      permitted = source.permit(:email, :password, :password_confirmation, :pwd)
+      permitted = source.permit(:email, :password, :password_confirmation)
 
-      # If frontend sends `pwd` instead of `password`, map it through
-      if permitted[:password].blank? && permitted[:pwd].present?
-        { 'email' => permitted[:email], 'password' => permitted[:pwd], 'password_confirmation' => permitted[:password_confirmation] }
-      else
-        permitted.to_h
+      result = {}
+      result[:email] = permitted[:email] if permitted[:email].present?
+      result[:password] = permitted[:password]
+
+      if permitted[:password_confirmation].present?
+        result[:password_confirmation] = permitted[:password_confirmation]
       end
+
+      result
     end
 
     def send_email_verification
