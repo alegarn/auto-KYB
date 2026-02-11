@@ -401,7 +401,7 @@ describe('Forms Edit Page', () => {
       }
     })
 
-    const saveButton = getByText('Save Changes and View')
+    const saveButton = getByText('Save Changes')
     await fireEvent.click(saveButton)
 
     await waitFor(() => {
@@ -493,7 +493,7 @@ describe('Forms Edit Page', () => {
       }
     })
 
-    const saveButton = getByText('Save Changes and View')
+    const saveButton = getByText('Save Changes')
     await fireEvent.click(saveButton)
 
     await waitFor(() => {
