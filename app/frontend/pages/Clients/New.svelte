@@ -88,6 +88,14 @@
       </div>
 
       <div>
+        <Label for="client-company-id" class="block text-sm font-medium">Company ID</Label>
+        <Input id="client-company-id" name="client[company_id]" class={`w-full ${hasError('company_id') ? 'border-rose-600' : ''}`} />
+        {#if hasError('company_id')}
+          <div class="text-rose-600 text-sm mt-1">{errors['company_id']?.[0]}</div>
+        {/if}
+      </div>
+
+      <div>
         <Label for="client-email" class="block text-sm font-medium">Email</Label>
         <Input id="client-email" name="client[email]" type="email" class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
         {#if hasError('email')}
@@ -100,6 +108,14 @@
         <Input id="client-phone" name="client[phone]" class={`w-full ${hasError('phone') ? 'border-rose-600' : ''}`} />
         {#if hasError('phone')}
           <div class="text-rose-600 text-sm mt-1">{errors['phone']?.[0]}</div>
+        {/if}
+      </div>
+
+      <div>
+        <Label for="client-country" class="block text-sm font-medium">Country</Label>
+        <Input id="client-country" name="client[country]" class={`w-full ${hasError('country') ? 'border-rose-600' : ''}`} />
+        {#if hasError('country')}
+          <div class="text-rose-600 text-sm mt-1">{errors['country']?.[0]}</div>
         {/if}
       </div>
 

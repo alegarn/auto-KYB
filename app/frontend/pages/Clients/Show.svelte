@@ -66,6 +66,8 @@
           <div class="space-y-2">
             <p><strong>Name:</strong> {client['name']}</p>
             <p><strong>Company:</strong> {client['company_name']}</p>
+            <p><strong>Company ID:</strong> {client['company_id']}</p>
+            <p><strong>Country:</strong> {client['country']}</p>
             <p><strong>Status:</strong>
               <span class={`ml-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${clientStatusBadge(client['status'])}`}>
                 {client['status']}

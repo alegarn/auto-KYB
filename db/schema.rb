@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_05_034805) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_11_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -32,7 +32,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_034805) do
 
   create_table "clients", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "address"
+    t.string "company_id"
     t.string "company_name", null: false
+    t.string "country"
     t.datetime "created_at", null: false
     t.string "email"
     t.integer "form_status", default: 0, null: false
@@ -42,6 +44,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_034805) do
     t.uuid "user_id", null: false
     t.index "user_id, lower((company_name)::text)", name: "index_clients_on_user_id_and_lower_company_name"
     t.index "user_id, lower((name)::text)", name: "index_clients_on_user_id_and_lower_name"
+    t.index ["company_id"], name: "index_clients_on_company_id"
+    t.index ["country"], name: "index_clients_on_country"
     t.index ["user_id"], name: "index_clients_on_user_id"
   end
 

@@ -150,7 +150,7 @@ class ClientsController < ApplicationController
   private
 
   def client_params
-    params.require(:client).permit(:name, :company_name, :email, :phone, address: %i[street city country postal_code])
+    params.require(:client).permit(:name, :company_name, :company_id, :email, :phone, :country, address: %i[street city country postal_code])
   end
 
   def client_form_params
