@@ -210,7 +210,7 @@
           </div>
 
           <div>
-            <Label for="client-country" class="block text-sm font-medium">Country</Label>
+            <Label for="client-country" class="block text-sm font-medium">Company's country</Label>
             {#if countriesLoading}
               <select id="client-country" name="client[country]" disabled class="w-full border rounded px-3 py-2 bg-muted/10">
                 <option>Loading countries...</option>
@@ -232,7 +232,7 @@
           </div>
 
           <fieldset class="mt-4 border p-3 rounded">
-            <legend class="text-sm font-medium">Address (optional)</legend>
+            <legend class="text-sm font-medium">Company's Address (optional)</legend>
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2 mt-2">
               <div>
                 <Label for="client-street" class="block text-sm">Street</Label>
@@ -245,10 +245,6 @@
               <div>
                 <Label for="client-postal" class="block text-sm">Postal code</Label>
                 <Input id="client-postal" name="client[address][postal_code]" value={client?.address?.postal_code} />
-              </div>
-              <div>
-                <Label for="client-address-country" class="block text-sm">Country</Label>
-                <Input id="client-address-country" name="client[address][country]" value={client?.address?.country} />
               </div>
             </div>
           </fieldset>

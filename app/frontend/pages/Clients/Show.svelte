@@ -7,9 +7,27 @@
   import { Form as InertiaForm } from '@inertiajs/svelte';
   import { Label } from '/components/ui/label/index.js';
   import { router } from '@inertiajs/svelte';
+  import { onMount } from 'svelte';
+  import { fetchCountriesData } from '/lib/countries';
 
   let { user, client = null, session_id, forms = [], client_form = null } = $props();
   let showConfirm = $state(false);
+
+  // Countries lookup used to display country full name + flag
+  let countries = $state<Array<{ name: string; code: string; flag: string }>>([]);
+  let countriesByCode = $derived(() => (countries || []).reduce((h: Record<string, any>, c: any) => { h[String(c.code).toUpperCase()] = c; return h; }, {}));
+
+  const displayCountry = $derived(() => {
+    const code = client?.country;
+    if (!code) return null;
+    const lookup = countriesByCode();
+    const found = lookup[String(code).toUpperCase()];
+    return found || { name: String(code), code: String(code), flag: '' };
+  });
+
+  onMount(() => {
+    fetchCountriesData().then((data) => { countries = data; }).catch((err) => console.error('countries load', err));
+  });
 
   function openConfirm() {
     showConfirm = true;
@@ -67,7 +85,13 @@
             <p><strong>Name:</strong> {client['name']}</p>
             <p><strong>Company:</strong> {client['company_name']}</p>
             <p><strong>Company ID:</strong> {client['company_id']}</p>
-            <p><strong>Country:</strong> {client['country']}</p>
+            <p><strong>Company's country:</strong>
+              {#if displayCountry()?.name}
+                <span>{displayCountry().flag} {displayCountry().name}</span>
+              {:else}
+                {client['country']}
+              {/if}
+            </p>
             <p><strong>Status:</strong>
               <span class={`ml-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${clientStatusBadge(client['status'])}`}>
                 {client['status']}
@@ -78,7 +102,7 @@
 
             {#if client['address']}
               <div>
-                <strong>Address:</strong>
+                <strong>Company's Address:</strong>
                 {#if typeof client['address'] === 'string'}
                   <div>{client['address']}</div>
                 {:else}
@@ -86,7 +110,6 @@
                     {#if client['address']['street']}<div>{client['address']['street']}</div>{/if}
                     {#if client['address']['city']}<div>{client['address']['city']}</div>{/if}
                     {#if client['address']['postcode']}<div>{client['address']['postcode']}</div>{/if}
-                    {#if client['address']['country']}<div>{client['address']['country']}</div>{/if}
                   </div>
                 {/if}
               </div>
