@@ -31,7 +31,14 @@ class ClientForm < ApplicationRecord
   def save_response!(data: {}, validate: false)
     raise ActiveRecord::RecordInvalid.new(self) if locked?
 
-    response = FormResponse.create!(client_form: self, data: data)
+    # Keep only the latest response: remove any existing responses
+    # (versioning previously incremented `version` per response; see
+    # commented code in FormResponse model).
+    response = nil
+    transaction do
+      form_responses.delete_all
+      response = FormResponse.create!(client_form: self, data: data)
+    end
 
     if self.status == self.class.statuses["draft"] && FormResponse.where(client_form_id: id).count > 0
       update!(status: self.class.statuses["filled"])
