@@ -247,7 +247,6 @@
         {/each}
 
         <div class="flex gap-3">
-          <Button type="submit" name="form_response[validate]" value="false" class="inline-flex items-center rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground">Save</Button>
           <button
             type="submit"
             name="form_response[validate]"
