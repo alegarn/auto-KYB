@@ -36,6 +36,8 @@ Rails.application.routes.draw do
     resource :email_verification, only: [ :show, :create ]
     resource :password_reset,     only: [ :new, :edit, :create, :update ]
   end
+  
+  get '/auth/:provider/callback', to: 'sessions#omniauth'
 
   get "inertia-example", to: "inertia_example#index"
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html

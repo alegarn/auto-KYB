@@ -11,6 +11,9 @@ gem "puma", ">= 5.0"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
 
+# environment variable management for Rails [
+gem 'dotenv-rails', groups: [:development, :test]
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 gem "bcrypt", "~> 3.1.7"
 
@@ -43,6 +46,11 @@ gem "inertia_rails", "~> 3.10"
 # An authentication system generator for Rails applications
 # we leave gem here to watch for security updates
 gem "authentication-zero"
+# Use OmniAuth to support multi-provider authentication [https://github.com/omniauth/omniauth]
+gem "omniauth"
+# Provides a mitigation against CVE-2015-9284 [https://github.com/cookpad/omniauth-rails_csrf_protection]
+gem "omniauth-rails_csrf_protection"
+gem 'omniauth-google-oauth2'
 
 # Brings Rails named routes to javascript
 # $ rails generate js_routes:middleware

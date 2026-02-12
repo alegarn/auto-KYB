@@ -99,6 +99,99 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
     end
   end
 
+  describe "GET #omniauth" do
+    let(:provider) { "google_oauth2" }
+    let(:uid) { "google-uid-123" }
+    let(:email) { "oauth@example.com" }
+
+    def omniauth_hash(provider: provider, uid: uid, email: email)
+      {
+        "provider" => provider,
+        "uid" => uid,
+        "info" => {
+          "email" => email
+        }
+      }
+    end
+
+    it "signs in an existing oauth user" do
+      oauth_user = User.create!(
+        email: email,
+        provider: provider,
+        uid: uid,
+        password: "password123456"
+      )
+      allow(controller).to receive(:oauth_auth).and_return(omniauth_hash)
+
+      expect {
+        get :omniauth, params: { provider: provider }
+      }.to change { Session.count }.by(1)
+
+      expect(response).to redirect_to(dashboard_path)
+      expect(cookies.signed[:session_token]).to be_present
+      expect(Session.last.user_id).to eq(oauth_user.id)
+    end
+
+    it "links provider and uid for existing email user" do
+      email_user = User.create!(email: email, password: "password123456")
+      allow(controller).to receive(:oauth_auth).and_return(omniauth_hash)
+
+      expect {
+        get :omniauth, params: { provider: provider }
+      }.to change { Session.count }.by(1)
+
+      email_user.reload
+      expect(email_user.provider).to eq(provider)
+      expect(email_user.uid).to eq(uid)
+      expect(response).to redirect_to(dashboard_path)
+    end
+
+    it "creates a user when email is not registered" do
+      allow(controller).to receive(:oauth_auth).and_return(omniauth_hash)
+
+      expect {
+        get :omniauth, params: { provider: provider }
+      }.to change { User.count }.by(1)
+       .and change { Session.count }.by(1)
+
+      created_user = User.find_by(email: email)
+      expect(created_user).to be_present
+      expect(created_user.provider).to eq(provider)
+      expect(created_user.uid).to eq(uid)
+      expect(response).to redirect_to(dashboard_path)
+    end
+
+    it "does not relink to a different oauth identity for same email" do
+      conflicted_user = User.create!(
+        email: email,
+        provider: "google_oauth2",
+        uid: "other-uid",
+        password: "password123456"
+      )
+      allow(controller).to receive(:oauth_auth).and_return(omniauth_hash(provider: "google_oauth2", uid: uid, email: email))
+
+      expect {
+        get :omniauth, params: { provider: provider }
+      }.not_to change { Session.count }
+
+      conflicted_user.reload
+      expect(conflicted_user.uid).to eq("other-uid")
+      expect(response).to redirect_to(sign_in_path)
+      expect(flash[:alert]).to eq("We could not sign you in with Google")
+    end
+
+    it "redirects to sign in when auth payload is invalid" do
+      allow(controller).to receive(:oauth_auth).and_return({ "provider" => provider, "uid" => uid, "info" => {} })
+
+      expect {
+        get :omniauth, params: { provider: provider }
+      }.not_to change { User.count }
+
+      expect(response).to redirect_to(sign_in_path)
+      expect(flash[:alert]).to eq("We could not sign you in with Google")
+    end
+  end
+
   describe "DELETE #destroy" do
     context "when authenticated" do
       let(:session) { user.sessions.create! }
