@@ -1,6 +1,6 @@
 class RegistrationsController < ApplicationController
 
-  skip_before_action :authenticate
+  skip_before_action :authenticate, only: %i[new create]
 
   def new
     @user = User.new
@@ -19,6 +19,27 @@ class RegistrationsController < ApplicationController
       flash.now.inertia[:alert] = 'There was an error with your registration'
       render inertia: 'registrations/new', props: { user: @user }, status: :unprocessable_entity
     end
+  end
+
+  def destroy
+    unless params[:confirmation].to_s == "DELETE"
+      redirect_to settings_path,
+                  alert: "Please type DELETE to confirm account deletion.",
+                  status: :see_other
+      return
+    end
+
+    current_user.destroy!
+    cookies.delete(:session_token)
+    Current.session = nil
+
+    redirect_to root_path,
+                notice: "Your account has been deleted.",
+                status: :see_other
+  rescue ActiveRecord::RecordNotDestroyed
+    redirect_to settings_path,
+                alert: "We could not delete your account. Please try again.",
+                status: :see_other
   end
 
   private
