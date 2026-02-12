@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { router } from "@inertiajs/svelte";
+  import { sign_up_path } from "@/routes";
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import * as Card from "/components/ui/card";
@@ -7,6 +9,10 @@
   import * as Sheet from "/components/ui/sheet";
 
   let { children, user, session_id } = $props();
+  let deleteConfirmation = $state("");
+  let deletingAccount = $state(false);
+
+  const canDeleteAccount = $derived(deleteConfirmation.trim() === "DELETE");
 
   const createdAtLabel = $derived.by(() => {
     if (!user?.created_at) return "—";
@@ -21,6 +27,19 @@
       return user.created_at;
     }
   });
+
+  function submitAccountDeletion() {
+    if (!canDeleteAccount || deletingAccount) return;
+
+    deletingAccount = true;
+    router.delete(sign_up_path(), {
+      data: { confirmation: deleteConfirmation.trim() },
+      preserveScroll: true,
+      onFinish: () => {
+        deletingAccount = false;
+      },
+    });
+  }
 </script>
 
 <Sidebar.Provider>
@@ -84,16 +103,21 @@
                   </p>
                   <div class="space-y-2">
                     <label class="text-sm font-medium" for="delete-confirm">Confirmation</label>
-                    <Input id="delete-confirm" placeholder="DELETE" />
+                    <Input id="delete-confirm" placeholder="DELETE" bind:value={deleteConfirmation} />
                   </div>
                 </div>
                 <Sheet.Footer class="mt-6">
                   <Sheet.Close class={buttonVariants({ variant: "secondary" })}>
                     Cancel
                   </Sheet.Close>
-                  <Sheet.Close class={buttonVariants({ variant: "destructive" })}>
+                  <button
+                    type="button"
+                    class={buttonVariants({ variant: "destructive" })}
+                    onclick={submitAccountDeletion}
+                    disabled={!canDeleteAccount || deletingAccount}
+                  >
                     Permanently delete
-                  </Sheet.Close>
+                  </button>
                 </Sheet.Footer>
               </Sheet.Content>
             </Sheet.Root>
