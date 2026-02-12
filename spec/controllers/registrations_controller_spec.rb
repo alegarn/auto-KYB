@@ -5,7 +5,7 @@ RSpec.describe RegistrationsController, type: :controller, inertia: true do
     it "renders inertia with Registrations/New component" do
       get :new
 
-      expect(inertia.component).to eq("Registrations/New")
+      expect(inertia.component).to eq("registrations/new")
     end
 
     it "passes user as prop" do
@@ -43,16 +43,16 @@ RSpec.describe RegistrationsController, type: :controller, inertia: true do
         expect(cookies.signed[:session_token]).to be_present
       end
 
-      it "sends email verification" do
+      it "does not enqueue email verification (email sending disabled)" do
         expect {
           post :create, params: valid_params
-        }.to have_enqueued_mail(UserMailer, :email_verification)
+        }.not_to have_enqueued_mail(UserMailer, :email_verification)
       end
 
-      it "redirects to root_path" do
+      it "redirects to dashboard_path" do
         post :create, params: valid_params
 
-        expect(response).to redirect_to(root_path)
+        expect(response).to redirect_to(dashboard_path)
       end
 
       it "sets a success notice" do

@@ -41,9 +41,10 @@ class SessionsController < ApplicationController
   end
 
   private
+
     def start_user_session!(user)
       @session = user.sessions.create!
-      cookies.signed.permanent[:session_token] = { value: @session.id, httponly: true }
+      cookies.permanent.signed[:session_token] = @session.id
     end
 
     def find_or_build_oauth_user
@@ -53,8 +54,8 @@ class SessionsController < ApplicationController
       return nil if provider.blank? || uid.blank? || email.blank?
 
       User.find_by(provider: provider, uid: uid) ||
-        find_or_link_user_by_email(provider:, uid:, email:) ||
-        create_oauth_user(provider:, uid:, email:)
+        find_or_link_user_by_email(provider: provider, uid: uid, email: email) ||
+        create_oauth_user(provider: provider, uid: uid, email: email)
     end
 
     def find_or_link_user_by_email(provider:, uid:, email:)
@@ -80,19 +81,23 @@ class SessionsController < ApplicationController
     end
 
     def oauth_auth
-      request.env["omniauth.auth"] || {}
+      raw = request.env["omniauth.auth"] || {}
+      raw = raw.to_h if raw.respond_to?(:to_h)
+      raw.with_indifferent_access
+    rescue => _e
+      {}
     end
 
     def oauth_provider
-      oauth_auth["provider"]
+      oauth_auth[:provider]
     end
 
     def oauth_uid
-      oauth_auth["uid"]
+      oauth_auth[:uid]
     end
 
     def oauth_email
-      oauth_auth.dig("info", "email")&.downcase
+      oauth_auth.dig(:info, :email)&.downcase
     end
 
     def set_session

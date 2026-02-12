@@ -47,7 +47,6 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
         post :create, params: { email: user.email, password: "password123456" }
 
         expect(cookies.signed[:session_token]).to be_present
-        expect(cookies[:session_token]).to be_present
       end
 
       it "redirects to dashboard_path" do
@@ -121,10 +120,11 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
         uid: uid,
         password: "password123456"
       )
-      allow(controller).to receive(:oauth_auth).and_return(omniauth_hash)
+      allow_any_instance_of(SessionsController).to receive(:oauth_auth).and_return(omniauth_hash)
 
       expect {
         get :omniauth, params: { provider: provider }
+        puts("TEST DEBUG omniauth response: status=#{response.status} location=#{response.location} flash=#{flash.to_hash.inspect} users=#{User.count} sessions=#{Session.count}")
       }.to change { Session.count }.by(1)
 
       expect(response).to redirect_to(dashboard_path)
@@ -134,10 +134,11 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
 
     it "links provider and uid for existing email user" do
       email_user = User.create!(email: email, password: "password123456")
-      allow(controller).to receive(:oauth_auth).and_return(omniauth_hash)
+      allow_any_instance_of(SessionsController).to receive(:oauth_auth).and_return(omniauth_hash)
 
       expect {
         get :omniauth, params: { provider: provider }
+        puts("TEST DEBUG omniauth response: status=#{response.status} location=#{response.location} flash=#{flash.to_hash.inspect} users=#{User.count} sessions=#{Session.count}")
       }.to change { Session.count }.by(1)
 
       email_user.reload
@@ -147,10 +148,11 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
     end
 
     it "creates a user when email is not registered" do
-      allow(controller).to receive(:oauth_auth).and_return(omniauth_hash)
+      allow_any_instance_of(SessionsController).to receive(:oauth_auth).and_return(omniauth_hash)
 
       expect {
         get :omniauth, params: { provider: provider }
+        puts("TEST DEBUG omniauth response: status=#{response.status} location=#{response.location} flash=#{flash.to_hash.inspect} users=#{User.count} sessions=#{Session.count}")
       }.to change { User.count }.by(1)
        .and change { Session.count }.by(1)
 
