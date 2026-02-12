@@ -164,9 +164,7 @@
             <Button onclick={openConfirm} class="btn-destructive" variant="destructive">Delete</Button>
  
             <!-- Export buttons for GDPR: JSON and CSV exports open in a new tab for download / machine consumption -->
-            <!--
-            <Button href={`/clients/${client['id']}/export.json`} target="_blank" rel="noopener" variant="outline" aria-label="Export client as JSON">Export (JSON)</Button>
-            -->
+            <a href={export_client_path(client['id'], { format: "json" })} target="_blank" rel="noopener" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold bg-background border shadow-xs" aria-label="Export client as JSON">Export client (JSON)</a>
             <a href={export_client_path(client['id'], { format: "csv" })} target="_blank" rel="noopener" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold bg-background border shadow-xs" aria-label="Export client as CSV">Export client (CSV)</a>
             {#if client_form && client_form.status === 'validated'}
               <a

@@ -36,7 +36,10 @@ class ClientsController < ApplicationController
 
   def export
     respond_to do |format|
-      format.json { render json: ClientSerializer.new(@client).as_json }
+      format.json do
+        json_data = ClientSerializer.new(@client).to_json
+        send_data json_data, filename: "client-#{@client.id}.json", type: "application/json", disposition: "attachment"
+      end
 
       format.csv do
         client_for_export = current_user.clients.where(id: @client.id).for_export.first!
