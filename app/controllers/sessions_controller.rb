@@ -23,7 +23,8 @@ class SessionsController < ApplicationController
   end
 
   def destroy
-    @session.destroy; redirect_to(sessions_path, notice: "That session has been logged out")
+    @session.destroy
+    redirect_to sessions_path, notice: "That session has been logged out"
   end
 
   def omniauth
@@ -32,12 +33,11 @@ class SessionsController < ApplicationController
     if user&.persisted?
       start_user_session!(user)
       redirect_to dashboard_path, notice: "Signed in successfully"
-      return
+    else
+      oauth_failure_redirect
     end
-
-    redirect_to sign_in_path, alert: "We could not sign you in with Google"
   rescue ActiveRecord::RecordInvalid
-    redirect_to sign_in_path, alert: "We could not sign you in with Google"
+    oauth_failure_redirect
   end
 
   private
@@ -89,19 +89,24 @@ class SessionsController < ApplicationController
     end
 
     def oauth_provider
-      oauth_auth[:provider]
+      oauth_auth["provider"] || oauth_auth[:provider]
     end
 
     def oauth_uid
-      oauth_auth[:uid]
+      oauth_auth["uid"] || oauth_auth[:uid]
     end
 
     def oauth_email
-      oauth_auth.dig(:info, :email)&.downcase
+      email = oauth_auth.dig("info", "email") || oauth_auth.dig(:info, :email)
+      email&.downcase
     end
 
     def set_session
       @session = Current.user.sessions.find(params[:id])
+    end
+
+    def oauth_failure_redirect
+      redirect_to sign_in_path, alert: "We could not sign you in with Google"
     end
 
     def current_user
