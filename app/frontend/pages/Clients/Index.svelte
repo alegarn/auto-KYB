@@ -6,6 +6,7 @@
   import * as Card from "/components/ui/card";
   import { Input } from "/components/ui/input/index.js";
   import Button from '/components/ui/button/button.svelte';
+  import Modal from "/components/ui/modal.svelte";
 
   // read Inertia props via Svelte 5 $props
   let { children, user, session_id, clients = [], meta = { page: 1, per_page: 10, total_count: 0 } } = $props();
@@ -13,7 +14,8 @@
   // rune-first state
   let q = $state('');
   let status = $state('all');
-  let page = $derived(meta.page);
+  let showModal = $state(false);
+  let selectedToDelete = $state(null as any);
 
   // derived rune for total pages
   const totalPages = $derived.by(() => Math.max(1, Math.ceil(meta.total_count / meta.per_page)));
@@ -37,9 +39,19 @@
     goToPage(1);
   }
 
-  function deleteClient(id: string) {
-    if (!confirm("Are you sure you want to delete this client?")) return;
-    router.delete(client_path(id));
+  function openDeleteModal(client: any) {
+    selectedToDelete = client;
+    showModal = true;
+  }
+
+  function confirmDelete() {
+    if (!selectedToDelete) return;
+    router.delete(client_path(selectedToDelete.id), {
+      onSuccess: () => {
+        selectedToDelete = null;
+        showModal = false;
+      },
+    });
   }
 
   const clientStatusBadge = (status: string) => {
@@ -160,7 +172,7 @@
                       {client['status']}
                     </span>
                     <Button href={edit_client_path(client['id'])} variant="secondary" size="sm">Edit</Button>
-                    <Button variant="destructive" size="sm" onclick={() => deleteClient(client['id'])}>Delete</Button>
+                    <Button variant="destructive" size="sm" onclick={() => openDeleteModal(client)}>Delete</Button>
                   </div>
                 </li>
               {/each}
@@ -181,5 +193,14 @@
         </Card.Content>
       </Card.Root>
     </section>
+  
+    <Modal bind:showModal={showModal} title="Delete client" description={selectedToDelete ? `Delete "${selectedToDelete.name}"?` : ''} onConfirm={confirmDelete} onClose={() => { selectedToDelete = null; showModal = false; }}>
+      <p>Are you sure you want to delete "{selectedToDelete?.name}"?</p>
+      {#if selectedToDelete?.status === 'active'}
+        <p class="mt-2 text-sm text-amber-700">This client has started to fill a form — all in-progress data will be lost.</p>
+      {:else}
+        <p class="mt-2 text-sm text-muted-foreground">Deleting this client will remove their data and cannot be undone.</p>
+      {/if}
+    </Modal>
   </main>
 </Sidebar.Provider>

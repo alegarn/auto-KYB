@@ -2,33 +2,94 @@
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { Form as InertiaForm } from '@inertiajs/svelte';
+  import { onMount } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
   import { client_path } from '@/routes';
+  import { fetchCountriesData } from '/lib/countries';
   
   let { client = {}, errors = {}, session_id, forms = [], current_form_id = null, confirm_message = null, attempted_form_id = null, confirm_replace_required = false } = $props();
 
   // modal and form state
   let showConfirm = $state({ open: false, continue: false });
+  let confirmDialog: HTMLElement | null = $state(null);
+  let previouslyFocused: HTMLElement | null = $state(null);
+
   function modalOpen() {
-    showConfirm.open = !showConfirm?.open;
+    const opening = !showConfirm?.open;
+    showConfirm.open = opening;
+    if (opening) {
+      previouslyFocused = document.activeElement as HTMLElement | null;
+      setTimeout(() => confirmDialog?.focus(), 0);
+    } else {
+      setTimeout(() => previouslyFocused?.focus(), 0);
+    }
   }
+
   function modalContinue() {
     showConfirm.open = false;
     showConfirm.continue = true;
     confirmedReplace = true;
+    const f = document.getElementById('client-edit-form') as HTMLFormElement | null;
+    if (f) f.requestSubmit();
   }
+
   function handleFormSelectPointerDown(event: PointerEvent) {
     if (client?.status !== "active") return;
     if (showConfirm?.continue) return;
     if (showConfirm?.open) return;
     event.preventDefault();
     showConfirm.open = true;
+    previouslyFocused = document.activeElement as HTMLElement | null;
+    setTimeout(() => confirmDialog?.focus(), 0);
+  }
+
+  function handleFormSelectKeyDown(event: KeyboardEvent) {
+    const code = event.key;
+    if (code !== 'Enter' && code !== ' ' && code !== 'Spacebar') return;
+    if (client?.status !== "active") return;
+    if (showConfirm?.continue) return;
+    if (showConfirm?.open) return;
+    event.preventDefault();
+    showConfirm.open = true;
+    previouslyFocused = document.activeElement as HTMLElement | null;
+    setTimeout(() => confirmDialog?.focus(), 0);
   }
 
   // selected form the user may pick (local der$derived so we can bind and update)
   let selectedForm = $derived(attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null));
+
+  let countries = $state<Array<{ name: string; code: string; flag: string }>>([]);
+  let countryOptions = $derived(
+    (countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag }))
+  );
+  // preserve server-sent initial value but do not mutate it on SSR; keep value available for client
+  let selectedCountry = $derived(client?.country || '');
+
+  let countriesLoading = $state(false);
+  let countriesError = $state(null);
+
+  async function fetchCountries() {
+    countriesLoading = true;
+    countriesError = null;
+    try {
+      const data = await fetchCountriesData();
+      countries = data;
+      if (selectedCountry && !countries.find((x) => String(x.code) === String(selectedCountry))) {
+        countries = [{ name: selectedCountry, code: selectedCountry, flag: '🏳️' }, ...countries];
+      }
+    } catch (err: any) {
+      console.error('Failed to load countries', err);
+      countriesError = err?.message || 'Failed to load countries';
+    } finally {
+      countriesLoading = false;
+    }
+  }
+
+  onMount(() => {
+    fetchCountries();
+  });
 
   // form submission state
   let confirmedReplace = $state(false);
@@ -78,7 +139,7 @@
         </div>
       {/if}
 
-      <InertiaForm method="patch" action={`/clients/${client?.id}`}>
+      <InertiaForm id="client-edit-form" method="patch" action={`/clients/${client?.id}`}>
         <!-- form mapping: show current linked form and allow changing via a dropdown (replaces previous Change button) -->
         {#if forms && forms.length}
           <div class="mt-4">
@@ -92,7 +153,10 @@
                   <span class="text-sm text-muted-foreground"><em>None</em></span>
                 {/if}
               {:else}
-                <select id="client-form" name="client_form[form_id]" bind:value={selectedForm} onpointerdown={handleFormSelectPointerDown} class="mt-2 block w-full rounded border px-2 py-1">
+                <select id="client-form" name="client_form[form_id]" bind:value={selectedForm}
+                  onpointerdown={handleFormSelectPointerDown}
+                  onkeydown={handleFormSelectKeyDown}
+                  class="mt-2 block w-full rounded border px-2 py-1">
                   <option value="">-- None --</option>
                   {#each forms as f}
                     <option value={f.id}>{f.name}</option>
@@ -122,6 +186,14 @@
           </div>
 
           <div>
+            <Label for="client-company-id" class="block text-sm font-medium">Company ID</Label>
+            <Input id="client-company-id" name="client[company_id]" value={client?.company_id} class={`w-full ${hasError('company_id') ? 'border-rose-600' : ''}`} />
+            {#if hasError('company_id')}
+              <div class="text-rose-600 text-sm mt-1">{errors['company_id']?.[0]}</div>
+            {/if}
+          </div>
+
+          <div>
             <Label for="client-email" class="block text-sm font-medium">Email</Label>
             <Input id="client-email" name="client[email]" type="email" value={client?.email} class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
             {#if hasError('email')}
@@ -137,8 +209,30 @@
             {/if}
           </div>
 
+          <div>
+            <Label for="client-country" class="block text-sm font-medium">Company's country</Label>
+            {#if countriesLoading}
+              <select id="client-country" name="client[country]" disabled class="w-full border rounded px-3 py-2 bg-muted/10">
+                <option>Loading countries...</option>
+              </select>
+            {:else}
+              <select id="client-country" name="client[country]" bind:value={selectedCountry} class={`w-full border rounded px-3 py-2 bg-background ${hasError('country') ? 'border-rose-600' : ''}`}>
+                <option value="">Select a country</option>
+                {#each countryOptions as opt}
+                  <option value={opt.value}>{opt.flag} {opt.label}</option>
+                {/each}
+              </select>
+            {/if}
+            {#if countriesError}
+              <div class="text-rose-600 text-sm mt-1">Error loading countries: {countriesError} <button class="ml-2 underline" onclick={fetchCountries}>Retry</button></div>
+            {/if}
+            {#if hasError('country')}
+              <div class="text-rose-600 text-sm mt-1">{errors['country']?.[0]}</div>
+            {/if}
+          </div>
+
           <fieldset class="mt-4 border p-3 rounded">
-            <legend class="text-sm font-medium">Address (optional)</legend>
+            <legend class="text-sm font-medium">Company's Address (optional)</legend>
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2 mt-2">
               <div>
                 <Label for="client-street" class="block text-sm">Street</Label>
@@ -151,10 +245,6 @@
               <div>
                 <Label for="client-postal" class="block text-sm">Postal code</Label>
                 <Input id="client-postal" name="client[address][postal_code]" value={client?.address?.postal_code} />
-              </div>
-              <div>
-                <Label for="client-country" class="block text-sm">Country</Label>
-                <Input id="client-country" name="client[address][country]" value={client?.address?.country} />
               </div>
             </div>
           </fieldset>
@@ -169,11 +259,11 @@
       {#if showConfirm?.open && !showConfirm?.continue && client?.status === "active"}
         <div class="fixed inset-0 z-[999] flex items-center justify-center">
           <div class="absolute inset-0 bg-black/50" onclick={modalOpen} aria-hidden="true"></div>
-          <div class="relative z-[1000] bg-white rounded p-6 max-w-lg w-full shadow-lg">
-            <h2 class="text-lg font-semibold mb-2">Please confirm</h2>
+          <div bind:this={confirmDialog} class="relative z-[1000] bg-white rounded p-6 max-w-lg w-full shadow-lg" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1">
+            <h2 id="confirm-title" class="text-lg font-semibold mb-2">Please confirm</h2>
             <p class="mb-4">{confirm_message || "Are you sure you want to replace the client's linked form? This will delete existing form responses."}</p>
             <div class="flex gap-2 justify-end">
-              <button class="px-4 py-2 border rounded" onclick={modalOpen}>Cancel</button>
+              <button type="button" class="px-4 py-2 border rounded" onclick={modalOpen}>Cancel</button>
               <button type="submit" class="px-4 py-2 bg-rose-600 text-white rounded" onclick={modalContinue}>
                 Continue
               </button>

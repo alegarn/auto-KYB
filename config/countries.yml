@@ -1,0 +1,161 @@
+---
+# European Union countries
+- name: Austria
+  code: AT
+  is_automated: false
+- name: Belgium
+  code: BE
+  is_automated: false
+- name: Bulgaria
+  code: BG
+  is_automated: false
+- name: Croatia
+  code: HR
+  is_automated: false
+- name: Cyprus
+  code: CY
+  is_automated: false
+- name: Czech Republic
+  code: CZ
+  is_automated: false
+- name: Denmark
+  code: DK
+  is_automated: false
+- name: Estonia
+  code: EE
+  is_automated: false
+- name: Finland
+  code: FI
+  is_automated: false
+- name: France
+  code: FR
+  is_automated: false
+- name: Germany
+  code: DE
+  is_automated: false
+- name: Greece
+  code: GR
+  is_automated: false
+- name: Hungary
+  code: HU
+  is_automated: false
+- name: Ireland
+  code: IE
+  is_automated: false
+- name: Italy
+  code: IT
+  is_automated: false
+- name: Latvia
+  code: LV
+  is_automated: false
+- name: Lithuania
+  code: LT
+  is_automated: false
+- name: Luxembourg
+  code: LU
+  is_automated: false
+- name: Malta
+  code: MT
+  is_automated: false
+- name: Netherlands
+  code: NL
+  is_automated: false
+- name: Poland
+  code: PL
+  is_automated: false
+- name: Portugal
+  code: PT
+  is_automated: false
+- name: Romania
+  code: RO
+  is_automated: false
+- name: Slovakia
+  code: SK
+  is_automated: false
+- name: Slovenia
+  code: SI
+  is_automated: false
+- name: Spain
+  code: ES
+  is_automated: false
+- name: Sweden
+  code: SE
+  is_automated: false
+
+# United Kingdom / United States
+- name: United Kingdom
+  code: GB
+  is_automated: false
+- name: United States
+  code: US
+  is_automated: false
+
+# Eastern / nearby countries
+- name: Russia
+  code: RU
+  is_automated: false
+- name: Ukraine
+  code: UA
+  is_automated: false
+- name: Belarus
+  code: BY
+  is_automated: false
+- name: Moldova
+  code: MD
+  is_automated: false
+- name: Georgia
+  code: GE
+  is_automated: false
+- name: Armenia
+  code: AM
+  is_automated: false
+- name: Azerbaijan
+  code: AZ
+  is_automated: false
+- name: Turkey
+  code: TR
+  is_automated: false
+- name: Serbia
+  code: RS
+  is_automated: false
+- name: Bosnia and Herzegovina
+  code: BA
+  is_automated: false
+- name: Montenegro
+  code: ME
+  is_automated: false
+- name: North Macedonia
+  code: MK
+  is_automated: false
+
+# Additional European countries / microstates
+- name: Albania
+  code: AL
+  is_automated: false
+- name: Andorra
+  code: AD
+  is_automated: false
+- name: Iceland
+  code: IS
+  is_automated: false
+- name: Liechtenstein
+  code: LI
+  is_automated: false
+- name: Monaco
+  code: MC
+  is_automated: false
+- name: San Marino
+  code: SM
+  is_automated: false
+- name: Vatican City
+  code: VA
+  is_automated: false
+- name: Switzerland
+  code: CH
+  is_automated: false
+- name: Norway
+  code: "NO"
+  is_automated: false
+- name: Kosovo
+  code: XK
+  is_automated: false

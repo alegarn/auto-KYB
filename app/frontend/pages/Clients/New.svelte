@@ -2,11 +2,37 @@
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { Form as InertiaForm } from '@inertiajs/svelte';
+  import { onMount } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
+  import { fetchCountriesData } from '/lib/countries';
 
   let { user, errors = {}, session_id, forms = [] } = $props();
+
+  let countries = $state([{ name: 'United States', code: 'US', flag: '🇺🇸' }]);
+  let countryOptions = $derived((countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag })));
+  let selectedCountry = $state('');
+  let countriesLoading = $state(false);
+  let countriesError = $state(null);
+
+  async function fetchCountries() {
+    countriesLoading = true;
+    countriesError = null;
+    try {
+      const data = await fetchCountriesData();
+      countries = data;
+    } catch (err: any) {
+      console.error('Failed to load countries', err);
+      countriesError = err?.message || 'Failed to load countries';
+    } finally {
+      countriesLoading = false;
+    }
+  }
+
+  onMount(() => {
+    fetchCountries();
+  });
 
   const hasError = (field: string) => {
     if (!errors) return false;
@@ -88,6 +114,14 @@
       </div>
 
       <div>
+        <Label for="client-company-id" class="block text-sm font-medium">Company ID</Label>
+        <Input id="client-company-id" name="client[company_id]" class={`w-full ${hasError('company_id') ? 'border-rose-600' : ''}`} />
+        {#if hasError('company_id')}
+          <div class="text-rose-600 text-sm mt-1">{errors['company_id']?.[0]}</div>
+        {/if}
+      </div>
+
+      <div>
         <Label for="client-email" class="block text-sm font-medium">Email</Label>
         <Input id="client-email" name="client[email]" type="email" class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
         {#if hasError('email')}
@@ -103,8 +137,30 @@
         {/if}
       </div>
 
+      <div>
+        <Label for="client-country" class="block text-sm font-medium">Company's country</Label>
+        {#if countriesLoading}
+          <select id="client-country" name="client[country]" disabled class="w-full border rounded px-3 py-2 bg-muted/10">
+            <option>Loading countries...</option>
+          </select>
+        {:else}
+          <select id="client-country" name="client[country]" bind:value={selectedCountry} class={`w-full border rounded px-3 py-2 bg-background ${hasError('country') ? 'border-rose-600' : ''}`}>
+            <option value="">Select a country</option>
+            {#each countryOptions as opt}
+              <option value={opt?.value}>{opt?.flag} {opt?.label}</option>
+            {/each}
+          </select>
+        {/if}
+        {#if countriesError}
+          <div class="text-rose-600 text-sm mt-1">Error loading countries: {countriesError} <button class="ml-2 underline" onclick={fetchCountries}>Retry</button></div>
+        {/if}
+        {#if hasError('country')}
+          <div class="text-rose-600 text-sm mt-1">{errors['country']?.[0]}</div>
+        {/if}
+      </div>
+
       <fieldset class="mt-4 border p-3 rounded">
-        <legend class="text-sm font-medium">Address (optional)</legend>
+        <legend class="text-sm font-medium">Company's Address (optional)</legend>
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 mt-2">
           <div>
             <Label for="client-street" class="block text-sm">Street</Label>
@@ -117,10 +173,6 @@
           <div>
             <Label for="client-postal" class="block text-sm">Postal code</Label>
             <Input id="client-postal" name="client[address][postal_code]" />
-          </div>
-          <div>
-            <Label for="client-country" class="block text-sm">Country</Label>
-            <Input id="client-country" name="client[address][country]" />
           </div>
         </div>
       </fieldset>

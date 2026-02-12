@@ -20,12 +20,17 @@ class Client < ApplicationRecord
     q = query.to_s.downcase
     where("lower(name) LIKE :q OR lower(company_name) LIKE :q", q: "%#{q}%")
   }
-  scope :for_export, -> { select(:name, :company_name, :email, :phone, :address, :created_at, :updated_at) }
+  scope :for_export, -> { select(:name, :company_name, :company_id, :country, :email, :phone, :address, :created_at, :updated_at) }
 
   private
 
   def ensure_form_status
     self.form_status = :inactive if form_status.nil?
   end
+
+  # New attributes: company identifier (string) and top-level country
+  # company_id is a plain string (no companies table in this app)
+  validates :company_id, length: { maximum: 255 }, allow_blank: true
+  validates :country, length: { maximum: 100 }, allow_blank: true
 
 end
