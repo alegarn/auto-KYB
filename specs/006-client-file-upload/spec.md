@@ -19,6 +19,11 @@
 - Q: How deep should the file validation be for detecting corrupted or invalid files? → A: MIME type + magic bytes validation
 - Q: Should rate limiting be applied to file upload endpoints to prevent abuse? → A: Yes, 10 uploads per client per minute
 - Q: What file naming convention should be used for uploaded files in storage? → A: UUID-based with original filename preserved
+- Q: What encryption key management approach should be used for file encryption at rest? → A: AWS KMS for automatic key rotation and centralized management
+- Q: What should be the expiration time for signed URLs used for file downloads? → A: 5 minutes
+- Q: What should be the exponential backoff parameters for auto-retrying failed file uploads? → A: 2 seconds initial delay, doubling to 4 seconds
+- Q: What should be the retention period for audit logs of file upload, download, and deletion activities? → A: 90 days
+- Q: What should be the expected file size for the concurrent upload performance target of 50 clients? → A: 5MB average file size
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -124,7 +129,7 @@ As a user, I want to delete files uploaded by clients, so that I can manage stor
 - **FR-015**: System MUST require confirmation before deleting files
 - **FR-016**: System MUST remove deleted files from storage and make them unavailable for download
 - **FR-017**: System MUST validate that all required file upload fields have files before allowing form submission
-- **FR-018**: System MUST auto-retry failed uploads once with exponential backoff before requiring manual intervention
+- **FR-018**: System MUST auto-retry failed uploads once with exponential backoff (2 seconds initial delay, doubling to 4 seconds) before requiring manual intervention
 - **FR-019**: System MUST generate unique identifiers for each uploaded file to prevent naming conflicts
 - **FR-020**: System MUST perform MIME type and magic bytes validation to detect corrupted or invalid files
 - **FR-021**: System MUST display appropriate error messages when storage limits prevent file uploads
@@ -142,13 +147,13 @@ As a user, I want to delete files uploaded by clients, so that I can manage stor
 
 #### Security & Privacy
 - **NFR-001**: System MUST encrypt all uploaded files at rest using industry-standard encryption (AES-256)
-- **NFR-002**: System MUST implement secure key management for file encryption keys
-- **NFR-003**: System MUST use expiring signed URLs for file downloads to prevent unauthorized access
-- **NFR-004**: System MUST log all file upload, download, and deletion activities for audit purposes
+- **NFR-002**: System MUST implement secure key management for file encryption keys using AWS KMS for automatic key rotation and centralized management
+- **NFR-003**: System MUST use expiring signed URLs for file downloads to prevent unauthorized access, with a 5-minute expiration time
+- **NFR-004**: System MUST log all file upload, download, and deletion activities for audit purposes with a 90-day retention period
 - **NFR-005**: System MUST validate file content (not just extension) to prevent malicious file uploads
 
 #### Performance & Scalability
-- **NFR-006**: System MUST support concurrent uploads from at least 50 clients without performance degradation
+- **NFR-006**: System MUST support concurrent uploads from at least 50 clients with 5MB average file size without performance degradation
 - **NFR-007**: File upload progress updates MUST be displayed within 1 second of upload initiation
 - **NFR-008**: Invalid file type errors MUST be displayed within 2 seconds of file selection
 - **NFR-009**: System MUST complete file uploads for 5MB files within 30 seconds on standard broadband connection
@@ -162,7 +167,7 @@ As a user, I want to delete files uploaded by clients, so that I can manage stor
 #### Reliability & Availability
 - **NFR-011**: System MUST achieve 99% successful file upload rate
 - **NFR-012**: System MUST provide clear error messages for all failure scenarios
-- **NFR-013**: System MUST auto-retry failed uploads once with exponential backoff before requiring manual intervention
+- **NFR-013**: System MUST auto-retry failed uploads once with exponential backoff (2 seconds initial delay, doubling to 4 seconds) before requiring manual intervention
 
 ## Success Criteria *(mandatory)*
 
@@ -174,7 +179,7 @@ As a user, I want to delete files uploaded by clients, so that I can manage stor
 - **SC-004**: 95% of clients successfully complete file uploads on their first attempt
 - **SC-005**: File upload progress updates are displayed within 1 second of upload initiation
 - **SC-006**: Invalid file type errors are displayed within 2 seconds of file selection
-- **SC-007**: System supports concurrent uploads from at least 50 clients without performance degradation
+- **SC-007**: System supports concurrent uploads from at least 50 clients with 5MB average file size without performance degradation
 - **SC-008**: File replacement completes within 30 seconds for files up to 10MB
 - **SC-009**: File deletion completes within 5 seconds and the file is immediately unavailable for download
 
@@ -185,7 +190,7 @@ As a user, I want to delete files uploaded by clients, so that I can manage stor
 - Client portal form access is already implemented (as stated by user)
 - Maximum file size limit is 10MB per file (standard for document uploads)
 - Remote storage is implemented using Active Storage with Amazon S3 as the storage provider
-- All files are encrypted at rest with key management
+- All files are encrypted at rest with key management using AWS KMS for automatic key rotation and centralized management
 - Files are destroyed when downloaded by a user or when the client is deleted
 - File type validation is performed by checking file extensions, MIME types, and magic bytes for enhanced security
 - File scanning for malware is out of scope for the initial implementation
