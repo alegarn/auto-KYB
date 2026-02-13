@@ -67,8 +67,8 @@
         <p class="text-sm">Welcome! Create an account to get started</p>
       </div>
 
-      <div class="mt-6 grid grid-cols-2 gap-3">
-        <a href="/auth/google_oauth2" data-turbo="false" class="focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background selection:bg-primary selection:text-primary-foreground ring-offset-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs h-9 px-4 py-2 has-[>svg]:px-3 justify-center">
+      <div class="mt-6 grid grid-cols-1 gap-3">
+        <a href="/auth/google_oauth2" data-turbo="false" class="w-full focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background selection:bg-primary selection:text-primary-foreground ring-offset-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs h-9 px-4 py-2 has-[>svg]:px-3 justify-center">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="0.98em"
@@ -92,22 +92,8 @@
               d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0C79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251"
             ></path>
           </svg>
-          <span>Google</span>
+          <span>Sign in with Google</span>
         </a>
-        <Button type="button" variant="outline">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="1em"
-            height="1em"
-            viewBox="0 0 256 256"
-          >
-            <path fill="#f1511b" d="M121.666 121.666H0V0h121.666z"></path>
-            <path fill="#80cc28" d="M256 121.666H134.335V0H256z"></path>
-            <path fill="#00adef" d="M121.663 256.002H0V134.336h121.663z"></path>
-            <path fill="#fbbc09" d="M256 256.002H134.335V134.336H256z"></path>
-          </svg>
-          <span>Microsoft</span>
-        </Button>
       </div>
 
       <hr class="my-4 border-dashed" />
