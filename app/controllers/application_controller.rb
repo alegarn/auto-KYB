@@ -1,6 +1,8 @@
 class ApplicationController < ActionController::Base
 
   include Pagy::Backend
+  rescue_from ActionController::InvalidAuthenticityToken, with: :inertia_page_expired_error
+
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
 
@@ -8,6 +10,8 @@ class ApplicationController < ActionController::Base
   before_action :authenticate
 
   helper_method :current_user, :current_session_id, :user_props, :default_inertia_props
+
+  inertia_share flash: -> { flash.to_hash }
 
   def current_user
     Current.session&.user
@@ -59,6 +63,11 @@ class ApplicationController < ActionController::Base
       # Prefer request headers but fall back to common test env keys so controller specs work
       Current.user_agent = request.env["HTTP_USER_AGENT"] || request.headers["User-Agent"] || request.user_agent
       Current.ip_address = request.env["REMOTE_ADDR"] || request.remote_ip || request.ip
+    end
+
+    def inertia_page_expired_error
+      redirect_back_or_to('/', allow_other_host: false,
+        notice: "The page expired, please try again.")
     end
 
 end
