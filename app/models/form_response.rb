@@ -1,6 +1,7 @@
 class FormResponse < ApplicationRecord
 
   belongs_to :client_form
+  has_many :uploaded_files, dependent: :nullify
 
   validates :client_form, presence: true
 

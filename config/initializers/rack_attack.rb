@@ -27,6 +27,14 @@ Rack::Attack.throttle("client_forms/password_reveal/ip_access", limit: 5, period
   "#{req.ip}:#{access_token || client_form_id}"
 end
 
+Rack::Attack.throttle("client_portal/uploads/client", limit: 10, period: 60.seconds) do |req|
+  next unless req.post?
+  next unless req.path == "/client_portal/uploaded_files"
+
+  cookie_value = req.cookies["client_portal_session"]
+  cookie_value.presence
+end
+
 Rack::Attack.throttled_responder = lambda do |_request|
   [
     429,

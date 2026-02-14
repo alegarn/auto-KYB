@@ -36,8 +36,16 @@ class ClientForm < ApplicationRecord
     # commented code in FormResponse model).
     response = nil
     transaction do
+      old_response_ids = form_responses.pluck(:id)
+      available_files = UploadedFile.where(form_response_id: old_response_ids).available
+      available_files.update_all(form_response_id: nil)
+
       form_responses.delete_all
       response = FormResponse.create!(client_form: self, data: data)
+
+      UploadedFile.where(client_id: client_id, form_response_id: nil)
+                  .available
+                  .update_all(form_response_id: response.id)
     end
 
     if self.status == self.class.statuses["draft"] && FormResponse.where(client_form_id: id).count > 0

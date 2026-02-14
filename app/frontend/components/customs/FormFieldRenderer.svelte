@@ -9,6 +9,7 @@
   import { Label } from "@/components/ui/label/index.js";
   import { Plus, Trash2 } from "@lucide/svelte";
   import ButtonsField from './form-builder/ButtonsField.svelte';
+  import FileUploader from '@/components/file_upload/FileUploader.svelte';
   import type { FieldType, FieldMetadata, TableColumn } from "./form-builder/types";
 
   interface Props {
@@ -21,9 +22,10 @@
     onChange?: (detail: { id: string; value: any }) => void;
     inputOnly?: boolean;
     metadata?: FieldMetadata;
+    uploadedFile?: any;
   }
 
-  const { id, label, type, required = false, value, name, onChange, inputOnly = false, metadata = {} }: Props = $props();
+  const { id, label, type, required = false, value, name, onChange, inputOnly = false, metadata = {}, uploadedFile = null }: Props = $props();
 
   let currentValue = $derived(value ?? '');
   let tableRows = $state<Record<string, any>[]>([{}]);
@@ -284,22 +286,14 @@
   {/if}
 
 {:else if type === 'file'}
-  <Input
-    aria-label={label}
-    id={name ?? id}
-    name={name}
-    type="file"
-    onchange={onFileChange}
-    accept={fileConfig.allowed_types?.map((t) => `.${t}`).join(',')}
+  <FileUploader
+    fieldId={id}
+    existingFile={uploadedFile}
+    accept={fileConfig.allowed_types?.map((t: string) => `.${t}`).join(',') || '.pdf,.jpg,.jpeg,.png'}
+    maxSizeBytes={(fileConfig.max_size_kb ?? 10240) * 1024}
+    {required}
+    {label}
   />
-  {#if fileConfig.allowed_types?.length}
-    <p class="mt-1 text-xs text-muted-foreground">
-      Allowed: {fileConfig.allowed_types.join(', ')}
-      {#if fileConfig.max_size_kb}
-        (max {Math.round(fileConfig.max_size_kb / 1024)}MB)
-      {/if}
-    </p>
-  {/if}
 
 {:else if type === 'section'}
   <div class="mt-6 mb-4 pb-2 border-b">

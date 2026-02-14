@@ -22,6 +22,12 @@ Rails.application.routes.draw do
     end
   end
 
+  resources :uploaded_files, only: [:destroy] do
+    member do
+      get :download
+    end
+  end
+
   get "settings", to: "settings#index"
 
   get  "sign_in", to: "sessions#new"
@@ -66,6 +72,7 @@ Rails.application.routes.draw do
     delete "logout", to: "sessions#destroy", as: :logout
 
     resource :form_response, only: [ :show, :update ]
+    resources :uploaded_files, only: [:create]
     get "confirmation", to: "confirmations#show", as: :confirmation
   end
 end

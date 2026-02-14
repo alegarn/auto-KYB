@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import { clients_path, dashboard_path, edit_client_path, client_path, client_forms_path, export_responses_client_form_path, export_client_path } from "@/routes";
+  import { clients_path, dashboard_path, edit_client_path, client_path, client_forms_path, export_responses_client_form_path, export_client_path, download_uploaded_file_path, uploaded_file_path } from "@/routes";
   import Button from '@/components/ui/button/button.svelte';
   import Modal from '@/components/ui/modal.svelte';
   import { Form as InertiaForm } from '@inertiajs/svelte';
@@ -9,9 +9,12 @@
   import { router } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
   import { fetchCountriesData } from '/lib/countries';
+  import { FileText, Image, Download, Trash2 } from '@lucide/svelte';
 
-  let { user, client = null, session_id, forms = [], client_form = null } = $props();
+  let { user, client = null, session_id, forms = [], client_form = null, uploaded_files = [] } = $props();
   let showConfirm = $state(false);
+  let showFileDeleteConfirm = $state(false);
+  let fileToDelete = $state<any>(null);
 
   // Countries lookup used to display country full name + flag
   let countries = $state<Array<{ name: string; code: string; flag: string }>>([]);
@@ -67,6 +70,35 @@
         return "bg-slate-100 text-slate-600";
     }
   };
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  function formatFileDate(iso: string): string {
+    return new Date(iso).toLocaleDateString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })
+  }
+
+  function openFileDeleteConfirm(file: any) {
+    fileToDelete = file
+    showFileDeleteConfirm = true
+  }
+
+  function closeFileDeleteConfirm() {
+    fileToDelete = null
+    showFileDeleteConfirm = false
+  }
+
+  function confirmFileDelete() {
+    if (!fileToDelete) return
+    router.delete(uploaded_file_path(fileToDelete.id))
+    closeFileDeleteConfirm()
+  }
 </script>
 
 <Sidebar.Provider>
@@ -157,6 +189,65 @@
               </InertiaForm>
             {/if}
           </div>
+
+          {#if uploaded_files && uploaded_files.length > 0}
+            <div class="mt-6 border rounded p-4 bg-background">
+              <h2 class="text-lg font-semibold mb-3">Uploaded files</h2>
+              <div class="space-y-2">
+                {#each uploaded_files as file (file.id)}
+                  <div class="flex items-center gap-3 rounded-md border border-border p-3">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+                      {#if file.content_type?.startsWith('image/')}
+                        <Image class="size-5 text-muted-foreground" aria-hidden="true" />
+                      {:else}
+                        <FileText class="size-5 text-muted-foreground" aria-hidden="true" />
+                      {/if}
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate text-sm font-medium text-foreground">{file.filename}</p>
+                      <p class="text-xs text-muted-foreground">
+                        {formatFileSize(file.byte_size)} &middot; {formatFileDate(file.uploaded_at)}
+                      </p>
+                    </div>
+
+                    <div class="flex shrink-0 gap-1">
+                      <a
+                        href={download_uploaded_file_path(file.id)}
+                        class="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        aria-label={`Download ${file.filename}`}
+                      >
+                        <Download class="size-4" />
+                      </a>
+                      <button
+                        type="button"
+                        class="rounded p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-colors"
+                        onclick={() => openFileDeleteConfirm(file)}
+                        aria-label={`Delete ${file.filename}`}
+                      >
+                        <Trash2 class="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            </div>
+
+            <Modal
+              open={showFileDeleteConfirm}
+              onClose={closeFileDeleteConfirm}
+              onConfirm={confirmFileDelete}
+            >
+              {#snippet header()}
+                <h2 class="text-lg font-semibold">Delete file</h2>
+                <p class="text-sm text-muted-foreground">This will permanently remove this file. This action cannot be undone.</p>
+              {/snippet}
+
+              <p class="text-sm text-muted-foreground">
+                Are you sure you want to delete {fileToDelete?.filename ?? 'this file'}?
+              </p>
+            </Modal>
+          {/if}
 
           <div class="mt-6 flex gap-2">
             <Button href={edit_client_path(client['id'])} variant="secondary">Edit</Button>

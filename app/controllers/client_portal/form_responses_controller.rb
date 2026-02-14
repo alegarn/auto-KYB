@@ -10,7 +10,8 @@ module ClientPortal
       render inertia: "ClientPortal/FormResponse", props: {
         client: { id: client_form.client.id, name: client_form.client.name },
         form: FormDetailSerializer.new(client_form.form).as_json,
-        last_response: last_response_payload(client_form)
+        last_response: last_response_payload(client_form),
+        uploaded_files: uploaded_files_by_field(client_form.client)
       }
     end
 
@@ -68,6 +69,12 @@ module ClientPortal
       lr = client_form.form_responses.order(:version).last
       return nil unless lr
       { data: lr.data, version: lr.version, created_at: lr.created_at.iso8601 }
+    end
+
+    def uploaded_files_by_field(client)
+      UploadedFileSerializer.by_field_key(
+        client.uploaded_files.available
+      )
     end
 
   end

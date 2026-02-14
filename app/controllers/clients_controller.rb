@@ -30,7 +30,8 @@ class ClientsController < ApplicationController
     render inertia: "Clients/Show", props: default_inertia_props.merge(
       client: ClientSerializer.new(@client).as_json,
       client_form: ClientFormSerializer.new(client_form).as_json,
-      forms: forms_for_select
+      forms: forms_for_select,
+      uploaded_files: UploadedFileSerializer.collection(@client.uploaded_files.available)
     )
   end
 

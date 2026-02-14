@@ -15,6 +15,7 @@
   const injectedOnSave = $derived(props.onSave)
   const lastResponse = $derived(props.last_response)
   const incomingFlash = $derived(props.flash_message)
+  const uploadedFiles = $derived<Record<string, any>>(props.uploaded_files || {})
   const hasInjectedHandler = $derived(typeof injectedOnSave === 'function')
   const formSettings = $derived<FormSettings>(portalForm?.structure?.settings || {})
 
@@ -240,6 +241,7 @@
                   inputOnly={true}
                   onChange={onChange}
                   metadata={field.metadata}
+                  uploadedFile={uploadedFiles[field.id] ?? null}
                 />
               </FieldContent>
             </Field>
