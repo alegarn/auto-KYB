@@ -3,6 +3,7 @@
   import UploadProgress from './UploadProgress.svelte'
   import FilePreview from './FilePreview.svelte'
   import { client_portal_uploaded_files_path } from '@/routes'
+  import axios from 'axios'
 
   interface UploadedFileData {
     id: string
@@ -108,55 +109,19 @@
     }
   }
 
-  function uploadFile(file: File): Promise<UploadedFileData> {
-    return new Promise((resolve, reject) => {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('field_key', fieldId)
-
-      const xhr = new XMLHttpRequest()
-
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
+  async function uploadFile(file: File): Promise<UploadedFileData> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('field_key', fieldId)
+  
+    return axios.post(client_portal_uploaded_files_path(), formData, {
+      headers: { Accept: 'application/json' },
+      onUploadProgress(e) {
+        if (e.total) {
           uploadPercentage = Math.round((e.loaded / e.total) * 100)
         }
-      })
-
-      xhr.addEventListener('load', () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            resolve(JSON.parse(xhr.responseText))
-          } catch {
-            reject(new Error('Invalid response from server'))
-          }
-        } else {
-          try {
-            const body = JSON.parse(xhr.responseText)
-            reject(new Error(body.error || `Upload failed (${xhr.status})`))
-          } catch {
-            reject(new Error(`Upload failed (${xhr.status})`))
-          }
-        }
-      })
-
-      xhr.addEventListener('error', () => {
-        reject(new Error('Network error during upload'))
-      })
-
-      xhr.addEventListener('abort', () => {
-        reject(new Error('Upload was cancelled'))
-      })
-
-      xhr.open('POST', client_portal_uploaded_files_path())
-      xhr.setRequestHeader('Accept', 'application/json')
-
-      const csrfMeta = document.querySelector('meta[name="csrf-token"]')
-      if (csrfMeta) {
-        xhr.setRequestHeader('X-CSRF-Token', csrfMeta.getAttribute('content') || '')
       }
-
-      xhr.send(formData)
-    })
+    }).then(res => res.data)
   }
 
   function removeFile() {
