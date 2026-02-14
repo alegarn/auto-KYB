@@ -21,26 +21,29 @@ description: "Task list for Client File Upload System"
 
 ### Tests (write BEFORE implementation)
 
-- [ ] T006a [P] [Foundation] Migration test for uploaded_files table in spec/migrations/20260213000000_create_uploaded_files_spec.rb
+- [ ] T006a [P] [Foundation] Migration test for uploaded_files table in spec/db/create_uploaded_files_spec.rb
 - [ ] T007a [P] [Foundation] Model test for UploadedFile in spec/models/uploaded_file_spec.rb
 - [ ] T009a [P] [Foundation] Unit test for file validation service in spec/services/file_validation_service_spec.rb
 - [ ] T010a [P] [Foundation] Unit test for file upload service in spec/services/file_upload_service_spec.rb
 - [ ] T011a [P] [Foundation] Unit test for purge file job in spec/jobs/purge_file_job_spec.rb
 - [ ] T012a [P] [Foundation] Unit test for file download service in spec/services/file_download_service_spec.rb
 
-- [ ] T006 Implement DB migration for uploaded_files at db/migrate/20260213000000_create_uploaded_files.rb
-- [ ] T007 Create model app/models/uploaded_file.rb with fields, associations, validations (UUID id, filename, content_type, byte_size, storage_key, uploaded_at, deleted_at, form_response_id, client_id)
-- [ ] T008 Update app/models/form_response.rb to add has_many :uploaded_files
+### Implementation
+
+- [ ] T006 Implement DB migration for uploaded_files at db/migrate/20260213000000_create_uploaded_files.rb (id UUID, form_response_id UUID FK, client_id UUID FK, field_key string, status string default 'available', uploaded_at datetime, downloaded_at datetime nullable, deleted_at datetime nullable, downloaded_by_user_id UUID nullable FK, metadata jsonb)
+- [ ] T007 Create model app/models/uploaded_file.rb with has_one_attached :file, associations, status enum, validations (delegates storage metadata to Active Storage blob)
+- [ ] T008 Update app/models/form_response.rb to add has_many :uploaded_files, dependent: :destroy
+- [ ] T008b Update app/models/client.rb to add has_many :uploaded_files, dependent: :destroy
 - [ ] T009 Implement file validation service with magic-bytes and MIME checks at app/services/file_validation_service.rb
-- [ ] T010 Implement file upload service skeleton at app/services/file_upload_service.rb (validation, storage key generation, Active Storage attachment orchestration)
+- [ ] T010 Implement file upload service at app/services/file_upload_service.rb (validation, Active Storage attachment, replacement handling)
 - [ ] T011 Implement background purge job at app/jobs/purge_file_job.rb to purge Active Storage blobs asynchronously
 - [ ] T012 Configure ActiveJob adapter and queue settings for purge jobs in config/application.rb or config/environments/*.rb
-- [ ] T013 Add indexes for uploaded_files on form_response_id, client_id, deleted_at and unique index on storage_key via migration
-- [ ] T014 Add auditing/logging hook for uploaded file actions in app/models/uploaded_file.rb or app/services/audit_service.rb
+- [ ] T013 Add indexes for uploaded_files on form_response_id, client_id, [form_response_id, field_key], deleted_at via migration
+- [ ] T014 Add auditing/logging hook for uploaded file actions in app/models/uploaded_file.rb
 
 ---
 
-## Phase 3: User Story 1 - Client File Upload (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - Client File Upload (Priority: P1) -- MVP
 
 **Goal**: Allow clients to upload PDF/JPEG/PNG files to form response upload fields and associate files with the form response.
 
@@ -48,21 +51,21 @@ description: "Task list for Client File Upload System"
 
 ### Tests (write BEFORE implementation)
 
-- [ ] T015 [P] [US1] Contract test for POST /clients/{client_id}/form_responses/{form_response_id}/uploads in spec/contracts/upload_spec.rb
-- [ ] T016 [P] [US1] System/integration test for client upload flow in spec/system/client_file_upload_system_spec.rb
-- [ ] T016a [P] [US1] System test for Inertia upload progress + FormData submission in spec/system/client_file_upload_system_spec.rb
+- [ ] T015 [P] [US1] Request spec for POST client_portal/uploaded_files in spec/requests/client_portal/uploaded_files_spec.rb
+- [ ] T016 [P] [US1] System/integration test for client upload flow in spec/system/client_file_upload_spec.rb
+- [ ] T016a [P] [US1] System test for Inertia upload progress + FormData submission in spec/system/client_file_upload_spec.rb
 
 ### Implementation
 
-- [ ] T017 [P] [US1] Implement controller action for file upload at app/controllers/api/v1/uploaded_files_controller.rb (POST)
-- [ ] T018 [P] [US1] Implement model attachment handling and metadata persistence in app/models/uploaded_file.rb (depends on T007)
+- [ ] T017 [P] [US1] Create app/controllers/client_portal/uploaded_files_controller.rb extending ClientPortal::BaseController (POST create action for file upload)
+- [ ] T018 [P] [US1] Add routes: resource :uploaded_files inside the client_portal namespace (POST only for client uploads)
 - [ ] T019 [US1] Integrate file_validation_service into upload flow at app/services/file_upload_service.rb (depends on T009)
-- [ ] T020 [US1] Add frontend upload component at app/frontend/components/file_upload/FileUploader.svelte and wire to POST endpoint
+- [ ] T020 [US1] Add frontend upload component at app/frontend/components/file_upload/FileUploader.svelte and wire to client_portal upload endpoint
 - [ ] T020a [US1] Implement upload submit via Inertia `useForm` in app/frontend/components/file_upload/FileUploader.svelte (bind file object and submit with `form.post`)
 - [ ] T020b [US1] Enforce multipart handling using Inertia `forceFormData: true` for nested/conditional file payloads in app/frontend/components/file_upload/FileUploader.svelte
 - [ ] T020c [US1] Ensure upload progress UI reads Inertia form progress (`form.progress.percentage`) in app/frontend/components/file_upload/UploadProgress.svelte
 - [ ] T021 [US1] Add upload progress UI at app/frontend/components/file_upload/UploadProgress.svelte
-- [ ] T022 [US1] Add server-side size/type checks and return 422 for invalid uploads in app/controllers/api/v1/uploaded_files_controller.rb
+- [ ] T022 [US1] Add server-side size/type checks and return 422 for invalid uploads in app/controllers/client_portal/uploaded_files_controller.rb
 
 ---
 
@@ -74,34 +77,35 @@ description: "Task list for Client File Upload System"
 
 ### Tests (write BEFORE implementation)
 
-- [ ] T023 [P] [US2] Contract test for GET /uploads/{id}/download in spec/contracts/download_spec.rb
-- [ ] T024 [P] [US2] System/integration test for download and post-download purge behavior in spec/system/file_download_system_spec.rb
+- [ ] T023 [P] [US2] Request spec for GET uploaded_files/:id/download in spec/requests/uploaded_files_spec.rb
+- [ ] T024 [P] [US2] System/integration test for download and post-download purge behavior in spec/system/file_download_spec.rb
 
 ### Implementation
 
-- [ ] T025 [P] [US2] Implement download endpoint at app/controllers/uploads_controller.rb (GET /uploads/:id/download) to return 302 redirect to presigned S3 URL or JSON download_url
-- [ ] T026 [US2] Implement file_download_service at app/services/file_download_service.rb to generate presigned URL, mark file as downloaded (set deleted_at) and enqueue purge job (depends on T011)
-- [ ] T027 [US2] Wire download link to admin UI at app/frontend/pages/Admin/ClientShow.svelte
-- [ ] T028 [US2] Add server-side handling for expired links and return 403/404 as appropriate in app/controllers/uploads_controller.rb
+- [ ] T025 [P] [US2] Create app/controllers/uploaded_files_controller.rb (authenticated, GET download action returning redirect to presigned S3 URL)
+- [ ] T025b [P] [US2] Add routes: resources :uploaded_files, only: [:destroy] with member { get :download } at root level
+- [ ] T026 [US2] Implement file_download_service at app/services/file_download_service.rb to generate presigned URL, mark file as downloaded (set status, deleted_at, downloaded_at, downloaded_by_user_id) and enqueue purge job (depends on T011)
+- [ ] T027 [US2] Wire download link into existing app/frontend/pages/Clients/Show.svelte
+- [ ] T028 [US2] Add server-side handling for expired/unavailable files and return appropriate errors in app/controllers/uploaded_files_controller.rb
 
 ---
 
 ## Phase 5: User Story 3 - File Replacement (Priority: P2)
 
-**Goal**: Allow a client to replace a previously uploaded file for the same field; old file is marked deleted and new file becomes the active one.
+**Goal**: Allow a client to replace a previously uploaded file for the same field; old file is marked as replaced and new file becomes the active one.
 
-**Independent Test**: Client uploads a file, then uploads another to same field; verify the new file replaces the old and old file is marked deleted and scheduled for purge.
+**Independent Test**: Client uploads a file, then uploads another to same field; verify the new file replaces the old and old file is marked replaced and scheduled for purge.
 
 ### Tests (write BEFORE implementation)
 
-- [ ] T029 [P] [US3] Integration/system test for replacement flow in spec/system/file_replacement_system_spec.rb
+- [ ] T029 [P] [US3] Integration/system test for replacement flow in spec/system/file_replacement_spec.rb
 
 ### Implementation
 
-- [ ] T030 [US3] Extend file_upload_service to support replacement semantics (mark previous uploaded_file.deleted_at, attach new blob) at app/services/file_upload_service.rb
-- [ ] T031 [US3] Update app/models/uploaded_file.rb to support state transitions (available -> replaced -> purged)
-- [ ] T032 [US3] Update FileUploader.svelte to support file replace UI and API call (app/frontend/components/file_upload/FileUploader.svelte)
-- [ ] T032a [US3] Implement multipart-safe replacement via POST + method spoofing (`_method: 'put'` or `X-HTTP-METHOD-OVERRIDE`) in app/frontend/components/file_upload/FileUploader.svelte and matching Rails controller handling
+- [ ] T030 [US3] Extend file_upload_service to support replacement semantics (find existing upload by field_key, mark status 'replaced' and set deleted_at, attach new blob) at app/services/file_upload_service.rb
+- [ ] T031 [US3] Ensure UploadedFile model status transitions (available -> replaced) work correctly in app/models/uploaded_file.rb
+- [ ] T032 [US3] Update FileUploader.svelte to support file replace UI (app/frontend/components/file_upload/FileUploader.svelte)
+- [ ] T032a [US3] Implement multipart-safe replacement via POST (same endpoint, service handles replacement by field_key) in app/frontend/components/file_upload/FileUploader.svelte
 
 ---
 
@@ -113,13 +117,13 @@ description: "Task list for Client File Upload System"
 
 ### Tests (write BEFORE implementation)
 
-- [ ] T033 [P] [US4] Integration/system test for admin deletion with confirmation in spec/system/file_deletion_system_spec.rb
+- [ ] T033 [P] [US4] Integration/system test for user deletion with confirmation in spec/system/file_deletion_spec.rb
 
 ### Implementation
 
-- [ ] T034 [US4] Implement DELETE /uploads/:id in app/controllers/uploads_controller.rb to mark deleted and enqueue purge job (app/controllers/uploads_controller.rb)
-- [ ] T035 [US4] Add confirmation UI and wire delete action in app/frontend/pages/Admin/ClientShow.svelte
-- [ ] T036 [US4] Ensure audit log entry created for deletion in app/services/audit_service.rb or app/models/uploaded_file.rb
+- [ ] T034 [US4] Implement DELETE action in app/controllers/uploaded_files_controller.rb to mark deleted and enqueue purge job
+- [ ] T035 [US4] Add confirmation UI and wire delete action in app/frontend/pages/Clients/Show.svelte
+- [ ] T036 [US4] Ensure audit log entry created for deletion in app/models/uploaded_file.rb
 
 ---
 
@@ -140,12 +144,12 @@ description: "Task list for Client File Upload System"
 
 ## Dependencies & Execution Order
 
-- Foundation (Phase 2) blocks all user stories and MUST complete before story implementation. All foundational test tasks (T006a, T007a, T009a, T010a, T011a, T012a) MUST be written and passing before their corresponding implementation tasks (T006, T007, T009, T010, T011, T026 where applicable). T012a (file_download_service unit test) must be completed and passing before T026 (file_download_service implementation).
-- Performance tests T042 and T043 are POST-IMPLEMENTATION performance checks and MUST be written and executed after the corresponding implementation tasks (after T041 and after core upload/download flows are validated).
-- Security tests T044 and T045 are POST-IMPLEMENTATION security checks and MUST be written and executed after the corresponding implementation tasks (after T026 for download-related checks and after core upload flows are validated). These tests verify NFR-001, NFR-002, NFR-003 and should be run in CI as part of release validation.
-- User stories US1 and US2 are P1 and prioritized for MVP; US1 (upload) should be completed first to validate core flow; US2 (download) can proceed in parallel after Foundation
-- US3 and US4 depend on US1/US2 primitives but are scoped later (P2, P3)
-- Note: Inertia multipart uploads for non-POST requests must use method spoofing (`_method` param or `X-HTTP-METHOD-OVERRIDE`).
+- Foundation (Phase 2) blocks all user stories and MUST complete before story implementation. All foundational test tasks (T006a, T007a, T009a, T010a, T011a, T012a) MUST be written and passing before their corresponding implementation tasks.
+- T012a (file_download_service unit test) must be completed and passing before T026 (file_download_service implementation).
+- Performance tests T042 and T043 are POST-IMPLEMENTATION and MUST be executed after core upload/download flows are validated.
+- Security tests T044 and T045 are POST-IMPLEMENTATION and MUST be executed after core flows are validated. These tests verify NFR-001, NFR-002, NFR-003.
+- User stories US1 and US2 are P1 and prioritized for MVP; US1 (upload) should be completed first; US2 (download) can proceed in parallel after Foundation.
+- US3 and US4 depend on US1/US2 primitives but are scoped later (P2, P3).
 
 ## Parallel Opportunities
 
@@ -166,16 +170,22 @@ Tasks reference these files (clickable in assistant responses):
 - specs/006-client-file-upload/tasks.md
 - specs/006-client-file-upload/plan.md
 - specs/006-client-file-upload/spec.md
+- specs/006-client-file-upload/data-model.md
 - db/migrate/20260213000000_create_uploaded_files.rb
 - app/models/uploaded_file.rb
+- app/models/form_response.rb
+- app/models/client.rb
 - app/services/file_upload_service.rb
 - app/services/file_download_service.rb
 - app/services/file_validation_service.rb
-- app/controllers/api/v1/uploaded_files_controller.rb
-- app/controllers/uploads_controller.rb
+- app/controllers/client_portal/uploaded_files_controller.rb
+- app/controllers/uploaded_files_controller.rb
 - app/jobs/purge_file_job.rb
 - app/frontend/components/file_upload/FileUploader.svelte
-- app/frontend/pages/Admin/ClientShow.svelte
+- app/frontend/components/file_upload/UploadProgress.svelte
+- app/frontend/components/file_upload/FilePreview.svelte
+- app/frontend/pages/Clients/Show.svelte
+- app/frontend/pages/ClientPortal/FormResponse.svelte
 
 ---
 

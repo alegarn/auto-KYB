@@ -111,17 +111,16 @@ specs/006-client-file-upload/
 ```text
 app/
 ├── models/
-│   ├── uploaded_file.rb          # ActiveRecord model for file metadata
-│   └── form_response.rb          # ActiveRecord model representing a client's submission (existing)
+│   ├── uploaded_file.rb          # ActiveRecord model wrapping Active Storage (business fields only)
+│   └── form_response.rb          # (existing) add has_many :uploaded_files
 ├── controllers/
-│   ├── api/
-│   │   └── v1/
-│   │       └── uploaded_files_controller.rb  # RESTful API endpoints
-│   └── client_portal/
-│       └── form_responses_controller.rb       # Client upload endpoints
+│   ├── client_portal/
+│   │   ├── form_responses_controller.rb  # (existing) client form submission
+│   │   └── uploaded_files_controller.rb  # Client upload endpoint (POST)
+│   └── uploaded_files_controller.rb      # User download/delete endpoints (authenticated)
 ├── services/
-│   ├── file_upload_service.rb   # Upload logic with validation
-│   ├── file_download_service.rb # Download logic with deletion
+│   ├── file_upload_service.rb    # Upload logic with validation
+│   ├── file_download_service.rb  # Download logic with deletion
 │   └── file_validation_service.rb # MIME/magic bytes validation
 ├── jobs/
 │   └── purge_file_job.rb         # Async file purging background job
@@ -133,32 +132,32 @@ app/
     │       └── FilePreview.svelte       # File preview after upload
     └── pages/
         ├── ClientPortal/
-        │   └── FormResponse.svelte      # Client form with file uploads
+        │   └── FormResponse.svelte      # (existing) client form with file uploads
         └── Clients/
-            └── Show.svelte              # User view with file downloads
+            └── Show.svelte              # (existing) user view with file downloads
 
-test/
+spec/
 ├── models/
-│   └── uploaded_file_test.rb
+│   └── uploaded_file_spec.rb
 ├── controllers/
-│   └── api/
-│       └── v1/
-│           └── uploaded_files_controller_test.rb
+│   ├── client_portal/
+│   │   └── uploaded_files_controller_spec.rb
+│   └── uploaded_files_controller_spec.rb
 ├── services/
-│   ├── file_upload_service_test.rb
-│   ├── file_download_service_test.rb
-│   └── file_validation_service_test.rb
+│   ├── file_upload_service_spec.rb
+│   ├── file_download_service_spec.rb
+│   └── file_validation_service_spec.rb
 ├── jobs/
-│   └── purge_file_job_test.rb
+│   └── purge_file_job_spec.rb
 └── system/
-    └── client_file_upload_system_test.rb
+    └── client_file_upload_spec.rb
 
 db/
 └── migrate/
     └── 20260213000000_create_uploaded_files.rb
 ```
 
-**Structure Decision**: This is a web application with Rails backend and Svelte frontend. The structure follows Rails conventions with models, controllers, and services in the backend, and Svelte components/pages in the frontend. Testing follows RSpec conventions with unit, integration, and system tests.
+**Structure Decision**: Follows the existing Inertia-based architecture. Client uploads go through the `client_portal` namespace (which already handles client authentication via access token/cookie). User downloads/deletions go through a root-level controller (which uses standard user authentication). No API namespace is needed -- this app is not an API; all controllers render Inertia pages or redirect. Tests use RSpec under `spec/` consistent with the rest of the project.
 
 ## Edge Cases
 
@@ -382,9 +381,9 @@ See [`research.md`](./research.md) for detailed research findings and technology
 
 See [`data-model.md`](./data-model.md) for the complete entity definitions, relationships, and state transitions.
 
-### API Contracts
+### Controller Contracts
 
-See [`contracts/`](./contracts/) directory for API endpoint specifications and OpenAPI schemas.
+Upload and download endpoints follow standard Rails RESTful conventions within the existing Inertia architecture. No separate API contracts are needed -- controllers render Inertia responses or issue redirects (for downloads).
 
 ### Quickstart Guide
 
