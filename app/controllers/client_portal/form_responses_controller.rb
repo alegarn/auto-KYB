@@ -1,7 +1,6 @@
 module ClientPortal
   class FormResponsesController < ClientPortal::BaseController
 
-    skip_before_action :verify_authenticity_token, only: [ :update ]
     before_action :authenticate_client_form!
 
     def show
