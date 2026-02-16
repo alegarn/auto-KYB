@@ -36,12 +36,13 @@ class UploadedFile < ApplicationRecord
   end
 
   def mark_downloaded!(user:)
-    update!(
+    attrs = {
       status: "downloaded",
-      downloaded_at: Time.current,
-      downloaded_by_user: user,
-      deleted_at: Time.current
-    )
+      downloaded_by_user: user
+    }
+    attrs[:downloaded_at] = Time.current if downloaded_at.blank?
+
+    update!(attrs)
   end
 
   def mark_replaced!
@@ -55,7 +56,7 @@ class UploadedFile < ApplicationRecord
     update!(status: "purged")
   end
 
-  # Files successfully downloaded by clients are deleted after download
+  # Explicit user deletion/revocation
   def mark_deleted!
     update!(
       status: "deleted",
