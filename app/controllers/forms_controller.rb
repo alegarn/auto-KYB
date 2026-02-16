@@ -57,15 +57,25 @@ class FormsController < ApplicationController
     respond_to do |format|
       format.json { render json: FormDetailSerializer.new(form).as_json, status: :ok }
       format.html do
-        render inertia: "forms/show", props: default_inertia_props.merge(form: FormDetailSerializer.new(form).as_json)
+        redirect_to edit_form_path(form), flash: {
+          inertia: {
+            toast: {
+              message: "Form edited",
+              type: "notice"
+            }
+          }
+        }, status: :see_other
       end
     end
   rescue FormService::DataLossWarning => e
-    render inertia: "forms/edit", props: {
-      session_id: current_session_id,
-      form: FormDetailSerializer.new(form).as_json,
-      error: e.message
-    }, status: :unprocessable_entity
+    redirect_to edit_form_path(form), flash: {
+      inertia: {
+        toast: {
+          message: "You can update the form, but the form responses will be erased",
+          type: "alert"
+        }
+      }
+    }, status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     render inertia: "forms/edit", props: {
       session_id: current_session_id,

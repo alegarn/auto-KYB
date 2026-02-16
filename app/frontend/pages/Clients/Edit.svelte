@@ -1,15 +1,23 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import { Form as InertiaForm } from '@inertiajs/svelte';
+  import { Form as InertiaForm, router, page } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
+  import Toast from '/components/Toast.svelte';
   import { client_path } from '@/routes';
   import { fetchCountriesData } from '/lib/countries';
   
-  let { client = {}, errors = {}, session_id, forms = [], current_form_id = null, confirm_message = null, attempted_form_id = null, confirm_replace_required = false } = $props();
+  let { 
+    client = {}, 
+    errors = {}, 
+    session_id, forms = [], 
+    current_form_id = null, 
+    confirm_message = null, 
+    attempted_form_id = null, 
+    confirm_replace_required = false } = $props();
 
   // modal and form state
   let showConfirm = $state({ open: false, continue: false });
@@ -31,8 +39,18 @@
     showConfirm.open = false;
     showConfirm.continue = true;
     confirmedReplace = true;
-    const f = document.getElementById('client-edit-form') as HTMLFormElement | null;
-    if (f) f.requestSubmit();
+    // Use router.flash to set client-side flash for Inertia (preferred API)
+    try {
+      router.flash('toast', { message: confirm_message || 'You can update the form, but the form responses will be erased', type: 'alert' })
+    } catch (err) {
+      // fallback: merge into props if router.flash isn't available for some reason
+      try {
+        router.replace({ props: (p: any) => ({ ...p, flash: { toast: { message: confirm_message || 'You can update the form, but the form responses will be erased', type: 'alert' } } }) })
+      } catch (err2) {
+        console.error('Failed to set flash toast', err2);
+      }
+    }
+    setTimeout(() => previouslyFocused?.focus(), 0);
   }
 
   function handleFormSelectPointerDown(event: PointerEvent) {
@@ -94,6 +112,16 @@
   // form submission state
   let confirmedReplace = $state(false);
 
+  // @ts-ignore: Property 'toast' does not exist on type 'FlashData'
+  const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null)
+  const flashClasses: string = $derived(
+    flashToast
+      ? flashToast?.type === 'notice'
+        ? 'mb-4 rounded-md p-4 text-sm bg-green-50 text-green-700'
+        : 'mb-4 rounded-md p-4 text-sm bg-red-50 text-red-700'
+      : ''
+  )
+
   // currently linked form (if provided via client props)
   const currentLinkedForm = $derived(() => {
     const linkedId = current_form_id || client?.client_form_id || client?.form_id || client?.form?.id;
@@ -116,6 +144,10 @@
         <h1 class="text-2xl font-semibold">Edit client</h1>
         <p class="text-sm text-muted-foreground">{client?.email}</p>
       </header>
+
+      {#if flashToast}
+        <Toast message={flashToast.message ?? confirm_message ?? 'Confirmed'} type={flashToast.type ?? 'notice'} />
+      {/if}
 
       {#if Array.isArray(errors) && errors.length}
         <div class="mb-4 text-rose-600">
@@ -264,7 +296,7 @@
             <p class="mb-4">{confirm_message || "Are you sure you want to replace the client's linked form? This will delete existing form responses."}</p>
             <div class="flex gap-2 justify-end">
               <button type="button" class="px-4 py-2 border rounded" onclick={modalOpen}>Cancel</button>
-              <button type="submit" class="px-4 py-2 bg-rose-600 text-white rounded" onclick={modalContinue}>
+              <button type="button" class="px-4 py-2 bg-rose-600 text-white rounded" onclick={modalContinue}>
                 Continue
               </button>
             </div>
