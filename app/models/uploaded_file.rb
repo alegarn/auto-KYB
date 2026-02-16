@@ -2,7 +2,7 @@ class UploadedFile < ApplicationRecord
 
   ALLOWED_CONTENT_TYPES = %w[application/pdf image/jpeg image/png].freeze
   MAX_FILE_SIZE = 10.megabytes
-  STATUSES = %w[available downloaded replaced purged].freeze
+  STATUSES = %w[available downloaded replaced deleted purged].freeze
 
   belongs_to :form_response, optional: true
   belongs_to :client
@@ -55,8 +55,10 @@ class UploadedFile < ApplicationRecord
     update!(status: "purged")
   end
 
+  # Files successfully downloaded by clients are deleted after download
   def mark_deleted!
     update!(
+      status: "deleted",
       deleted_at: Time.current
     )
   end

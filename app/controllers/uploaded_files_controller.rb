@@ -22,7 +22,6 @@ class UploadedFilesController < ApplicationController
     end
 
     @uploaded_file.mark_deleted!
-    @uploaded_file.update!(status: "downloaded")
     PurgeFileJob.perform_later(@uploaded_file.id)
 
     Rails.logger.info(

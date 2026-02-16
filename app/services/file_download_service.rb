@@ -1,6 +1,6 @@
 class FileDownloadService
 
-  SIGNED_URL_EXPIRY = 5.minutes
+  SIGNED_URL_EXPIRY = 10.minutes
 
   Result = Struct.new(:success, :url, :error, keyword_init: true) do
     def success? = success
