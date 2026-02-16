@@ -11,7 +11,8 @@ module ClientPortal
         client: { id: client_form.client.id, name: client_form.client.name },
         form: FormDetailSerializer.new(client_form.form).as_json,
         last_response: last_response_payload(client_form),
-        uploaded_files: uploaded_files_by_field(client_form.client)
+        uploaded_files: uploaded_files_by_field(client_form.client),
+        flash_message: flash_message_payload
       }
     end
 
@@ -75,6 +76,14 @@ module ClientPortal
       UploadedFileSerializer.by_field_key(
         client.uploaded_files.available
       )
+    end
+
+    def flash_message_payload
+      if flash[:alert].present?
+        { type: "alert", message: flash[:alert] }
+      elsif flash[:notice].present?
+        { type: "notice", message: flash[:notice] }
+      end
     end
 
   end
