@@ -172,8 +172,9 @@
   }
 
   async function submit(e: SubmitEvent) {
+    e.preventDefault()
+
     if (hasInjectedHandler) {
-      e.preventDefault()
       const submitter = e.submitter as HTMLButtonElement | null
       const validate = submitter?.value === 'true'
       injectedOnSave?.({ data: currentData(), validate })
