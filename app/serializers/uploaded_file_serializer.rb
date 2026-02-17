@@ -14,6 +14,8 @@ class UploadedFileSerializer
       "content_type" => @uploaded_file.content_type,
       "byte_size" => @uploaded_file.byte_size,
       "uploaded_at" => @uploaded_file.uploaded_at&.iso8601,
+      "downloaded_at" => @uploaded_file.downloaded_at&.iso8601,
+      "purge_scheduled_at" => @uploaded_file.purge_scheduled_at&.iso8601,
       "status" => @uploaded_file.status
     }
   end
