@@ -35,7 +35,7 @@ class ClientForm < ApplicationRecord
     # (versioning previously incremented `version` per response; see
     # commented code in FormResponse model).
     response = nil
-    transaction do
+    with_lock do
       old_response_ids = form_responses.pluck(:id)
       available_files = UploadedFile.where(form_response_id: old_response_ids).available
       available_files.update_all(form_response_id: nil)

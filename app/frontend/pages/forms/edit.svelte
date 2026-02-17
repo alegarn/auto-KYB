@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import { router } from '@inertiajs/svelte'
+  import { router, page } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
   import { Label } from "/components/ui/label/index.js"
@@ -34,6 +34,15 @@
   let results = $state<Record<string, any>>({})
   let outputFormat = $state('json')
   const formSettings = $derived<FormSettings>(settings || {})
+  // @ts-ignore: Property 'toast' does not exist on type 'FlashData'
+  const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null)
+  const flashClasses: string = $derived(
+    flashToast
+      ? flashToast.type === 'notice'
+        ? 'mb-4 rounded-md p-4 text-sm bg-green-50 text-green-700'
+        : 'mb-4 rounded-md p-4 text-sm bg-red-50 text-red-700'
+      : ''
+  )
 
   function formattedResults(outputFormat: string, results: Record<string, any>): string {
     try {
@@ -142,6 +151,12 @@
           </Button>
         </div>
       </div>
+
+      {#if flashToast}
+        <div role="alert" class={flashClasses}>
+          <span class="text-sm">{flashToast.message}</span>
+        </div>
+      {/if}
 
       {#if serverError}
         <div class="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">

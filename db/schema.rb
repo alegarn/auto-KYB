@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_13_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_16_084622) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -130,6 +130,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_13_000001) do
     t.string "field_key", null: false
     t.uuid "form_response_id"
     t.jsonb "metadata", default: {}, null: false
+    t.datetime "purge_scheduled_at"
     t.string "status", default: "available", null: false
     t.datetime "updated_at", null: false
     t.datetime "uploaded_at", default: -> { "now()" }, null: false
@@ -137,6 +138,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_13_000001) do
     t.index ["deleted_at"], name: "index_uploaded_files_on_deleted_at"
     t.index ["form_response_id", "field_key"], name: "index_uploaded_files_on_response_and_field"
     t.index ["form_response_id"], name: "index_uploaded_files_on_form_response_id"
+    t.index ["purge_scheduled_at"], name: "index_uploaded_files_on_purge_scheduled_at"
   end
 
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

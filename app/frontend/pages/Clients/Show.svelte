@@ -9,9 +9,10 @@
   import { router } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
   import { fetchCountriesData } from '/lib/countries';
+  import { computeFileExpiry, formatDuration } from '/lib/fileExpiry';
   import { FileText, Image, Download, Trash2 } from '@lucide/svelte';
 
-  let { user, client = null, session_id, forms = [], client_form = null, uploaded_files = [] } = $props();
+  let { user, client = null, session_id, forms = [], client_form = null, uploaded_files = [], file_retention = null } = $props();
   let showConfirm = $state(false);
   let showFileDeleteConfirm = $state(false);
   let fileToDelete = $state<any>(null);
@@ -83,6 +84,12 @@
       hour: '2-digit', minute: '2-digit'
     })
   }
+
+  // compute expiry metadata once per file (keeps template light)
+  const filesWithExpiry = $derived((uploaded_files || []).map((f: any) => ({
+    ...f,
+    expiry: computeFileExpiry({ ...f, expires_at: f?.purge_scheduled_at })
+  })));
 
   function openFileDeleteConfirm(file: any) {
     fileToDelete = file
@@ -194,7 +201,7 @@
             <div class="mt-6 border rounded p-4 bg-background">
               <h2 class="text-lg font-semibold mb-3">Uploaded files</h2>
               <div class="space-y-2">
-                {#each uploaded_files as file (file.id)}
+                {#each filesWithExpiry as file (file.id)}
                   <div class="flex items-center gap-3 rounded-md border border-border p-3">
                     <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
                       {#if file.content_type?.startsWith('image/')}
@@ -207,18 +214,37 @@
                     <div class="min-w-0 flex-1">
                       <p class="truncate text-sm font-medium text-foreground">{file.filename}</p>
                       <p class="text-xs text-muted-foreground">
-                        {formatFileSize(file.byte_size)} &middot; {formatFileDate(file.uploaded_at)}
+                        {formatFileSize(file.byte_size)} &middot; Uploaded at: {formatFileDate(file.uploaded_at)}
+                        {#if file.expiry?.expiresAtIso}
+                          &middot; Expires {formatFileDate(file.expiry.expiresAtIso)} ({formatDuration(file.expiry.remainingSeconds)})
+                        {:else if file_retention?.purge_delay_seconds}
+                          &middot; Purged {formatDuration(file_retention.purge_delay_seconds)} after first download
+                        {:else}
+                          &middot; Expiry starts after first download
+                        {/if}
                       </p>
                     </div>
 
                     <div class="flex shrink-0 gap-1">
-                      <a
-                        href={download_uploaded_file_path(file.id)}
-                        class="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                        aria-label={`Download ${file.filename}`}
-                      >
-                        <Download class="size-4" />
-                      </a>
+                      {#if !client_form || client_form.status === 'validated'}
+                        <a
+                          href={download_uploaded_file_path(file.id)}
+                          class="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                          aria-label={`Download ${file.filename}`}
+                        >
+                          <Download class="size-4" />
+                        </a>
+                      {:else}
+                        <button
+                          type="button"
+                          class="rounded p-1.5 text-muted-foreground hover:bg-muted transition-colors opacity-50 cursor-not-allowed"
+                          aria-label={`Download disabled until form is validated`}
+                          title="Download disabled until form is validated"
+                          disabled
+                        >
+                          <Download class="size-4" />
+                        </button>
+                      {/if}
                       <button
                         type="button"
                         class="rounded p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-colors"
