@@ -4,7 +4,13 @@ class PurgeFileJob < ApplicationJob
   def perform(uploaded_file_id)
     uploaded_file = UploadedFile.find_by(id: uploaded_file_id)
     return unless uploaded_file
+    return if uploaded_file.purged?
     return if uploaded_file.available?
+
+    if uploaded_file.downloaded?
+      return unless uploaded_file.purge_scheduled_at.present?
+      return if Time.current < uploaded_file.purge_scheduled_at
+    end
 
     if uploaded_file.file.attached?
       uploaded_file.file.purge

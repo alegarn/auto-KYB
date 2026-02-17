@@ -1,5 +1,7 @@
 class UploadedFilesController < ApplicationController
 
+  include ActiveStorage::SetCurrent
+
   before_action :set_uploaded_file
 
   def download

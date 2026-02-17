@@ -28,18 +28,36 @@ module ClientPortal
 
       if result.success?
         uf = result.uploaded_file
-        render json: {
-          id: uf.id,
-          field_key: uf.field_key,
-          filename: uf.filename,
-          content_type: uf.content_type,
-          byte_size: uf.byte_size,
-          uploaded_at: uf.uploaded_at.iso8601,
-          status: uf.status
-        }, status: :created
+        if inertia_request?
+          redirect_to client_portal_form_response_path,
+            notice: "File uploaded",
+            status: :see_other
+        else
+          render json: {
+            id: uf.id,
+            field_key: uf.field_key,
+            filename: uf.filename,
+            content_type: uf.content_type,
+            byte_size: uf.byte_size,
+            uploaded_at: uf.uploaded_at.iso8601,
+            status: uf.status
+          }, status: :created
+        end
       else
-        render json: { error: result.error }, status: :unprocessable_entity
+        if inertia_request?
+          redirect_to client_portal_form_response_path,
+            alert: result.error,
+            status: :see_other
+        else
+          render json: { error: result.error }, status: :unprocessable_entity
+        end
       end
+    end
+
+    private
+
+    def inertia_request?
+      request.headers["X-Inertia"].present?
     end
 
   end
