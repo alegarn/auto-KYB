@@ -7,7 +7,8 @@ RSpec.describe "Edit Form", type: :request do
 
     patch form_path(form), params: { form: { name: 'MyForm Updated' } }
 
-    expect(response).to have_http_status(:ok)
+    expect(response).to have_http_status(:see_other)
+    expect(response).to redirect_to(edit_form_path(form))
     expect(form.reload.name).to eq('MyForm Updated')
 
     get forms_path, headers: { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest }

@@ -3,7 +3,7 @@
   import UploadProgress from './UploadProgress.svelte'
   import FilePreview from './FilePreview.svelte'
   import { client_portal_uploaded_files_path } from '@/routes'
-  import axios from 'axios'
+  import { router } from '@inertiajs/svelte'
 
   interface UploadedFileData {
     id: string
@@ -19,6 +19,8 @@
     fieldId: string
     existingFile?: UploadedFileData | null
     accept?: string
+    allowedMimeTypes?: string[]
+    allowedTypeLabels?: string[]
     maxSizeBytes?: number
     required?: boolean
     label?: string
@@ -28,12 +30,13 @@
     fieldId,
     existingFile = null,
     accept = '.pdf,.jpg,.jpeg,.png',
+    allowedMimeTypes = [],
+    allowedTypeLabels = [],
     maxSizeBytes = 10 * 1024 * 1024,
     required = false,
     label = 'Upload file'
   }: Props = $props()
 
-  const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
   const RETRY_DELAY_MS = 2000
 
   type UploadStatus = 'idle' | 'uploading' | 'retrying' | 'success' | 'error'
@@ -49,9 +52,30 @@
     uploadedFile = existingFile ?? null
   })
 
+  const allowedExtensions = $derived.by(() =>
+    (accept || '')
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.startsWith('.'))
+  )
+
+  const allowedTypesText = $derived(
+    allowedTypeLabels.length > 0 ? allowedTypeLabels.join(', ') : 'the allowed file types'
+  )
+
+  function extensionFor(filename: string): string | null {
+    const index = filename.lastIndexOf('.')
+    if (index < 0) return null
+    return filename.slice(index).toLowerCase()
+  }
+
   function validateClientSide(file: File): string | null {
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return `File type "${file.type || 'unknown'}" is not supported. Allowed: PDF, JPEG, PNG`
+    if (allowedMimeTypes.length > 0 && !allowedMimeTypes.includes(file.type)) {
+      return `File type "${file.type || 'unknown'}" is not supported. Allowed: ${allowedTypesText}`
+    }
+    const extension = extensionFor(file.name)
+    if (allowedExtensions.length > 0 && extension && !allowedExtensions.includes(extension)) {
+      return `File extension "${extension}" is not supported. Allowed: ${allowedExtensions.join(', ')}`
     }
     if (file.size > maxSizeBytes) {
       const maxMb = Math.round(maxSizeBytes / (1024 * 1024))
@@ -110,18 +134,52 @@
   }
 
   async function uploadFile(file: File): Promise<UploadedFileData> {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('field_key', fieldId)
-  
-    return axios.post(client_portal_uploaded_files_path(), formData, {
-      headers: { Accept: 'application/json' },
-      onUploadProgress(e) {
-        if (e.total) {
-          uploadPercentage = Math.round((e.loaded / e.total) * 100)
+    const optimisticFile: UploadedFileData = {
+      id: `temp-${Date.now()}`,
+      field_key: fieldId,
+      filename: file.name,
+      content_type: file.type,
+      byte_size: file.size,
+      uploaded_at: new Date().toISOString(),
+      status: 'available',
+    }
+
+    return new Promise((resolve, reject) => {
+      router.post(
+        client_portal_uploaded_files_path(),
+        {
+          file,
+          field_key: fieldId,
+        },
+        {
+          forceFormData: true,
+          preserveScroll: true,
+          preserveState: true,
+          only: ['uploaded_files', 'flash_message'],
+          onProgress: (progress) => {
+            if (progress?.percentage != null) {
+              uploadPercentage = Math.round(progress.percentage)
+            }
+          },
+          onSuccess: (page) => {
+            const flashMessage = (page?.props as any)?.flash_message
+            if (flashMessage?.type === 'alert') {
+              reject(new Error(flashMessage?.message || 'Upload failed. Please try again.'))
+              return
+            }
+
+            uploadedFile = optimisticFile
+            resolve(optimisticFile)
+          },
+          onError: () => {
+            reject(new Error('Upload failed. Please try again.'))
+          },
+          onCancel: () => {
+            reject(new Error('Upload cancelled. Please try again.'))
+          },
         }
-      }
-    }).then(res => res.data)
+      )
+    })
   }
 
   function removeFile() {
@@ -156,7 +214,7 @@
         Click to upload or drag and drop
       </span>
       <span class="mt-1 text-xs text-muted-foreground">
-        PDF, JPEG or PNG (max {Math.round(maxSizeBytes / (1024 * 1024))}MB)
+        {allowedTypesText} (max {Math.round(maxSizeBytes / (1024 * 1024))}MB)
       </span>
     </button>
 

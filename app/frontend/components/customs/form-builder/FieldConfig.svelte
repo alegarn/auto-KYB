@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FIELD_TYPE_LABELS, isLayoutField, type FormField, type FieldMetadata } from "./types";
+  import { FIELD_TYPE_LABELS, isLayoutField, type FormField, type FieldMetadata, ALLOWED_FILE_EXTENSIONS, DEFAULT_ALLOWED_FILE_TYPES } from "./types";
   import { Input } from "@/components/ui/input/index.js";
   import { Label } from "@/components/ui/label/index.js";
   import { Separator } from "@/components/ui/separator/index.js";
@@ -73,6 +73,19 @@
 
   function emitLogo(key: string, value: any) {
     emitMeta('logo', { ...field.metadata.logo, [key]: value });
+  }
+
+  // --- File types helpers (kept out of template) ---
+  const defaultFileAllowed = DEFAULT_ALLOWED_FILE_TYPES;
+  const fileTypesInput = $derived((field.metadata.file?.allowed_types || defaultFileAllowed).map(t => t.replace(/^\./, '')).join(', '));
+  const supportedTypesLabel = $derived(ALLOWED_FILE_EXTENSIONS.map(t => t.replace(/^\./, '').toUpperCase()).join(', '));
+
+  function handleFileTypesInput(e: Event) {
+    const raw = (e.target as HTMLInputElement).value || '';
+    const tokens = raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const normalized = tokens.map(t => '.' + t.replace(/^\./, ''));
+    const filtered = normalized.filter((t): t is typeof ALLOWED_FILE_EXTENSIONS[number] => ALLOWED_FILE_EXTENSIONS.includes(t as typeof ALLOWED_FILE_EXTENSIONS[number]));
+    emitMeta('file', { ...field.metadata.file, allowed_types: filtered });
   }
 </script>
 
@@ -429,11 +442,12 @@
           <Label for="cfg-filetypes" class="mb-1 block text-[11px] text-muted-foreground">Allowed types (comma-separated)</Label>
           <Input
             id="cfg-filetypes"
-            value={(field.metadata.file?.allowed_types || []).join(', ')}
-            oninput={(e: any) => emitMeta('file', { ...field.metadata.file, allowed_types: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) })}
+            value={fileTypesInput}
+            oninput={handleFileTypesInput}
             placeholder="e.g. pdf, jpg, png"
             class="h-7 text-xs"
           />
+          <p class="mt-1 text-[11px] text-muted-foreground">Supported types: {supportedTypesLabel}</p>
         </div>
       </div>
     {/if}

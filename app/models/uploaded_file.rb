@@ -2,7 +2,7 @@ class UploadedFile < ApplicationRecord
 
   ALLOWED_CONTENT_TYPES = %w[application/pdf image/jpeg image/png].freeze
   MAX_FILE_SIZE = 10.megabytes
-  STATUSES = %w[available downloaded replaced purged].freeze
+  STATUSES = %w[available downloaded replaced deleted purged].freeze
 
   belongs_to :form_response, optional: true
   belongs_to :client
@@ -36,12 +36,13 @@ class UploadedFile < ApplicationRecord
   end
 
   def mark_downloaded!(user:)
-    update!(
+    attrs = {
       status: "downloaded",
-      downloaded_at: Time.current,
-      downloaded_by_user: user,
-      deleted_at: Time.current
-    )
+      downloaded_by_user: user
+    }
+    attrs[:downloaded_at] = Time.current if downloaded_at.blank?
+
+    update!(attrs)
   end
 
   def mark_replaced!
@@ -55,8 +56,10 @@ class UploadedFile < ApplicationRecord
     update!(status: "purged")
   end
 
+  # Explicit user deletion/revocation
   def mark_deleted!
     update!(
+      status: "deleted",
       deleted_at: Time.current
     )
   end

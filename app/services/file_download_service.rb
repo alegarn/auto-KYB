@@ -16,17 +16,15 @@ class FileDownloadService
   end
 
   def call
-    unless @uploaded_file.available?
-      return Result.new(success: false, error: "File is no longer available for download")
-    end
+    return Result.new(success: false, error: "File is no longer available for download") unless downloadable?
 
     unless @uploaded_file.file.attached?
       return Result.new(success: false, error: "File data not found")
     end
 
     url = generate_signed_url
-    @uploaded_file.mark_downloaded!(user: @user)
-    PurgeFileJob.perform_later(@uploaded_file.id)
+    @uploaded_file.mark_downloaded!(user: @user) if @uploaded_file.available?
+    schedule_purge_once!
 
     Rails.logger.info(
       "[FileAudit] Download file=#{@uploaded_file.id} user=#{@user.id} at=#{Time.current}"
@@ -40,12 +38,24 @@ class FileDownloadService
 
   private
 
+  def downloadable?
+    @uploaded_file.available? || @uploaded_file.downloaded?
+  end
+
   def generate_signed_url
     @uploaded_file.file.url(
       expires_in: SIGNED_URL_EXPIRY,
       disposition: "attachment",
       filename: @uploaded_file.filename
     )
+  end
+
+  def schedule_purge_once!
+    return if @uploaded_file.purge_scheduled_at.present?
+
+    purge_at = Time.current + FileRetentionPolicy.purge_delay
+    @uploaded_file.update!(purge_scheduled_at: purge_at)
+    PurgeFileJob.set(wait_until: purge_at).perform_later(@uploaded_file.id)
   end
 
 end

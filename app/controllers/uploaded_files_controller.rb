@@ -1,5 +1,7 @@
 class UploadedFilesController < ApplicationController
 
+  include ActiveStorage::SetCurrent
+
   before_action :set_uploaded_file
 
   def download
@@ -22,7 +24,6 @@ class UploadedFilesController < ApplicationController
     end
 
     @uploaded_file.mark_deleted!
-    @uploaded_file.update!(status: "downloaded")
     PurgeFileJob.perform_later(@uploaded_file.id)
 
     Rails.logger.info(

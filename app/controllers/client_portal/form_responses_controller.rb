@@ -1,7 +1,6 @@
 module ClientPortal
   class FormResponsesController < ClientPortal::BaseController
 
-    skip_before_action :verify_authenticity_token, only: [ :update ]
     before_action :authenticate_client_form!
 
     def show
@@ -11,7 +10,9 @@ module ClientPortal
         client: { id: client_form.client.id, name: client_form.client.name },
         form: FormDetailSerializer.new(client_form.form).as_json,
         last_response: last_response_payload(client_form),
-        uploaded_files: uploaded_files_by_field(client_form.client)
+        uploaded_files: uploaded_files_by_field(client_form.client),
+        file_upload_constraints: file_upload_constraints_payload,
+        flash_message: flash_message_payload
       }
     end
 
@@ -45,6 +46,7 @@ module ClientPortal
 
       if result.conflict
         return render inertia: "ClientPortal/FormResponse", props: {
+          file_upload_constraints: file_upload_constraints_payload,
           flash_message: {
             type: "alert",
             message: result.error
@@ -58,6 +60,7 @@ module ClientPortal
       else
         render inertia: "ClientPortal/FormResponse", props: {
           last_response: last_response_payload(client_form),
+          file_upload_constraints: file_upload_constraints_payload,
           flash_message: { type: "notice", message: "Form response saved successfully." }
         }, status: :ok
       end
@@ -75,6 +78,18 @@ module ClientPortal
       UploadedFileSerializer.by_field_key(
         client.uploaded_files.available
       )
+    end
+
+    def flash_message_payload
+      if flash[:alert].present?
+        { type: "alert", message: flash[:alert] }
+      elsif flash[:notice].present?
+        { type: "notice", message: flash[:notice] }
+      end
+    end
+
+    def file_upload_constraints_payload
+      FileUploadConstraints.as_json
     end
 
   end
