@@ -1,7 +1,6 @@
 class FileDownloadService
 
   SIGNED_URL_EXPIRY = 5.minutes
-  PURGE_DELAY = ENV.fetch("UPLOADED_FILE_PURGE_DELAY_SECONDS", 1.day.to_i).to_i.seconds
 
   Result = Struct.new(:success, :url, :error, keyword_init: true) do
     def success? = success
@@ -54,7 +53,7 @@ class FileDownloadService
   def schedule_purge_once!
     return if @uploaded_file.purge_scheduled_at.present?
 
-    purge_at = Time.current + PURGE_DELAY
+    purge_at = Time.current + FileRetentionPolicy.purge_delay
     @uploaded_file.update!(purge_scheduled_at: purge_at)
     PurgeFileJob.set(wait_until: purge_at).perform_later(@uploaded_file.id)
   end
