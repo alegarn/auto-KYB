@@ -185,7 +185,7 @@
                   <span class="text-sm text-muted-foreground"><em>None</em></span>
                 {/if}
               {:else}
-                <select id="client-form" name="client_form[form_id]" bind:value={selectedForm}
+                <select id="client-form" data-testid="client-form" name="client_form[form_id]" bind:value={selectedForm}
                   onpointerdown={handleFormSelectPointerDown}
                   onkeydown={handleFormSelectKeyDown}
                   class="mt-2 block w-full rounded border px-2 py-1">
@@ -243,18 +243,16 @@
 
           <div>
             <Label for="client-country" class="block text-sm font-medium">Company's country</Label>
-            {#if countriesLoading}
-              <select id="client-country" name="client[country]" disabled class="w-full border rounded px-3 py-2 bg-muted/10">
+            <select id="client-country" name="client[country]" bind:value={selectedCountry} class={`w-full border rounded px-3 py-2 bg-background ${hasError('country') ? 'border-rose-600' : ''}`} disabled={countriesLoading}>
+              {#if countriesLoading}
                 <option>Loading countries...</option>
-              </select>
-            {:else}
-              <select id="client-country" name="client[country]" bind:value={selectedCountry} class={`w-full border rounded px-3 py-2 bg-background ${hasError('country') ? 'border-rose-600' : ''}`}>
+              {:else}
                 <option value="">Select a country</option>
                 {#each countryOptions as opt}
                   <option value={opt.value}>{opt.flag} {opt.label}</option>
                 {/each}
-              </select>
-            {/if}
+              {/if}
+            </select>
             {#if countriesError}
               <div class="text-rose-600 text-sm mt-1">Error loading countries: {countriesError} <button class="ml-2 underline" onclick={fetchCountries}>Retry</button></div>
             {/if}

@@ -13,7 +13,7 @@ class ClientPortal::BaseController < ApplicationController
   def authenticate_client_form!
     unless Current.client_form && !Current.client_form.locked?
       ClientPortal::SessionService.clear_cookie(cookies)
-      render inertia: root_path, notice: "Your portal was revoked, you can ask the new form to the form provider", status: :see_other
+      redirect_to root_path, notice: "Your portal was revoked, you can ask the new form to the form provider", status: :see_other
     end
   end
 

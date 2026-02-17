@@ -19,6 +19,8 @@
     fieldId: string
     existingFile?: UploadedFileData | null
     accept?: string
+    allowedMimeTypes?: string[]
+    allowedTypeLabels?: string[]
     maxSizeBytes?: number
     required?: boolean
     label?: string
@@ -28,12 +30,13 @@
     fieldId,
     existingFile = null,
     accept = '.pdf,.jpg,.jpeg,.png',
+    allowedMimeTypes = [],
+    allowedTypeLabels = [],
     maxSizeBytes = 10 * 1024 * 1024,
     required = false,
     label = 'Upload file'
   }: Props = $props()
 
-  const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png']
   const RETRY_DELAY_MS = 2000
 
   type UploadStatus = 'idle' | 'uploading' | 'retrying' | 'success' | 'error'
@@ -49,9 +52,30 @@
     uploadedFile = existingFile ?? null
   })
 
+  const allowedExtensions = $derived.by(() =>
+    (accept || '')
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.startsWith('.'))
+  )
+
+  const allowedTypesText = $derived(
+    allowedTypeLabels.length > 0 ? allowedTypeLabels.join(', ') : 'the allowed file types'
+  )
+
+  function extensionFor(filename: string): string | null {
+    const index = filename.lastIndexOf('.')
+    if (index < 0) return null
+    return filename.slice(index).toLowerCase()
+  }
+
   function validateClientSide(file: File): string | null {
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return `File type "${file.type || 'unknown'}" is not supported. Allowed: PDF, JPEG, PNG`
+    if (allowedMimeTypes.length > 0 && !allowedMimeTypes.includes(file.type)) {
+      return `File type "${file.type || 'unknown'}" is not supported. Allowed: ${allowedTypesText}`
+    }
+    const extension = extensionFor(file.name)
+    if (allowedExtensions.length > 0 && extension && !allowedExtensions.includes(extension)) {
+      return `File extension "${extension}" is not supported. Allowed: ${allowedExtensions.join(', ')}`
     }
     if (file.size > maxSizeBytes) {
       const maxMb = Math.round(maxSizeBytes / (1024 * 1024))
@@ -190,7 +214,7 @@
         Click to upload or drag and drop
       </span>
       <span class="mt-1 text-xs text-muted-foreground">
-        PDF, JPEG or PNG (max {Math.round(maxSizeBytes / (1024 * 1024))}MB)
+        {allowedTypesText} (max {Math.round(maxSizeBytes / (1024 * 1024))}MB)
       </span>
     </button>
 
