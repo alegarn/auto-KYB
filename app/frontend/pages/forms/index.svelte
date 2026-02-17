@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from "svelte";
 	import * as Sidebar from "/components/ui/sidebar/index.js";
 	import AppSidebar from "/components/customs/app-sidebar.svelte";
 	import * as Card from "/components/ui/card";
@@ -11,6 +10,7 @@
 	import Modal from "/components/ui/modal.svelte";
 	import { new_form_path, form_path, edit_form_path } from "@/routes";
 	import { page } from '@inertiajs/svelte'
+	import Toast from "/components/customs/Toast.svelte"
 
 	type FormStatus = "draft" | "submitted" | "approved" | "rejected";
 	type Form = {
@@ -97,13 +97,6 @@
 	// ignore here so the UI can read the runtime flash structure.
 	// @ts-ignore: Property 'toast' does not exist on type 'FlashData'
 	const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null);
-	const flashClasses: string = $derived(
-		flashToast
-			? flashToast.type === 'notice'
-				? 'mb-4 rounded-md p-4 text-sm bg-green-50 text-green-700'
-				: 'mb-4 rounded-md p-4 text-sm bg-red-50 text-red-700'
-		: ''
-	);
 </script>
 
 <Sidebar.Provider>
@@ -113,9 +106,7 @@
 		{@render children?.()}
 
 		{#if flashToast}
-			<div role="alert" class={flashClasses}>
-				<span class="text-sm">{flashToast.message}</span>
-			</div>
+			<Toast message={flashToast.message} type={flashToast.type ?? 'notice'} />
 		{/if}
 
 		<section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

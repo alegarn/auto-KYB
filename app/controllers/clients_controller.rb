@@ -30,7 +30,9 @@ class ClientsController < ApplicationController
     render inertia: "Clients/Show", props: default_inertia_props.merge(
       client: ClientSerializer.new(@client).as_json,
       client_form: ClientFormSerializer.new(client_form).as_json,
-      forms: forms_for_select
+      forms: forms_for_select,
+      file_retention: FileRetentionPolicy.as_json,
+      uploaded_files: UploadedFileSerializer.collection(@client.uploaded_files.available)
     )
   end
 
@@ -147,7 +149,9 @@ class ClientsController < ApplicationController
 
   def destroy
     @client.destroy!
-    redirect_to clients_path, notice: "Client deleted", status: :see_other
+    # Provide a one-time Inertia flash so the frontend can show a toast
+    flash.inertia[:toast] = { message: "Client deleted", type: "notice" }
+    redirect_to clients_path, status: :see_other
   end
 
   private

@@ -1,6 +1,7 @@
 Rails.application.routes.draw do
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server
   constraints(host: "127.0.0.1") do
+    match "client_portal/login/:access_token", to: redirect(status: 307) { |params, req| "#{req.protocol}localhost:#{req.port}/client_portal/login/#{params[:access_token]}" }, via: [ :get, :post ]
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
 
@@ -19,6 +20,12 @@ Rails.application.routes.draw do
   resources :clients do
     member do
       get :export
+    end
+  end
+
+  resources :uploaded_files, only: [:destroy] do
+    member do
+      post :download
     end
   end
 
@@ -66,6 +73,7 @@ Rails.application.routes.draw do
     delete "logout", to: "sessions#destroy", as: :logout
 
     resource :form_response, only: [ :show, :update ]
+    resources :uploaded_files, only: [:create]
     get "confirmation", to: "confirmations#show", as: :confirmation
   end
 end

@@ -25,6 +25,18 @@ class ClientForm < ApplicationRecord
     update!(status: self.class.statuses["validated"], validated_at: Time.current)
   end
 
+  def mark_started!
+    with_lock do
+      if self.status == self.class.statuses["draft"]
+        update!(status: self.class.statuses["filled"])
+      end
+    end
+
+    if client.inactive? || client.linked?
+      client.update!(form_status: :active)
+    end
+  end
+
   # Save a form response for this client_form. Creates a new FormResponse
   # and transitions status from draft -> filled on first save. If `validate`
   # is true the client_form is validated (locked) after the save.
@@ -35,20 +47,25 @@ class ClientForm < ApplicationRecord
     # (versioning previously incremented `version` per response; see
     # commented code in FormResponse model).
     response = nil
-    transaction do
+    with_lock do
+      old_response_ids = form_responses.pluck(:id)
+      available_files = UploadedFile.where(form_response_id: old_response_ids).available
+      available_files.update_all(form_response_id: nil)
+
       form_responses.delete_all
       response = FormResponse.create!(client_form: self, data: data)
-    end
 
-    if self.status == self.class.statuses["draft"] && FormResponse.where(client_form_id: id).count > 0
-      update!(status: self.class.statuses["filled"])
+      UploadedFile.where(client_id: client_id, form_response_id: nil)
+                  .available
+                  .update_all(form_response_id: response.id)
     end
 
     if validate
       validate!
+      client.update!(form_status: :validated)
+    else
+      mark_started!
     end
-
-    client.update!(form_status: validate ? :validated : :active)
 
     response
   end

@@ -10,10 +10,38 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_12_043357) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_16_084622) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.uuid "record_id", null: false
+    t.string "record_type", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
 
   create_table "client_forms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "access_token"
@@ -93,6 +121,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_12_043357) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
+  create_table "uploaded_files", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "client_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "deleted_at"
+    t.datetime "downloaded_at"
+    t.uuid "downloaded_by_user_id"
+    t.string "field_key", null: false
+    t.uuid "form_response_id"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "purge_scheduled_at"
+    t.string "status", default: "available", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "uploaded_at", default: -> { "now()" }, null: false
+    t.index ["client_id"], name: "index_uploaded_files_on_client_id"
+    t.index ["deleted_at"], name: "index_uploaded_files_on_deleted_at"
+    t.index ["form_response_id", "field_key"], name: "index_uploaded_files_on_response_and_field"
+    t.index ["form_response_id"], name: "index_uploaded_files_on_form_response_id"
+    t.index ["purge_scheduled_at"], name: "index_uploaded_files_on_purge_scheduled_at"
+  end
+
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", null: false
@@ -104,6 +152,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_12_043357) do
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "client_forms", "clients"
   add_foreign_key "client_forms", "forms"
   add_foreign_key "clients", "users"
@@ -111,4 +161,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_12_043357) do
   add_foreign_key "form_responses", "client_forms"
   add_foreign_key "forms", "users"
   add_foreign_key "sessions", "users"
+  add_foreign_key "uploaded_files", "clients", on_delete: :cascade
+  add_foreign_key "uploaded_files", "form_responses", on_delete: :nullify
+  add_foreign_key "uploaded_files", "users", column: "downloaded_by_user_id", on_delete: :nullify
 end

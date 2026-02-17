@@ -9,6 +9,7 @@
   import { Label } from "@/components/ui/label/index.js";
   import { Plus, Trash2 } from "@lucide/svelte";
   import ButtonsField from './form-builder/ButtonsField.svelte';
+  import FileUploader from '@/components/file_upload/FileUploader.svelte';
   import type { FieldType, FieldMetadata, TableColumn } from "./form-builder/types";
 
   interface Props {
@@ -21,9 +22,28 @@
     onChange?: (detail: { id: string; value: any }) => void;
     inputOnly?: boolean;
     metadata?: FieldMetadata;
+    uploadedFile?: any;
+    fileUploadConstraints?: {
+      allowed_content_types?: string[];
+      allowed_extensions?: string[];
+      allowed_type_labels?: string[];
+      max_file_size_bytes?: number;
+      default_accept?: string;
+    };
   }
 
-  const { id, label, type, required = false, value, name, onChange, inputOnly = false, metadata = {} }: Props = $props();
+  const { 
+    id, 
+    label, 
+    type, 
+    required = false, 
+    value, 
+    name, 
+    onChange, 
+    inputOnly = false, 
+    metadata = {}, 
+    uploadedFile = null, 
+    fileUploadConstraints = {} }: Props = $props();
 
   let currentValue = $derived(value ?? '');
   let tableRows = $state<Record<string, any>[]>([{}]);
@@ -107,6 +127,13 @@
   const placeholder = $derived(metadata.placeholder ?? '');
   const description = $derived(metadata.description ?? '');
   const fileConfig = $derived(metadata.file ?? {});
+  const allowedMimeTypes = $derived(fileUploadConstraints.allowed_content_types ?? []);
+  const allowedTypeLabels = $derived(fileUploadConstraints.allowed_type_labels ?? []);
+  const defaultAccept = $derived(fileUploadConstraints.default_accept ?? '.pdf,.jpg,.jpeg,.png');
+  const maxFileSizeBytes = $derived(fileUploadConstraints.max_file_size_bytes ?? 10 * 1024 * 1024);
+  const configuredMaxSizeBytes = $derived(fileConfig.max_size_kb ? fileConfig.max_size_kb * 1024 : null);
+  const effectiveMaxFileSizeBytes = $derived(configuredMaxSizeBytes == null ? maxFileSizeBytes : Math.min(configuredMaxSizeBytes, maxFileSizeBytes));
+  const accept = $derived(fileConfig.allowed_types?.map((t: string) => `.${t}`).join(',') || defaultAccept);
   const separatorConfig = $derived(metadata.separator ?? {});
   const textContent = $derived(metadata.text_content ?? '');
 
@@ -284,22 +311,16 @@
   {/if}
 
 {:else if type === 'file'}
-  <Input
-    aria-label={label}
-    id={name ?? id}
-    name={name}
-    type="file"
-    onchange={onFileChange}
-    accept={fileConfig.allowed_types?.map((t) => `.${t}`).join(',')}
+  <FileUploader
+    fieldId={id}
+    existingFile={uploadedFile}
+    {accept}
+    allowedMimeTypes={allowedMimeTypes}
+    allowedTypeLabels={allowedTypeLabels}
+    maxSizeBytes={effectiveMaxFileSizeBytes}
+    {required}
+    {label}
   />
-  {#if fileConfig.allowed_types?.length}
-    <p class="mt-1 text-xs text-muted-foreground">
-      Allowed: {fileConfig.allowed_types.join(', ')}
-      {#if fileConfig.max_size_kb}
-        (max {Math.round(fileConfig.max_size_kb / 1024)}MB)
-      {/if}
-    </p>
-  {/if}
 
 {:else if type === 'section'}
   <div class="mt-6 mb-4 pb-2 border-b">
@@ -336,7 +357,7 @@
         class="inline-block"
       />
     </div>
-  {/if}
+  {/if} 
 
 {:else}
   {#if inputOnly}

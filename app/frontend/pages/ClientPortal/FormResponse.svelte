@@ -15,6 +15,8 @@
   const injectedOnSave = $derived(props.onSave)
   const lastResponse = $derived(props.last_response)
   const incomingFlash = $derived(props.flash_message)
+  const uploadedFiles = $derived<Record<string, any>>(props.uploaded_files || {})
+  const fileUploadConstraints = $derived(props.file_upload_constraints || {})
   const hasInjectedHandler = $derived(typeof injectedOnSave === 'function')
   const formSettings = $derived<FormSettings>(portalForm?.structure?.settings || {})
 
@@ -171,8 +173,9 @@
   }
 
   async function submit(e: SubmitEvent) {
+    e.preventDefault()
+
     if (hasInjectedHandler) {
-      e.preventDefault()
       const submitter = e.submitter as HTMLButtonElement | null
       const validate = submitter?.value === 'true'
       injectedOnSave?.({ data: currentData(), validate })
@@ -217,6 +220,7 @@
               required={false}
               inputOnly={true}
               metadata={field.metadata}
+              fileUploadConstraints={fileUploadConstraints}
             />
           {:else}
             <Field>
@@ -240,6 +244,8 @@
                   inputOnly={true}
                   onChange={onChange}
                   metadata={field.metadata}
+                  uploadedFile={uploadedFiles[field.id] ?? null}
+                  fileUploadConstraints={fileUploadConstraints}
                 />
               </FieldContent>
             </Field>

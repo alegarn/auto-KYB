@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
-  import { router } from '@inertiajs/svelte'
+  import { router, page } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
   import { Label } from "/components/ui/label/index.js"
@@ -11,6 +11,7 @@
   import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
   import type { FormField } from "/components/customs/form-builder/types"
   import { form_path } from '@/routes';
+  import Toast from "/components/customs/Toast.svelte"
 
   let { form: initial, errors: serverErrors, error: serverError, session_id } = $props()
 
@@ -34,6 +35,9 @@
   let results = $state<Record<string, any>>({})
   let outputFormat = $state('json')
   const formSettings = $derived<FormSettings>(settings || {})
+  // @ts-ignore: Property 'toast' does not exist on type 'FlashData'
+  const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null)
+  
 
   function formattedResults(outputFormat: string, results: Record<string, any>): string {
     try {
@@ -142,6 +146,10 @@
           </Button>
         </div>
       </div>
+
+      {#if flashToast}
+        <Toast message={flashToast.message} type={flashToast.type ?? 'notice'} />
+      {/if}
 
       {#if serverError}
         <div class="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">
