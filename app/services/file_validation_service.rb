@@ -1,13 +1,9 @@
 class FileValidationService
 
-  ALLOWED_CONTENT_TYPES = UploadedFile::ALLOWED_CONTENT_TYPES
-  MAX_FILE_SIZE = UploadedFile::MAX_FILE_SIZE
+  ALLOWED_CONTENT_TYPES = FileUploadConstraints.allowed_content_types
+  MAX_FILE_SIZE = FileUploadConstraints.max_file_size_bytes
 
-  MAGIC_BYTES = {
-    "application/pdf" => ["%PDF"],
-    "image/jpeg"      => ["\xFF\xD8\xFF".b],
-    "image/png"       => ["\x89PNG".b]
-  }.freeze
+  MAGIC_BYTES = FileUploadConstraints::MAGIC_BYTES_BY_CONTENT_TYPE
 
   Result = Struct.new(:valid, :error, keyword_init: true) do
     def valid? = valid
@@ -43,7 +39,7 @@ class FileValidationService
 
     Result.new(
       valid: false,
-      error: "File type '#{detected_type}' is not supported. Allowed: PDF, JPEG, PNG"
+      error: "File type '#{detected_type}' is not supported. Allowed: #{FileUploadConstraints.allowed_types_human}"
     )
   end
 
