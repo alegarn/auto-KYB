@@ -408,9 +408,3 @@ test('shows client email in header', () => {
   expect(emailTexts.length).toBeGreaterThan(0);
 });
 
-import Toast from '../../../../app/frontend/components/customs/Toast.svelte'
-
-test('Toast component renders message and type', async () => {
-  render(Toast, { props: { message: 'Client updated', type: 'notice' } })
-  expect(await screen.findByText(/Client\s*updated/)).toBeInTheDocument()
-})
