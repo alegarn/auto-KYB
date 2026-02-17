@@ -31,6 +31,7 @@ class ClientsController < ApplicationController
       client: ClientSerializer.new(@client).as_json,
       client_form: ClientFormSerializer.new(client_form).as_json,
       forms: forms_for_select,
+      file_retention: FileRetentionPolicy.as_json,
       uploaded_files: UploadedFileSerializer.collection(@client.uploaded_files.available)
     )
   end
