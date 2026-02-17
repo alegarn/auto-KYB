@@ -1,5 +1,7 @@
-import { render, fireEvent, waitFor } from '@testing-library/svelte'
+import { render, fireEvent, waitFor, screen } from '@testing-library/svelte'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { page } from '@inertiajs/svelte'
+import { tick } from 'svelte'
 import Edit from '@/pages/forms/edit.svelte'
 
 vi.mock('@inertiajs/svelte', async () => {
@@ -277,6 +279,37 @@ describe('Forms Edit Page', () => {
       expect(getByText('JSON')).toBeInTheDocument()
       expect(getByText('CSV')).toBeInTheDocument()
     })
+  })
+
+  it('shows toast when page.flash.toast is set', async () => {
+    const fakeForm = {
+      id: '1',
+      name: 'Test Form',
+      description: 'desc',
+      form_fields: [],
+      structure: { settings: {} }
+    }
+
+    render(Edit, {
+      props: {
+        form: fakeForm,
+        errors: null,
+        error: null,
+        session_id: 'test-session-123'
+      }
+    })
+
+    // set the flash on the mocked `page` store
+    // The app's components expect the `page` store value to be the `props` object
+    page.set({
+      user: { id: '1', email: 'test@example.com', name: 'Test User' },
+      session_id: 'test-session-123',
+      flash: { toast: { message: 'Form saved', type: 'notice' } }
+    })
+
+    // wait for DOM update and assert toast appears
+    await tick()
+    expect(await screen.findByText(/Form\s*saved/)).toBeInTheDocument()
   })
 
   it('allows switching between JSON and CSV output formats', async () => {

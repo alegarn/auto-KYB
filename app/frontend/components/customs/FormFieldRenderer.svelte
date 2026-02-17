@@ -357,7 +357,7 @@
         class="inline-block"
       />
     </div>
-  {/if}
+  {/if} 
 
 {:else}
   {#if inputOnly}

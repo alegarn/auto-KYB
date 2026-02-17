@@ -1,7 +1,6 @@
 <script lang="ts">
   import { router } from '@inertiajs/svelte'
-  export let message: string | undefined = ''
-  export let type: 'notice' | 'alert' | string = 'notice'
+  const { message, type }: { message?: string; type?: 'notice' | 'alert' | string } = $props()
 
   const classes = () => {
     return type === 'notice'
@@ -26,6 +25,6 @@
 <div role="status" aria-live="polite" class={classes()}>
   <div class="flex items-start justify-between gap-4">
     <div class="text-sm">{message ?? ''}</div>
-    <button aria-label="Dismiss" class="ml-4 text-sm font-semibold" on:click={dismiss}>×</button>
+    <button aria-label="Dismiss" class="ml-4 text-sm font-semibold" onclick={dismiss}>×</button>
   </div>
 </div>

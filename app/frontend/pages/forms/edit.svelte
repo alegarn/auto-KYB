@@ -11,6 +11,7 @@
   import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
   import type { FormField } from "/components/customs/form-builder/types"
   import { form_path } from '@/routes';
+  import Toast from "/components/customs/Toast.svelte"
 
   let { form: initial, errors: serverErrors, error: serverError, session_id } = $props()
 
@@ -36,13 +37,7 @@
   const formSettings = $derived<FormSettings>(settings || {})
   // @ts-ignore: Property 'toast' does not exist on type 'FlashData'
   const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null)
-  const flashClasses: string = $derived(
-    flashToast
-      ? flashToast.type === 'notice'
-        ? 'mb-4 rounded-md p-4 text-sm bg-green-50 text-green-700'
-        : 'mb-4 rounded-md p-4 text-sm bg-red-50 text-red-700'
-      : ''
-  )
+  
 
   function formattedResults(outputFormat: string, results: Record<string, any>): string {
     try {
@@ -153,9 +148,7 @@
       </div>
 
       {#if flashToast}
-        <div role="alert" class={flashClasses}>
-          <span class="text-sm">{flashToast.message}</span>
-        </div>
+        <Toast message={flashToast.message} type={flashToast.type ?? 'notice'} />
       {/if}
 
       {#if serverError}
