@@ -53,28 +53,26 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
 
       # Login again to get cookie (session cleared on validate)
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect(response).to have_http_status(:gone)
+      expect(response).to have_http_status(:found)
+      expect(response).to redirect_to(client_portal_login_path(@client_form.access_token))
 
-      # Attempt to save after validation should render inertia redirect to root (session cleared/locked)
+      # Attempt to save after validation should redirect to root (session cleared/locked)
       patch client_portal_form_response_path, params: { form_response: { data: { foo: 'baz' } } }, headers: { 'X-Inertia' => 'true' }
       expect(response).to have_http_status(:see_other)
-      body = JSON.parse(response.body)
-      expect(body['component']).to eq('/')
-      expect(body['props']['errors']).to eq({})
+      expect(response).to redirect_to(root_path)
     end
 
     it "rejects updates when client_form is expired" do
       @client_form.update!(expires_at: 1.day.ago)
 
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect(response).to have_http_status(:gone)
+      expect(response).to have_http_status(:found)
+      expect(response).to redirect_to(client_portal_login_path(@client_form.access_token))
 
-      # Attempt to save should render inertia redirect to root (form expired)
+      # Attempt to save should redirect to root (form expired)
       patch client_portal_form_response_path, params: { form_response: { data: { foo: 'bar' } } }, headers: { 'X-Inertia' => 'true' }
       expect(response).to have_http_status(:see_other)
-      body = JSON.parse(response.body)
-      expect(body['component']).to eq('/')
-      expect(body['props']['errors']).to eq({})
+      expect(response).to redirect_to(root_path)
     end
   end
 

@@ -23,7 +23,8 @@ module ClientPortal
         client: client,
         field_key: field_key,
         file: file,
-        form_response: form_response
+        form_response: form_response,
+        client_form: client_form
       )
 
       if result.success?
