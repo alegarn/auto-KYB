@@ -1,5 +1,6 @@
 import { test, expect, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte'
 import userEvent from '@testing-library/user-event';
 
 // Mock countries loader to avoid network/URL parsing in tests
@@ -8,6 +9,7 @@ vi.mock('/lib/countries', () => ({
 }));
 
 import EditClient from '../../../../app/frontend/pages/Clients/Edit.svelte';
+import { mockPageProps, updatePageProps, resetPageProps } from '../../mocks/inertia'
 
 test('renders edit client form with pre-filled values', () => {
   const client = { id: '1', name: 'Acme', company_name: 'Acme Inc.', email: 'a@a.com', phone: '123' };
@@ -17,6 +19,9 @@ test('renders edit client form with pre-filled values', () => {
   
   expect(withinSection.getByText('Edit client')).toBeInTheDocument();
   expect(withinSection.getByDisplayValue('Acme')).toBeInTheDocument();
+  // ensure page props are in known state
+  resetPageProps()
+
 });
 
 test('renders all client fields with pre-filled values', async () => {
@@ -402,3 +407,10 @@ test('shows client email in header', () => {
   const emailTexts = withinSection.getAllByText('contact@acme.com');
   expect(emailTexts.length).toBeGreaterThan(0);
 });
+
+import Toast from '../../../../app/frontend/components/customs/Toast.svelte'
+
+test('Toast component renders message and type', async () => {
+  render(Toast, { props: { message: 'Client updated', type: 'notice' } })
+  expect(await screen.findByText(/Client\s*updated/)).toBeInTheDocument()
+})
