@@ -14,6 +14,10 @@
 - Q: When transferring to multiple CRMs sequentially, what happens if some transfers succeed and others fail? → A: Each CRM transfer is independent; success/failure tracked separately
 - Q: When file transfer fails but other data (client info, form responses) succeeds, how should this be handled? → A: Record as partial success; notify user of file failure
 - Q: How should OAuth token refresh be handled when access tokens expire? → A: Automatic refresh using refresh token; notify user if refresh fails
+- Q: When testing CRM connection, what should the user be able to verify? → A: Both preview field mappings AND send test data for full verification
+- Q: When sending test data to CRM, how should the test data be generated and what should happen to it in the CRM? → A: Use placeholder/sample data (e.g., 'Test Client', 'test@example.com') and mark records as test data in CRM (flagged for easy deletion)
+- Q: Where in the UI should the CRM test connection feature be available? → A: Both: In CRM settings (general connection test) AND on form pages (form-specific mapping test)
+- Q: When a CRM test connection fails, what information should be displayed to the user? → A: Categorized errors (connection, authentication, field mapping, file upload) with specific guidance for each type
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -107,6 +111,29 @@ As a user, I want to view the status and history of data transfers to CRM, so th
 
 ---
 
+### User Story 6 - CRM Connection Testing and Field Mapping Preview (Priority: P1)
+
+As a user, I want to test my CRM connection and preview field mappings when creating or updating forms, so that I can verify data will be transferred correctly to the right fields in the CRM before real client data is sent.
+
+**Why this priority**: This is critical for user confidence and data integrity. Users need to verify their CRM integration is working correctly and that form fields map properly to CRM fields before relying on automatic data transfers. Without testing, users may discover mapping issues only after real client data has been incorrectly transferred, leading to data quality problems and manual cleanup efforts.
+
+**Independent Test**: Can be fully tested by creating a form, clicking "Test CRM Connection", verifying the mapping preview, sending test data, and confirming the test record appears correctly in the CRM.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user has an active CRM connection, **When** the user views the CRM settings page, **Then** a "Test Connection" button is displayed for each connected CRM
+2. **Given** the user clicks "Test Connection" in CRM settings, **When** the test completes successfully, **Then** the user sees a success message with connection status and API credential validity
+3. **Given** the user clicks "Test Connection" in CRM settings, **When** the test fails, **Then** the user sees a categorized error message (connection, authentication, field mapping, or file upload) with specific guidance for resolution
+4. **Given** the user is creating or editing a form with CRM integration enabled, **When** the user clicks "Test CRM Mapping", **Then** the user sees a preview of how each form field maps to the corresponding CRM field
+5. **Given** the user is viewing the field mapping preview, **When** a form field cannot be mapped to a CRM field, **Then** the field is highlighted with a warning and the user is informed of the mapping limitation
+6. **Given** the user clicks "Send Test Data" from the form page, **When** the test data is sent successfully, **Then** a test record is created in the CRM using placeholder/sample data (e.g., 'Test Client', 'test@example.com') and marked as test data
+7. **Given** the test data is sent to CRM, **When** the user views the test record in CRM, **Then** the record is clearly flagged as test data for easy identification and deletion
+8. **Given** the user sends test data to multiple CRM connections, **When** the test is complete, **Then** the user sees a summary showing success/failure status for each CRM with links to view the test records
+9. **Given** the user sends test data including file uploads, **When** the test completes, **Then** test files are uploaded to the CRM and the user can verify the file transfer is working correctly
+10. **Given** the user has multiple CRM connections, **When** the user clicks "Test CRM Mapping" on a form, **Then** the user can select which CRM(s) to test and see mapping previews for each selected provider
+
+---
+
 ### Edge Cases
 
 - What happens when the user has no active CRM connections and a client validates their form? The form validation proceeds normally, but no data transfer occurs. The user is notified that no CRM connection is active.
@@ -119,6 +146,16 @@ As a user, I want to view the status and history of data transfers to CRM, so th
 - What happens when uploaded files cannot be transferred to CRM (e.g., unsupported file type)? The transfer is recorded as partial success with file-specific errors; user is notified of file failure details. Other data and files are still transferred successfully.
 - What happens when the user has multiple clients with the same data (e.g., duplicate company names)? Each client is treated independently; duplicates are not prevented as they may represent different entities.
 - What happens when the cleanup process fails to remove data? The system logs the error and retries cleanup on the next scheduled run; data remains until successfully removed.
+- What happens when the user clicks "Test Connection" but has no active CRM connections? The button is disabled or hidden; the user is prompted to connect a CRM first.
+- What happens when the CRM API returns an error during connection test? The error is categorized (connection, authentication, field mapping, or file upload) and displayed with specific guidance for resolution.
+- What happens when a form field cannot be mapped to any CRM field? The field is highlighted with a warning in the mapping preview, and the user is informed that data for this field will not be transferred.
+- What happens when test data is sent but the CRM does not support marking records as test data? The test record uses placeholder values that are easily identifiable (e.g., 'Test Client', 'test@example.com') and the user is informed to manually delete the test record.
+- What happens when testing multiple CRM connections and some succeed while others fail? The test results summary shows individual status for each CRM with specific error details for failed tests.
+- What happens when the user sends test data but the CRM API rate limit is exceeded? The test fails with a rate limit error and the user is informed to retry after the rate limit resets.
+- What happens when file upload is tested but the CRM does not support the file type? The test fails with a file type error, and the user is informed which file types are supported.
+- What happens when the user modifies form fields after testing the CRM mapping? The mapping preview should be refreshed or the user should be prompted to re-test to verify the new field mappings.
+- What happens when OAuth tokens expire during a connection test? The system attempts automatic token refresh; if refresh fails, the test fails with an authentication error and the user is prompted to re-authorize the connection.
+- What happens when test data is sent but the CRM creates a duplicate record? The test record is created with unique identifiers (e.g., timestamp) to avoid duplicates, and the user is informed to delete the test record manually.
 
 ## Requirements *(mandatory)*
 
@@ -149,6 +186,21 @@ As a user, I want to view the status and history of data transfers to CRM, so th
 - **FR-023**: System MUST notify users of file-specific transfer failures with detailed error information
 - **FR-024**: System MUST automatically refresh OAuth access tokens using refresh tokens
 - **FR-025**: System MUST notify users when OAuth token refresh fails and connection requires re-authorization
+- **FR-026**: System MUST provide a "Test Connection" button in CRM settings for each connected CRM provider
+- **FR-027**: System MUST verify OAuth connection status and API credential validity when testing CRM connection
+- **FR-028**: System MUST display categorized error messages (connection, authentication, field mapping, file upload) when CRM tests fail
+- **FR-029**: System MUST provide specific guidance for resolving each type of CRM test error
+- **FR-030**: System MUST provide a "Test CRM Mapping" feature when creating or editing forms with CRM integration enabled
+- **FR-031**: System MUST display a preview of form field to CRM field mappings when testing CRM mapping
+- **FR-032**: System MUST highlight form fields that cannot be mapped to CRM fields with appropriate warnings
+- **FR-033**: System MUST allow users to send test data to CRM from the form page to verify data transfer
+- **FR-034**: System MUST use placeholder/sample data (e.g., 'Test Client', 'test@example.com') when sending test data to CRM
+- **FR-035**: System MUST mark test records created in CRM as test data for easy identification and deletion
+- **FR-036**: System MUST support testing CRM mapping and data transfer for multiple CRM connections simultaneously
+- **FR-037**: System MUST display a summary of test results showing success/failure status for each CRM when testing multiple connections
+- **FR-038**: System MUST include test file uploads when verifying CRM data transfer for forms with file fields
+- **FR-039**: System MUST allow users to select which CRM(s) to test when multiple connections are active
+- **FR-040**: System MUST provide links to view test records in CRM after successful test data transfer
 
 ### Key Entities
 
@@ -170,6 +222,12 @@ As a user, I want to view the status and history of data transfers to CRM, so th
 - **SC-008**: Users can locate and view transfer history for any client in under 30 seconds
 - **SC-009**: System supports at least 1000 concurrent users with active CRM connections without performance degradation
 - **SC-010**: 90% of users successfully complete their first CRM export without needing support
+- **SC-011**: CRM connection test completes within 10 seconds
+- **SC-012**: Field mapping preview displays within 5 seconds of clicking "Test CRM Mapping"
+- **SC-013**: Test data transfer to CRM completes within 30 seconds for standard test data (excluding large test files)
+- **SC-014**: 95% of CRM connection tests provide accurate error categorization (connection, authentication, field mapping, file upload)
+- **SC-015**: 90% of users can successfully test their CRM connection and verify field mappings on their first attempt
+- **SC-016**: Test records are clearly identifiable in CRM (flagged or using placeholder values) for easy cleanup
 
 ## Assumptions
 
