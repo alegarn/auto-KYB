@@ -198,3 +198,21 @@ As a user, I want to delete files uploaded by clients, so that I can manage stor
 - All files are encrypted at rest with key management using AWS KMS for automatic key rotation and centralized management
 - Files are destroyed when downloaded by a user or when the client is deleted
 - File type validation is performed by checking file extensions, MIME types, and magic bytes for enhanced security
+
+## Merged PRs (deltas)
+
+Summary of recent merged pull requests that changed the `006-client-file-upload` implementation. Each entry lists the PR, a one-line summary and the most notable files touched so you know where to look in the codebase.
+
+- **#61 — 006-client-file-upload-csrf-fix:** Ensure CSRF/auth token checks are applied correctly for client upload endpoints; changes in `application_controller.rb`, `client_portal/uploaded_files_controller.rb`, and frontend `FileUploader.svelte` (client-side form adjustments).
+- **#62 — 006-client-file-upload-fix-routes:** Change download/upload routing semantics (GET → POST for downloads) and route fixes; edit `config/routes.rb`.
+- **#63 — 006-client-file-upload-fix-fie-dowload-duration-before-purge:** Add explicit file retention policy and frontend expiry helpers; notable files: `app/frontend/lib/fileExpiry.ts`, `app/services/file_retention_policy.rb`, `app/services/file_download_service.rb`, `app/frontend/pages/Clients/Show.svelte`, serializers.
+- **#64 — 006-client-file-upload-fix-file-uploaded-types:** Fix allowed/serialized uploaded file types and form-builder types; notable files: form-builder `FieldConfig.svelte`, `types.ts`, `fileExpiry.ts`, serializers and client pages.
+- **#65 — 006-client-file-upload-fix-base-controller:** Base controller adjustments to support client portal upload flows; notable files: `app/controllers/client_portal/base_controller.rb`, form builder components, `fileExpiry.ts`.
+- **#66 — 006-client-file-upload-fix-mime-types:** Improve MIME-detection and validation integration; notable files: `app/services/file_upload_constraints.rb`, `app/services/file_validation_service.rb`, `FormFieldRenderer.svelte`, `FileUploader.svelte`.
+- **#67 — 006-client-file-upload-fix-edit:** Edit-flow fixes, toast/UX improvements and frontend spec updates; notable files: `ClientPortal/FormResponse.svelte`, `Toast.svelte`, `app/frontend/lib/fileExpiry.ts`, many client edit page changes and tests.
+- **#68 — 006-client-file-upload-file-deletion-delay:** Add/adjust deletion scheduling and purge timing (delay before purge after download/deletion); notable files: `app/jobs/purge_file_job.rb`, `app/services/file_retention_policy.rb`, `spec/requests/uploaded_files_spec.rb`.
+- **#69 — 006-client-file-upload-partial-upload-fix:** Partial-upload edge-case fixes and robust handling in the client portal; notable files: `client_portal/uploaded_files_controller.rb`, `FileUploader.svelte`, many request/system specs added/updated.
+- **#70 — 006-client-file-upload-destroy-action:** Adds server-side `destroy` action for uploaded files and related routes/handlers; notable files: `app/controllers/uploaded_files_controller.rb`, `config/routes.rb`, frontend remove/delete UX.
+
+Suggested test/spec updates: verify CSRF tokens on client uploads, route method changes for download endpoints, file retention/purge timing, MIME/magic-bytes validation tests, replacement and deletion end-to-end flows (system tests). See `spec/requests/uploaded_files_spec.rb` and `spec/system/*` for examples.
+
