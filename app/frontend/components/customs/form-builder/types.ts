@@ -15,7 +15,7 @@ export type FieldType =
   | 'subtitle'
   | 'static_text'
   | 'separator'
-  | 'logo';
+  /* | 'logo' */;
 
 export interface TableColumn {
   key: string;
@@ -112,7 +112,7 @@ export const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   subtitle: 'Subtitle',
   static_text: 'Text Block',
   separator: 'Separator',
-  logo: 'Logo',
+  /* logo: 'Logo', */
 };
 
 export const FIELD_CATEGORIES: { name: string; types: FieldType[] }[] = [
@@ -120,12 +120,12 @@ export const FIELD_CATEGORIES: { name: string; types: FieldType[] }[] = [
   { name: 'Choice', types: ['select', 'radio', 'checkbox'] },
   { name: 'Choice (UI)', types: ['buttons'] },
   { name: 'Data', types: ['date', 'file', 'table'] },
-  { name: 'Layout', types: ['section', 'subtitle', 'static_text', 'separator', 'logo'] },
+  { name: 'Layout', types: ['section', 'subtitle', 'static_text', 'separator'/* , 'logo' */] },
   /* { name: 'Action', types: ['button'] }, */
 ];
 
 export function isLayoutField(fieldType: FieldType): boolean {
-  return ['section', 'subtitle', 'static_text', 'separator', 'logo'].includes(fieldType);
+  return ['section', 'subtitle', 'static_text', 'separator'/* , 'logo' */].includes(fieldType);
 }
 
 /**
@@ -196,13 +196,13 @@ export function createField(fieldType: FieldType, position: number): FormField {
         margin: 'medium',
       };
       break;
-    case 'logo':
+    /* case 'logo':
       base.label = 'Logo';
       base.metadata.logo = {
         alignment: 'center',
         width: 200,
       };
-      break;
+      break; */
   }
 
   return base;

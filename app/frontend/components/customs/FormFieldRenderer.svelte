@@ -346,6 +346,7 @@
 {:else if type === 'separator'}
   <Separator class={separatorMarginClass} />
 
+<!-- 
 {:else if type === 'logo'}
   {#if metadata.logo?.image_url}
     <div class="my-4" class:text-left={metadata.logo.alignment === 'left'} class:text-center={metadata.logo.alignment === 'center'} class:text-right={metadata.logo.alignment === 'right'}>
@@ -357,7 +358,8 @@
         class="inline-block"
       />
     </div>
-  {/if}
+  {/if} 
+-->
 
 {:else}
   {#if inputOnly}

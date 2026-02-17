@@ -39,7 +39,7 @@
     subtitle: Heading2,
     static_text: FileText,
     separator: Minus,
-    logo: Image,
+    /* logo: Image, */
   };
 
   function handleAdd(type: FieldType) {
