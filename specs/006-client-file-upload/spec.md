@@ -2,7 +2,12 @@
 
 **Feature Branch**: `006-client-file-upload`
 **Created**: 2026-02-13
-**Status**: Draft
+**Status**: Updated (post-merge reviews)
+**Merged PRs**:
+
+- **#70 — 006-client-file-upload-destroy-action (2026-02-17):** Adds destroy action and server-side deletion logic for uploaded files; review retention and dependent destroy behavior.
+- **#62 — 006-client-file-upload-fix-routes (2026-02-16):** Routing fixes for upload/download endpoints; confirm request/feature specs use updated routes.
+- **#61 — 006-client-file-upload-csrf-fix (2026-02-14):** CSRF handling for upload endpoints; ensure request specs exercise CSRF tokens where required.
 **Input**: User description: "Let's have a file upload system for the client's form. The user create forms in a form builder with the file upload field (done), link them to clients (done), and on the client's portal form (done) a client should be able to upload files like pdf/jpeg/png to a remote location, and the user to download the files from the client's show page (to do)."
 
 ## Clarifications
@@ -193,18 +198,3 @@ As a user, I want to delete files uploaded by clients, so that I can manage stor
 - All files are encrypted at rest with key management using AWS KMS for automatic key rotation and centralized management
 - Files are destroyed when downloaded by a user or when the client is deleted
 - File type validation is performed by checking file extensions, MIME types, and magic bytes for enhanced security
-- File scanning for malware is out of scope for the initial implementation
-- File versioning beyond single replacement is out of scope for the initial implementation
-- Clients are authenticated before accessing the client portal
-- Users are authenticated before accessing client show pages
-
-## Dependencies
-
-- Form builder must support file upload field type (already done)
-- Client-form linking functionality must be in place (already done)
-- Client portal form access must be available (already done)
-- Remote storage service must be configured and accessible
-- Client authentication system must be in place
-- User authentication system must be in place
-- Form response data model must support file references
-- Client show page must be accessible to users
