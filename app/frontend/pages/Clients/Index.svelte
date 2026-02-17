@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { router } from '@inertiajs/svelte';
+  import { router, useForm } from '@inertiajs/svelte';
   import * as Sidebar from "/components/ui/sidebar/index.js";
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { client_path, new_client_path, edit_client_path } from "@/routes";
@@ -7,6 +7,8 @@
   import { Input } from "/components/ui/input/index.js";
   import Button from '/components/ui/button/button.svelte';
   import Modal from "/components/ui/modal.svelte";
+  import { page } from '@inertiajs/svelte'
+  import Toast from "/components/customs/Toast.svelte"
 
   // read Inertia props via Svelte 5 $props
   let { children, user, session_id, clients = [], meta = { page: 1, per_page: 10, total_count: 0 } } = $props();
@@ -27,6 +29,9 @@
     clients.filter((client) => (client?.email || "").trim().length > 0).length
   );
 
+  // @ts-ignore: Property 'toast' does not exist on type 'FlashData'
+  let flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null);
+
   function goToPage(p: number) {
     const params: Record<string, any> = { page: p };
     if (q && q.trim().length) params.q = q.trim();
@@ -44,9 +49,11 @@
     showModal = true;
   }
 
+  const deleteForm = useForm({});
+
   function confirmDelete() {
     if (!selectedToDelete) return;
-    router.delete(client_path(selectedToDelete.id), {
+    $deleteForm.delete(client_path(selectedToDelete.id), {
       onSuccess: () => {
         selectedToDelete = null;
         showModal = false;
@@ -73,6 +80,10 @@
   <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8 flex-grow">
     <Sidebar.Trigger class="mb-4" />
     {@render children?.()}
+
+    {#if flashToast}
+      <Toast message={flashToast?.message} type={flashToast?.type} />
+    {/if}
 
     <section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div>

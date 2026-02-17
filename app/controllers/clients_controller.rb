@@ -149,7 +149,9 @@ class ClientsController < ApplicationController
 
   def destroy
     @client.destroy!
-    redirect_to clients_path, notice: "Client deleted", status: :see_other
+    # Provide a one-time Inertia flash so the frontend can show a toast
+    flash.inertia[:toast] = { message: "Client deleted", type: "notice" }
+    redirect_to clients_path, status: :see_other
   end
 
   private
