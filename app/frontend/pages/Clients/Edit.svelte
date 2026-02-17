@@ -6,7 +6,7 @@
   import Button from '/components/ui/button/button.svelte';
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
-  import Toast from '@/components/Toast.svelte';
+  import Toast from '@/components/customs/Toast.svelte';
   import { client_path } from '@/routes';
   import { fetchCountriesData } from '/lib/countries';
   
