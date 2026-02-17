@@ -128,6 +128,17 @@ export function isLayoutField(fieldType: FieldType): boolean {
   return ['section', 'subtitle', 'static_text', 'separator', 'logo'].includes(fieldType);
 }
 
+/**
+ * Allowed file extensions for file fields in the builder.
+ * Stored canonical form includes the leading dot, e.g. ".pdf".
+ */
+export const ALLOWED_FILE_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'] as const;
+
+/**
+ * Default allowed types used when creating a new file field.
+ */
+export const DEFAULT_ALLOWED_FILE_TYPES = [...ALLOWED_FILE_EXTENSIONS];
+
 export function createField(fieldType: FieldType, position: number): FormField {
   const base: FormField = {
     label: FIELD_TYPE_LABELS[fieldType] + ' field',
@@ -161,7 +172,7 @@ export function createField(fieldType: FieldType, position: number): FormField {
       base.metadata.columns = base.metadata.table.columns;
       break;
     case 'file':
-      base.metadata.file = { max_size_kb: 5120 };
+      base.metadata.file = { max_size_kb: 5120, allowed_types: DEFAULT_ALLOWED_FILE_TYPES };
       break;
     case 'section':
       base.label = 'Section Title';
