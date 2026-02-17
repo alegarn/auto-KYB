@@ -8,11 +8,12 @@ class FileUploadService
     new(...).call
   end
 
-  def initialize(client:, field_key:, file:, form_response: nil)
+  def initialize(client:, field_key:, file:, form_response: nil, client_form: nil)
     @client = client
     @field_key = field_key
     @file = file
     @form_response = form_response
+    @client_form = client_form
   end
 
   def call
@@ -25,6 +26,7 @@ class FileUploadService
       replace_existing_file!
       uploaded_file = create_uploaded_file!
       attach_file!(uploaded_file)
+      @client_form&.mark_started!
       Result.new(success: true, uploaded_file: uploaded_file)
     end
   rescue ActiveRecord::RecordInvalid => e

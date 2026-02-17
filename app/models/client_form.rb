@@ -25,6 +25,18 @@ class ClientForm < ApplicationRecord
     update!(status: self.class.statuses["validated"], validated_at: Time.current)
   end
 
+  def mark_started!
+    with_lock do
+      if self.status == self.class.statuses["draft"]
+        update!(status: self.class.statuses["filled"])
+      end
+    end
+
+    if client.inactive? || client.linked?
+      client.update!(form_status: :active)
+    end
+  end
+
   # Save a form response for this client_form. Creates a new FormResponse
   # and transitions status from draft -> filled on first save. If `validate`
   # is true the client_form is validated (locked) after the save.
@@ -48,15 +60,12 @@ class ClientForm < ApplicationRecord
                   .update_all(form_response_id: response.id)
     end
 
-    if self.status == self.class.statuses["draft"] && FormResponse.where(client_form_id: id).count > 0
-      update!(status: self.class.statuses["filled"])
-    end
-
     if validate
       validate!
+      client.update!(form_status: :validated)
+    else
+      mark_started!
     end
-
-    client.update!(form_status: validate ? :validated : :active)
 
     response
   end
