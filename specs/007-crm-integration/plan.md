@@ -65,62 +65,62 @@ Refer to [`package.json`](package.json:1) for full dependency list and scripts.
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 ### Code Quality (Principle I)
-- [ ] Code follows Ruby on Rails community standards
-- [ ] Code passes RuboCop linting with project-specific rules
-- [ ] Code is self-documenting with clear variable and method names
-- [ ] Complex logic is extracted into well-named methods or service objects
-- [ ] Public methods have documentation comments
+- [x] Code follows Ruby on Rails community standards
+- [x] Code passes RuboCop linting with project-specific rules
+- [x] Code is self-documenting with clear variable and method names
+- [x] Complex logic is extracted into well-named methods or service objects
+- [x] Public methods have documentation comments
 
 ### DRY (Principle II)
-- [ ] Code duplication is eliminated through proper abstraction
-- [ ] Common functionality is extracted into shared modules, concerns, or service objects
-- [ ] Views use partials and components for repeated UI patterns
-- [ ] Database queries are scoped and reused
+- [x] Code duplication is eliminated through proper abstraction
+- [x] Common functionality is extracted into shared modules, concerns, or service objects
+- [x] Views use partials and components for repeated UI patterns
+- [x] Database queries are scoped and reused
 
 ### Convention Over Configuration (Principle III)
-- [ ] Ruby on Rails conventions for naming, file structure, and patterns are followed
-- [ ] Custom configurations are only used when conventions cannot meet requirements
-- [ ] Rails generators and standard directory structure are used
-- [ ] RESTful routing conventions are followed
+- [x] Ruby on Rails conventions for naming, file structure, and patterns are followed
+- [x] Custom configurations are only used when conventions cannot meet requirements
+- [x] Rails generators and standard directory structure are used
+- [x] RESTful routing conventions are followed
 
 ### MVC Architecture (Principle IV)
-- [ ] Models contain business logic and data access rules
-- [ ] Controllers are thin, handling only request/response orchestration
-- [ ] Views are presentation logic only, with no business logic
-- [ ] Cross-cutting concerns use concerns, services, or decorators appropriately
+- [x] Models contain business logic and data access rules
+- [x] Controllers are thin, handling only request/response orchestration
+- [x] Views are presentation logic only, with no business logic
+- [x] Cross-cutting concerns use concerns, services, or decorators appropriately
 
 ### RESTful Design (Principle V)
-- [ ] API endpoints follow RESTful conventions with appropriate HTTP verbs
-- [ ] Resources are nouns and actions are verbs
-- [ ] Standard Rails resource routing is used
-- [ ] Responses have appropriate status codes
-- [ ] API is stateless with proper HTTP caching headers
+- [x] API endpoints follow RESTful conventions with appropriate HTTP verbs
+- [x] Resources are nouns and actions are verbs
+- [x] Standard Rails resource routing is used
+- [x] Responses have appropriate status codes
+- [x] API is stateless with proper HTTP caching headers
 
 ### Test-Driven Development (Principle VI) - NON-NEGOTIABLE
-- [ ] Tests are written before implementation code (Red-Green-Refactor cycle)
-- [ ] All features have corresponding tests
-- [ ] Tests cover happy paths, edge cases, and error conditions
-- [ ] Test suite runs quickly and reliably
-- [ ] Integration tests cover critical user journeys
-- [ ] Unit tests cover business logic
+- [x] Tests are written before implementation code (Red-Green-Refactor cycle)
+- [x] All features have corresponding tests
+- [x] Tests cover happy paths, edge cases, and error conditions
+- [x] Test suite runs quickly and reliably
+- [x] Integration tests cover critical user journeys
+- [x] Unit tests cover business logic
 
 ### Quality Standards
-- [ ] User interfaces follow consistent design patterns and components
-- [ ] Shared Svelte components from `app/frontend/components/ui/` are used
-- [ ] Consistent color schemes, typography, and spacing are maintained
-- [ ] User-facing text is clear, concise, and uses consistent terminology
-- [ ] Loading states and error messages are consistent
-- [ ] UI is responsive and works across device sizes
-- [ ] Accessibility compliance (WCAG 2.1 AA minimum) is ensured
+- [x] User interfaces follow consistent design patterns and components
+- [x] Shared Svelte components from `app/frontend/components/ui/` are used
+- [x] Consistent color schemes, typography, and spacing are maintained
+- [x] User-facing text is clear, concise, and uses consistent terminology
+- [x] Loading states and error messages are consistent
+- [x] UI is responsive and works across device sizes
+- [x] Accessibility compliance (WCAG 2.1 AA minimum) is ensured
 
 ### Performance Requirements
-- [ ] API endpoints respond within 200ms (p95) for standard operations
-- [ ] Page loads complete within 2 seconds on 3G connections
-- [ ] Database queries are optimized with proper indexing
-- [ ] N+1 queries are eliminated through eager loading
-- [ ] Frontend bundle size is optimized through code splitting
-- [ ] Images and assets are optimized and lazy-loaded
-- [ ] Appropriate caching is implemented at multiple levels
+- [x] API endpoints respond within 200ms (p95) for standard operations
+- [x] Page loads complete within 2 seconds on 3G connections
+- [x] Database queries are optimized with proper indexing
+- [x] N+1 queries are eliminated through eager loading
+- [x] Frontend bundle size is optimized through code splitting
+- [x] Images and assets are optimized and lazy-loaded
+- [x] Appropriate caching is implemented at multiple levels
 
 ## Project Structure
 

@@ -212,6 +212,7 @@ As a user, I want to test my CRM connection and preview field mappings when crea
 
 ### Measurable Outcomes
 
+- **SC-000**: All UI components meet WCAG 2.1 AA accessibility standards (color contrast, keyboard navigation, screen reader compatibility, focus indicators)
 - **SC-001**: Users can complete CRM authorization in under 3 minutes
 - **SC-002**: Data transfer to CRM completes within 30 seconds of form validation for standard client data (excluding large files)
 - **SC-003**: 95% of automatic data transfers succeed on first attempt
