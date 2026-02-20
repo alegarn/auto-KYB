@@ -1,8 +1,12 @@
-import { flushSync, mount, unmount } from 'svelte'
+import { flushSync, unmount } from 'svelte'
 import { test, expect, vi, beforeEach } from 'vitest'
 
 import { mockPageProps } from '../../mocks/inertia'
 import SessionsNew from '../../../../app/frontend/pages/sessions/new.svelte'
+import { mountPage } from '../helpers/renderPage'
+
+const mount = (component: any, options: { props?: Record<string, unknown> } = {}) =>
+  mountPage({ pageName: 'sessions/new', component, props: options.props ?? {} })
 
 beforeEach(() => {
   vi.clearAllMocks()

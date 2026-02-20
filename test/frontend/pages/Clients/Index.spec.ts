@@ -1,8 +1,12 @@
-import { render, screen, within } from '@testing-library/svelte'
+import { screen, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { test, expect, vi, beforeEach } from 'vitest'
 
 import Index from '../../../../app/frontend/pages/Clients/Index.svelte'
+import { renderPage } from '../helpers/renderPage'
+
+const render = (component: any, options: { props?: Record<string, unknown> } = {}) =>
+  renderPage({ pageName: 'Clients/Index', component, props: options.props ?? {} })
 
 beforeEach(() => {
   vi.clearAllMocks()

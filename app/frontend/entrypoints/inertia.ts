@@ -1,19 +1,7 @@
 import { createInertiaApp, type ResolvedComponent } from '@inertiajs/svelte'
 import { mount } from 'svelte'
 import AuthenticatedLayout from '../layouts/AuthenticatedLayout.svelte'
-
-const PUBLIC_PAGE_PREFIXES = [
-  'ClientPortal/',
-  'Home/',
-  'sessions/',
-  'registrations/',
-  'inertia_example/',
-  'Clients/PasswordReveal',
-]
-
-function isPublicPage(name: string): boolean {
-  return PUBLIC_PAGE_PREFIXES.some((prefix) => name.startsWith(prefix))
-}
+import { isPublicPage } from '../lib/inertia-page-access'
 
 createInertiaApp({
   resolve: async (name) => {

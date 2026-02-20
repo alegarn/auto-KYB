@@ -1,7 +1,8 @@
 import { test, expect, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/svelte';
+import { screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte'
 import userEvent from '@testing-library/user-event';
+import { renderPage } from '../helpers/renderPage';
 
 // Mock countries loader to avoid network/URL parsing in tests
 vi.mock('/lib/countries', () => ({
@@ -10,6 +11,16 @@ vi.mock('/lib/countries', () => ({
 
 import EditClient from '../../../../app/frontend/pages/Clients/Edit.svelte';
 import { mockPageProps, updatePageProps, resetPageProps } from '../../mocks/inertia'
+
+const render = (component: any, options: { props?: Record<string, unknown> } = {}) =>
+  {
+    const result = renderPage({ pageName: 'Clients/Edit', component, props: options.props ?? {} });
+    const pageContent = result.container.querySelector('[data-testid="page-test-content"]') as HTMLElement | null;
+    if (pageContent) {
+      (result.container as any).querySelector = pageContent.querySelector.bind(pageContent);
+    }
+    return result;
+  };
 
 test('renders edit client form with pre-filled values', () => {
   const client = { id: '1', name: 'Acme', company_name: 'Acme Inc.', email: 'a@a.com', phone: '123' };
