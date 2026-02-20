@@ -1,6 +1,4 @@
 <script lang="ts">
-  import * as Sidebar from "/components/ui/sidebar/index.js";
-  import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { router, page } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
@@ -13,7 +11,7 @@
   import { form_path } from '@/routes';
   import Toast from "/components/customs/Toast.svelte"
 
-  let { form: initial, errors: serverErrors, error: serverError, session_id } = $props()
+  let { form: initial, errors: serverErrors, error: serverError } = $props()
 
   let name = $derived(initial?.name || "")
   let fields = $derived<FormField[]>(
@@ -132,11 +130,7 @@
   }
 </script>
 
-<Sidebar.Provider>
-  <AppSidebar session_id={session_id} />
-  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8 flex-grow">
-    <Sidebar.Trigger class="mb-4" />
-    <section class="mx-auto w-full max-w-full">
+<section class="mx-auto w-full max-w-full">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-semibold">Edit Form</h1>
         <div class="flex gap-2">
@@ -257,6 +251,4 @@
           <FormBuilder bind:fields bind:settings />
         {/if}
       {/if}
-    </section>
-  </main>
-</Sidebar.Provider>
+</section>

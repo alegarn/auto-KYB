@@ -35,7 +35,6 @@ class FormsController < ApplicationController
     form = current_user.forms.find(params[:id])
 
     render inertia: "forms/edit", props: {
-      session_id: current_session_id,
       form: FormDetailSerializer.new(form).as_json
     }
   end
@@ -78,7 +77,6 @@ class FormsController < ApplicationController
     }, status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     render inertia: "forms/edit", props: {
-      session_id: current_session_id,
       form: form ? FormDetailSerializer.new(form).as_json : nil,
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity

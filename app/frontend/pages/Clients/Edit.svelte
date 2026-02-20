@@ -1,6 +1,4 @@
 <script lang="ts">
-  import * as Sidebar from "/components/ui/sidebar/index.js";
-  import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { Form as InertiaForm, router, page } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
@@ -9,14 +7,14 @@
   import Toast from '@/components/customs/Toast.svelte';
   import { client_path } from '@/routes';
   import { fetchCountriesData } from '/lib/countries';
-  
-  let { 
-    client = {}, 
-    errors = {}, 
-    session_id, forms = [], 
-    current_form_id = null, 
-    confirm_message = null, 
-    attempted_form_id = null, 
+
+  let {
+    client = {},
+    errors = {},
+    forms = [],
+    current_form_id = null,
+    confirm_message = null,
+    attempted_form_id = null,
     confirm_replace_required = false } = $props();
 
   // modal and form state
@@ -135,11 +133,7 @@
   };
 </script>
 
-<Sidebar.Provider>
-  <AppSidebar session_id={session_id} />
-  <main class="min-h-screen w-full bg-muted/40 px-4 py-6 md:px-8">
-    <Sidebar.Trigger class="mb-4" />
-    <section class="p-6 max-w-3xl mx-auto">
+<section class="p-6 max-w-3xl mx-auto">
       <header class="mb-4">
         <h1 class="text-2xl font-semibold">Edit client</h1>
         <p class="text-sm text-muted-foreground">{client?.email}</p>
@@ -301,6 +295,4 @@
           </div>
         </div>
       {/if}
-    </section>
-  </main>
-</Sidebar.Provider>
+</section>

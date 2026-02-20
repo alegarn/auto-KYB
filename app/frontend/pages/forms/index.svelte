@@ -1,6 +1,4 @@
 <script lang="ts">
-	import * as Sidebar from "/components/ui/sidebar/index.js";
-	import AppSidebar from "/components/customs/app-sidebar.svelte";
 	import * as Card from "/components/ui/card";
 	import { Button, buttonVariants } from "/components/ui/button";
 	import { Input } from "/components/ui/input";
@@ -21,7 +19,7 @@
     updated_at: string;
 	};
 
-	let { children, user, session_id, forms: serverForms, active_form_ids: serverActiveFormIds } = $props();
+	let { user, forms: serverForms, active_form_ids: serverActiveFormIds } = $props();
   let showModal = $state(false);
   let selectedToDelete = $state(null as Form | null);
 
@@ -99,13 +97,7 @@
 	const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null);
 </script>
 
-<Sidebar.Provider>
-	<AppSidebar session_id={session_id} />
-	<main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8 flex-grow">
-		<Sidebar.Trigger class="mb-4" />
-		{@render children?.()}
-
-		{#if flashToast}
+{#if flashToast}
 			<Toast message={flashToast.message} type={flashToast.type ?? 'notice'} />
 		{/if}
 
@@ -259,13 +251,11 @@
 				</Card.Content>
 			</Card.Root>
 		</section>
-	</main>
-		<Modal bind:showModal={showModal} title="Delete form" description={selectedToDelete ? `Delete "${selectedToDelete.name}"?` : ''} onConfirm={confirmDelete} onClose={() => { selectedToDelete = null; showModal = false; }}>
-			<p>Are you sure you want to delete "{selectedToDelete?.name}"?</p>
-			{#if selectedIsActive}
-				<p class="mt-2 text-sm text-amber-700">This form is active in one or more client portals. Deleting it will revoke access and remove saved responses on the server.</p>
-			{:else}
-				<p class="mt-2 text-sm text-muted-foreground">Deleting this form may prevent active clients from filling it. Update linked clients before deleting.</p>
-			{/if}
-		</Modal>
-	</Sidebar.Provider>
+<Modal bind:showModal={showModal} title="Delete form" description={selectedToDelete ? `Delete "${selectedToDelete.name}"?` : ''} onConfirm={confirmDelete} onClose={() => { selectedToDelete = null; showModal = false; }}>
+	<p>Are you sure you want to delete "{selectedToDelete?.name}"?</p>
+	{#if selectedIsActive}
+		<p class="mt-2 text-sm text-amber-700">This form is active in one or more client portals. Deleting it will revoke access and remove saved responses on the server.</p>
+	{:else}
+		<p class="mt-2 text-sm text-muted-foreground">Deleting this form may prevent active clients from filling it. Update linked clients before deleting.</p>
+	{/if}
+</Modal>

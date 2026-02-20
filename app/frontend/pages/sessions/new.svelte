@@ -3,7 +3,7 @@
   import Button from "/components/ui/button/button.svelte";
   import Input from "/components/ui/input/input.svelte";
   import Label from "/components/ui/label/label.svelte";
-  import { sign_up_path } from '/routes/index';
+  import { sign_up_path } from '@/routes';
 </script>
 
 {#if $page.flash?.alert}

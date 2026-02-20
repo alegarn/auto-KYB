@@ -1,6 +1,4 @@
 <script lang="ts">
-  import * as Sidebar from "/components/ui/sidebar/index.js";
-  import AppSidebar from "/components/customs/app-sidebar.svelte";
   import FormFieldRenderer from "@/components/customs/FormFieldRenderer.svelte"
   import { isLayoutField, type FormSettings } from "@/components/customs/form-builder/types"
   import { Field, FieldLabel, FieldContent } from "@/components/ui/field/index";
@@ -9,7 +7,7 @@
   import CardContent from "/components/ui/card/card-content.svelte"
   import { forms_path } from "@/routes";
 
-  let { form, session_id } = $props()
+  let { form } = $props()
 
   // preview mode and state
   let preview = $state(true)
@@ -93,11 +91,7 @@
   }
 </script>
 
-<Sidebar.Provider>
-  <AppSidebar session_id={session_id} />
-  <main class="h-screen w-screen bg-muted/40 px-4 py-6 md:px-8">
-    <Sidebar.Trigger class="mb-4" />
-    <section class="flex items-center justify-center h-full w-full p-6">
+<section class="flex items-center justify-center h-full w-full p-6">
       <div class="w-full h-full">
         <h1 class="text-2xl font-semibold text-center">{form.name}</h1>
         <p class="text-sm text-center mb-6">{form.description}</p>
@@ -181,6 +175,4 @@
       {/if}
     {/if}
       </div>
-    </section>
-  </main>
-</Sidebar.Provider>
+</section>
