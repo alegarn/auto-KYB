@@ -7,7 +7,6 @@ class DashboardController < ApplicationController
 
     render inertia: "Dashboard/Dashboard", props: {
       user: current_user,
-      session_id: current_session_id,
       clients: clients,
       recent_forms: FormSerializer.collection(q.recent_forms),
       meta: {

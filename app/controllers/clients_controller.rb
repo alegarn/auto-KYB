@@ -96,7 +96,6 @@ class ClientsController < ApplicationController
 
   def edit
     render inertia: "Clients/Edit", props: {
-      session_id: current_session_id,
       client: ClientSerializer.new(@client).as_json,
       forms: forms_for_select,
       current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id
@@ -128,7 +127,6 @@ class ClientsController < ApplicationController
       redirect_to password_reveal_client_form_path(result.client_form), status: :see_other
     when :confirm_replace
       render inertia: "Clients/Edit", props: {
-        session_id: current_session_id,
         client: ClientSerializer.new(@client).as_json,
         confirm_replace_required: true,
         confirm_message: result.message,
@@ -140,7 +138,6 @@ class ClientsController < ApplicationController
     end
   rescue ActiveRecord::RecordInvalid => e
     render inertia: "Clients/Edit", props: {
-      session_id: current_session_id,
       client: ClientSerializer.new(@client).as_json,
       errors: e.record.errors.full_messages,
       forms: forms_for_select
@@ -180,7 +177,6 @@ class ClientsController < ApplicationController
 
   def render_form_not_found(view:, client:, include_user: false)
     props = {
-      session_id: current_session_id,
       client: client ? ClientSerializer.new(client).as_json : nil,
       errors: { form_id: [ "Form not found" ] },
       forms: forms_for_select

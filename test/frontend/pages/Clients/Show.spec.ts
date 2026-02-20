@@ -1,8 +1,19 @@
 import { test, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/svelte';
+import { screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+import { renderPage } from '../helpers/renderPage';
 
 import ShowClient from '../../../../app/frontend/pages/Clients/Show.svelte';
+
+const render = (component: any, options: { props?: Record<string, unknown> } = {}) =>
+  {
+    const result = renderPage({ pageName: 'Clients/Show', component, props: options.props ?? {} });
+    const pageContent = result.container.querySelector('[data-testid="page-test-content"]') as HTMLElement | null;
+    if (pageContent) {
+      (result.container as any).querySelector = pageContent.querySelector.bind(pageContent);
+    }
+    return result;
+  };
 
 // Mock the routes used by the component
 const mockClientsPath = vi.fn(() => '/clients');

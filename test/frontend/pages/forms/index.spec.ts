@@ -4,6 +4,7 @@ import { test, expect, vi, beforeEach } from 'vitest'
 import { mockPageProps, resetPageProps, updatePageProps } from '../../mocks/inertia'
 import FormsIndex from '../../../../app/frontend/pages/forms/index.svelte'
 import { screen } from '@testing-library/svelte'
+import { mountPage } from '../helpers/renderPage'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -12,7 +13,11 @@ beforeEach(() => {
 })
 
 test('Forms index mounts and shows My Forms header', () => {
-  const component: any = mount(FormsIndex as any, { target: document.body, props: { ...mockPageProps.props } })
+  const component: any = mountPage({
+    pageName: 'forms/index',
+    component: FormsIndex,
+    props: { ...mockPageProps.props },
+  })
 
   expect(document.body.innerHTML).toContain('My Forms')
 
@@ -28,7 +33,11 @@ test('shows toast when page.flash.toast is set', async () => {
     children: undefined,
   }
 
-  const component: any = mount(FormsIndex as any, { target: document.body, props })
+  const component: any = mountPage({
+    pageName: 'forms/index',
+    component: FormsIndex,
+    props,
+  })
 
   // set the flash on the mocked `page` store
   updatePageProps({ props: { ...mockPageProps.props, flash: { toast: { message: 'Form deleted', type: 'notice' } } } })

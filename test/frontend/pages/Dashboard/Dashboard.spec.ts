@@ -1,7 +1,8 @@
-import { flushSync, mount, unmount } from 'svelte'
+import { flushSync, unmount } from 'svelte'
 import { test, expect, vi, beforeEach } from 'vitest'
 
 import { mockPageProps } from '../../mocks/inertia'
+import { mountPage } from '../helpers/renderPage'
 import Dashboard from '../../../../app/frontend/pages/Dashboard/Dashboard.svelte'
 
 beforeEach(() => {
@@ -10,7 +11,11 @@ beforeEach(() => {
 })
 
 test('renders with Inertia page props and displays user email', () => {
-  const component: any = mount(Dashboard as any, { target: document.body, props: { ...mockPageProps.props } })
+  const component: any = mountPage({
+    pageName: 'Dashboard/Dashboard',
+    component: Dashboard,
+    props: { ...mockPageProps.props },
+  })
 
   expect(document.body.textContent).toMatch(/test@example.com/i)
 
@@ -18,7 +23,11 @@ test('renders with Inertia page props and displays user email', () => {
 })
 
 test('has navigation links with correct hrefs', () => {
-  const component: any = mount(Dashboard as any, { target: document.body, props: { ...mockPageProps.props } })
+  const component: any = mountPage({
+    pageName: 'Dashboard/Dashboard',
+    component: Dashboard,
+    props: { ...mockPageProps.props },
+  })
 
   const links = Array.from(document.body.querySelectorAll('a'))
   const newFormLink = links.find((el) => el.getAttribute('href') === '/forms/new')
@@ -30,7 +39,11 @@ test('has navigation links with correct hrefs', () => {
 test('displays client counts after mount timeout', async () => {
   vi.useFakeTimers()
 
-  const component: any = mount(Dashboard as any, { target: document.body, props: { ...mockPageProps.props } })
+  const component: any = mountPage({
+    pageName: 'Dashboard/Dashboard',
+    component: Dashboard,
+    props: { ...mockPageProps.props },
+  })
 
   // allow onMount to schedule tasks
   await Promise.resolve()

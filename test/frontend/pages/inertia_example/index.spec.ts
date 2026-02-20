@@ -1,7 +1,11 @@
-import { flushSync, mount, unmount } from 'svelte'
+import { flushSync, unmount } from 'svelte'
 import { test, expect, vi, beforeEach } from 'vitest'
 
 import InertiaExample from '../../../../app/frontend/pages/inertia_example/index.svelte'
+import { mountPage } from '../helpers/renderPage'
+
+const mount = (component: any, options: { props?: Record<string, unknown> } = {}) =>
+  mountPage({ pageName: 'inertia_example/index', component, props: options.props ?? {} })
 
 beforeEach(() => {
   vi.clearAllMocks()

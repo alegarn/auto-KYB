@@ -1,21 +1,10 @@
 import { createInertiaApp, type ResolvedComponent } from '@inertiajs/svelte'
 import { mount } from 'svelte'
-
-// Phase 0: pages under ClientPortal/* should not use the authenticated sidebar layout.
-// This exported list can be imported by layout logic or page wrappers to exclude
-// those pages from the app sidebar. Kept minimal for Phase 0.
-export const NO_SIDEBAR_PAGES = [
-  // Matches Inertia page names that start with `ClientPortal/`
-  'ClientPortal/',
-]
+import AuthenticatedLayout from '../layouts/AuthenticatedLayout.svelte'
+import { isPublicPage } from '../lib/inertia-page-access'
 
 createInertiaApp({
-  // Disable progress bar
-  //
-  // see https://inertia-rails.dev/guide/progress-indicators
-  // progress: false,
-
-  resolve: (name) => {
+  resolve: async (name) => {
     const pages = import.meta.glob<ResolvedComponent>('../pages/**/*.svelte', {
       eager: false,
     })
@@ -24,13 +13,12 @@ createInertiaApp({
       console.error(`Missing Inertia page component: '${name}.svelte'`)
     }
 
-    // To use a default layout, import the Layout component
-    // and use the following line.
-    // see https://inertia-rails.dev/guide/pages#default-layouts
-    //
-    // return { default: page.default, layout: page.layout || Layout } as ResolvedComponent
+    const resolved = await page()
 
-    return page()
+    return {
+      default: resolved.default,
+      layout: resolved.layout || (isPublicPage(name) ? undefined : AuthenticatedLayout),
+    } as ResolvedComponent
   },
 
   setup({ el, App, props }) {

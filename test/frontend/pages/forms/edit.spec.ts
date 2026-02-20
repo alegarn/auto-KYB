@@ -1,8 +1,12 @@
-import { render, fireEvent, waitFor, screen } from '@testing-library/svelte'
+import { fireEvent, waitFor, screen } from '@testing-library/svelte'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { page } from '@inertiajs/svelte'
 import { tick } from 'svelte'
 import Edit from '@/pages/forms/edit.svelte'
+import { renderPage } from '../helpers/renderPage'
+
+const render = (component: any, options: { props?: Record<string, unknown> } = {}) =>
+  renderPage({ pageName: 'forms/edit', component, props: options.props ?? {} })
 
 vi.mock('@inertiajs/svelte', async () => {
   const { writable } = await import('svelte/store')

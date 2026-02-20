@@ -11,7 +11,8 @@ class ApplicationController < ActionController::Base
 
   helper_method :current_user, :current_session_id, :user_props, :default_inertia_props
 
-  inertia_share flash: -> { flash.to_hash }
+  inertia_share flash: -> { flash.to_hash },
+               session_id: -> { current_session_id }
 
   def current_user
     Current.session&.user
@@ -29,8 +30,7 @@ class ApplicationController < ActionController::Base
 
   def default_inertia_props
     {
-      user: user_props,
-      session_id: current_session_id
+      user: user_props
     }
   end
 

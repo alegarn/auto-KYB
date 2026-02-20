@@ -1,10 +1,16 @@
-import { render, fireEvent, waitFor } from '@testing-library/svelte'
+import { fireEvent, waitFor } from '@testing-library/svelte'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import NewForm from '@/pages/forms/new.svelte'
+import { renderPage } from '../helpers/renderPage'
+
+const render = (component: any, options: { props?: Record<string, unknown> } = {}) =>
+  renderPage({ pageName: 'forms/new', component, props: options.props ?? {} })
 
 vi.mock('@inertiajs/svelte', async () => {
+  const actual = await vi.importActual('@inertiajs/svelte')
   const { writable } = await import('svelte/store')
   return {
+    ...(actual as any),
     page: writable({
       url: '/forms/new',
       props: {
@@ -35,12 +41,6 @@ vi.mock('@/components/customs/FormBuilder.svelte', () => ({
 vi.mock('@/components/customs/FormFieldRenderer.svelte', () => ({
   default: vi.fn(() => ({
     $$render: () => '<div data-testid="field-renderer">Field Renderer</div>'
-  }))
-}))
-
-vi.mock('@/components/customs/app-sidebar.svelte', () => ({
-  default: vi.fn(() => ({
-    $$render: () => '<div data-testid="app-sidebar">Sidebar</div>'
   }))
 }))
 

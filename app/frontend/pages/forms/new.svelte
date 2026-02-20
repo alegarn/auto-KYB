@@ -1,6 +1,4 @@
 <script lang="ts">
-  import * as Sidebar from "/components/ui/sidebar/index.js";
-  import AppSidebar from "/components/customs/app-sidebar.svelte";
   import { router } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
@@ -12,7 +10,7 @@
   import type { FormField } from "/components/customs/form-builder/types"
   import { forms_path } from '@/routes';
 
-  const { errors: serverErrors, session_id } = $props()
+  const { errors: serverErrors } = $props()
 
   let name = $state("")
   let fields = $state<FormField[]>([])
@@ -118,11 +116,7 @@
   }
 </script>
 
-<Sidebar.Provider>
-  <AppSidebar session_id={session_id} />
-  <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
-    <Sidebar.Trigger class="mb-4" />
-    <section class="mx-auto max-w-7xl">
+<section class="mx-auto max-w-7xl">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-semibold">Create Form</h1>
         <div class="flex gap-2">
@@ -233,6 +227,4 @@
           <FormBuilder bind:fields bind:settings />
         {/if}
       {/if}
-    </section>
-  </main>
-</Sidebar.Provider>
+</section>

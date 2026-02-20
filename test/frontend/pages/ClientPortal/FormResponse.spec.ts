@@ -1,14 +1,29 @@
-import { render, fireEvent, waitFor } from '@testing-library/svelte'
+import { fireEvent, waitFor } from '@testing-library/svelte'
 import { describe, it, expect, vi } from 'vitest'
 import FormResponse from '@/pages/ClientPortal/FormResponse.svelte'
+import { renderPage } from '../helpers/renderPage'
+
+const render = (component: any, options: { props?: Record<string, unknown> } = {}) =>
+  renderPage({ pageName: 'ClientPortal/FormResponse', component, props: options.props ?? {} })
 
 vi.mock('@inertiajs/svelte', async () => {
+  const actual = await vi.importActual('@inertiajs/svelte')
   const { writable } = await import('svelte/store')
   return {
+    ...(actual as any),
     useForm: (initial: Record<string, any> = {}) => {
-      const store = writable<any>(null)
+      const store = writable<any>({})
       const form: any = {
-        subscribe: (run: any) => store.subscribe(run),
+        subscribe: store.subscribe,
+        set: (value: Record<string, any>) => {
+          Object.assign(form, value)
+          store.set(form)
+        },
+        update: (updater: (current: Record<string, any>) => Record<string, any>) => {
+          const next = updater(form) ?? form
+          Object.assign(form, next)
+          store.set(form)
+        },
         defaults: (data: Record<string, any>) => {
           Object.assign(form, data)
           store.set(form)
