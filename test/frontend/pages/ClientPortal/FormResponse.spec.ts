@@ -12,9 +12,18 @@ vi.mock('@inertiajs/svelte', async () => {
   return {
     ...(actual as any),
     useForm: (initial: Record<string, any> = {}) => {
-      const store = writable<any>(null)
+      const store = writable<any>({})
       const form: any = {
-        subscribe: (run: any) => store.subscribe(run),
+        subscribe: store.subscribe,
+        set: (value: Record<string, any>) => {
+          Object.assign(form, value)
+          store.set(form)
+        },
+        update: (updater: (current: Record<string, any>) => Record<string, any>) => {
+          const next = updater(form) ?? form
+          Object.assign(form, next)
+          store.set(form)
+        },
         defaults: (data: Record<string, any>) => {
           Object.assign(form, data)
           store.set(form)
