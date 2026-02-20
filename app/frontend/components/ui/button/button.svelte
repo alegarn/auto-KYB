@@ -68,6 +68,7 @@
 		tabindex={disabled ? -1 : undefined}
 		viewTransition={useInertia}
 		{...restProps}
+    prefetch={true}
 	>
 		{@render children?.()}
 </Link>
