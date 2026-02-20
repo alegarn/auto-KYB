@@ -16,7 +16,7 @@ class SessionsController < ApplicationController
     if user = User.authenticate_by(email: params[:email], password: params[:password])
       start_user_session!(user)
 
-      redirect_to dashboard_path, notice: "Signed in successfully"
+      redirect_to auth_loading_path, notice: "Signed in successfully", status: :see_other
     else
       redirect_to sign_in_path(email_hint: params[:email]), alert: "That email or password is incorrect"
     end
@@ -32,7 +32,7 @@ class SessionsController < ApplicationController
 
     if user&.persisted?
       start_user_session!(user)
-      redirect_to dashboard_path, notice: "Signed in successfully"
+      redirect_to auth_loading_path, notice: "Signed in successfully", status: :see_other
     else
       oauth_failure_redirect
     end

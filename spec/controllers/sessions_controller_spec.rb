@@ -49,10 +49,10 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
         expect(cookies.signed[:session_token]).to be_present
       end
 
-      it "redirects to dashboard_path" do
+      it "redirects to auth_loading_path" do
         post :create, params: { email: user.email, password: "password123456" }
 
-        expect(response).to redirect_to(dashboard_path)
+        expect(response).to redirect_to(auth_loading_path)
       end
 
       it "sets a success notice" do
@@ -120,39 +120,36 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
         uid: uid,
         password: "password123456"
       )
-      allow_any_instance_of(SessionsController).to receive(:oauth_auth).and_return(omniauth_hash)
+      request.env["omniauth.auth"] = omniauth_hash
 
       expect {
         get :omniauth, params: { provider: provider }
-        puts("TEST DEBUG omniauth response: status=#{response.status} location=#{response.location} flash=#{flash.to_hash.inspect} users=#{User.count} sessions=#{Session.count}")
       }.to change { Session.count }.by(1)
 
-      expect(response).to redirect_to(dashboard_path)
+      expect(response).to redirect_to(auth_loading_path)
       expect(cookies.signed[:session_token]).to be_present
       expect(Session.last.user_id).to eq(oauth_user.id)
     end
 
     it "links provider and uid for existing email user" do
       email_user = User.create!(email: email, password: "password123456")
-      allow_any_instance_of(SessionsController).to receive(:oauth_auth).and_return(omniauth_hash)
+      request.env["omniauth.auth"] = omniauth_hash
 
       expect {
         get :omniauth, params: { provider: provider }
-        puts("TEST DEBUG omniauth response: status=#{response.status} location=#{response.location} flash=#{flash.to_hash.inspect} users=#{User.count} sessions=#{Session.count}")
       }.to change { Session.count }.by(1)
 
       email_user.reload
       expect(email_user.provider).to eq(provider)
       expect(email_user.uid).to eq(uid)
-      expect(response).to redirect_to(dashboard_path)
+      expect(response).to redirect_to(auth_loading_path)
     end
 
     it "creates a user when email is not registered" do
-      allow_any_instance_of(SessionsController).to receive(:oauth_auth).and_return(omniauth_hash)
+      request.env["omniauth.auth"] = omniauth_hash
 
       expect {
         get :omniauth, params: { provider: provider }
-        puts("TEST DEBUG omniauth response: status=#{response.status} location=#{response.location} flash=#{flash.to_hash.inspect} users=#{User.count} sessions=#{Session.count}")
       }.to change { User.count }.by(1)
        .and change { Session.count }.by(1)
 
@@ -160,7 +157,7 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
       expect(created_user).to be_present
       expect(created_user.provider).to eq(provider)
       expect(created_user.uid).to eq(uid)
-      expect(response).to redirect_to(dashboard_path)
+      expect(response).to redirect_to(auth_loading_path)
     end
 
     it "does not relink to a different oauth identity for same email" do
