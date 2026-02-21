@@ -15,6 +15,12 @@
   let showModal = $state(false);
   let selectedToDelete = $state(null as any);
 
+  const statusFilters = ["all", "inactive", "linked", "active", "validated"] as const;
+  const labelForStatus = (s: string) => {
+    if (s === "all") return "All";
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  };
+
   const totalPages = $derived.by(() => Math.max(1, Math.ceil(meta.total_count / meta.per_page)));
   const totalClients = $derived.by(() => clients.length);
   const companiesCount = $derived.by(() =>
@@ -136,17 +142,22 @@
           <label for="q" class="sr-only">Search clients</label>
           <Input id="q" name="q" bind:value={q} placeholder="Search by name or company" class="sm:w-56" />
           <div class="flex items-center gap-2">
-            <select bind:value={status} class="sm:w-40 rounded border px-2 py-1">
-              <option value="all">All</option>
-              <option value="inactive">inactive</option>
-              <option value="linked">linked</option>
-              <option value="active">active</option>
-              <option value="validated">validated</option>
-            </select>
             <Button type="submit" size="sm">Search</Button>
             <Button type="button" size="sm" variant="secondary" onclick={() => { q = ''; status = 'all'; goToPage(1); }}>
               Clear search
             </Button>
+            <div class="flex flex-wrap gap-2 ml-2">
+              {#each statusFilters as s}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={status === s ? "default" : "secondary"}
+                  onclick={() => { status = s; search(); }}
+                >
+                  {labelForStatus(s)}
+                </Button>
+              {/each}
+            </div>
           </div>
         </form>
       </div>
