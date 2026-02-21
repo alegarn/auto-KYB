@@ -13,13 +13,17 @@ class SessionsController < ApplicationController
   end
 
   def create
-    if user = User.authenticate_by(email: params[:email], password: params[:password])
-      start_user_session!(user)
+    user = User.find_by(email: normalized_email)
 
-      redirect_to auth_loading_path, notice: "Signed in successfully", status: :see_other
-    else
-      redirect_to sign_in_path(email_hint: params[:email]), alert: "That email or password is incorrect"
+    if user&.verified?
+      UserMailer.with(user: user).passwordless.deliver_later
+    elsif user
+      UserMailer.with(user: user).email_verification.deliver_later
     end
+
+    redirect_to sign_in_path,
+                notice: "If the email is registered, you'll receive a sign-in link shortly",
+                status: :see_other
   end
 
   def destroy
@@ -69,14 +73,10 @@ class SessionsController < ApplicationController
     end
 
     def create_oauth_user(provider:, uid:, email:)
-      generated_password = SecureRandom.base58(24)
-
       User.create!(
         email: email,
         provider: provider,
-        uid: uid,
-        password: generated_password,
-        password_confirmation: generated_password
+        uid: uid
       )
     end
 
@@ -103,6 +103,10 @@ class SessionsController < ApplicationController
 
     def set_session
       @session = Current.user.sessions.find(params[:id])
+    end
+
+    def normalized_email
+      params[:email].to_s.strip.downcase
     end
 
     def oauth_failure_redirect

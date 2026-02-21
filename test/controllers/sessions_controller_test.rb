@@ -18,20 +18,19 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "should sign in" do
-    post sign_in_url, params: { email: @user.email, password: "Secret1*3*5*" }
-    assert_redirected_to root_url
+  test "should request magic link for verified user" do
+    assert_enqueued_email_with UserMailer, :passwordless, params: { user: @user } do
+      post sign_in_url, params: { email: @user.email }
+    end
 
-    get root_url
-    assert_response :success
+    assert_redirected_to sign_in_url
   end
 
-  test "should not sign in with wrong credentials" do
-    post sign_in_url, params: { email: @user.email, password: "SecretWrong1*3" }
-    assert_redirected_to sign_in_url(email_hint: @user.email)
-    assert_equal "That email or password is incorrect", flash[:alert]
+  test "should not leak existence for unknown email" do
+    assert_no_enqueued_emails do
+      post sign_in_url, params: { email: "unknown@example.com" }
+    end
 
-    get root_url
     assert_redirected_to sign_in_url
   end
 

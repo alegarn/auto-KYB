@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Form, page } from '@inertiajs/svelte'
   import Button from "/components/ui/button/button.svelte";
   import Input from "/components/ui/input/input.svelte";
@@ -15,6 +15,15 @@
   </div>
 {/if}
 
+{#if $page.flash?.notice}
+  <div
+    class="mb-4 rounded-md bg-green-50 p-4 text-sm text-green-700"
+    role="status"
+  >
+    <span>{$page.flash?.notice}</span>
+  </div>
+{/if}
+
 <section
   class="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent"
 >
@@ -23,9 +32,10 @@
     method="post"
     class="bg-muted m-auto h-fit w-full max-w-sm overflow-hidden rounded-[calc(var(--radius)+.125rem)] border shadow-md shadow-zinc-950/5 dark:[--color-muted:var(--color-zinc-900)]"
   >
-    <div
-      class="bg-card -m-px rounded-[calc(var(--radius)+.125rem)] border p-8 pb-6"
-    >
+    {#snippet children({ errors, processing }: { errors: Record<string, string>, processing: boolean })}
+      <div
+        class="bg-card -m-px rounded-[calc(var(--radius)+.125rem)] border p-8 pb-6"
+      >
       <div class="text-center">
         <a href="/" aria-label="go home" class="mx-auto block w-fit">
           <svg
@@ -66,32 +76,16 @@
 
       <div class="mt-6 space-y-6">
         <div class="space-y-2">
-          <Label for="email" class="block text-sm">Username</Label>
+          <Label for="email" class="block text-sm">Email</Label>
           <Input type="email" required name="email" id="email" />
+          {#if errors.email}
+            <p class="text-sm text-red-500">{errors.email}</p>
+          {/if}
         </div>
 
-        <div class="space-y-0.5">
-          <div class="flex items-center justify-between">
-            <Label for="password" class="text-title text-sm">Password</Label>
-            <Button
-              href="#"
-              variant="link"
-              size="sm"
-              class="link intent-info variant-ghost text-sm"
-            >
-              Forgot your Password ?
-            </Button>
-          </div>
-          <Input
-            type="password"
-            required
-            name="password"
-            id="password"
-            class="input sz-md variant-mixed"
-          />
-        </div>
-
-        <Button class="w-full" type="submit">Sign In</Button>
+        <Button class="w-full" type="submit" disabled={processing}>
+          {processing ? 'Sending...' : 'Email me a sign-in link'}
+        </Button>
       </div>
 
       <div class="my-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -135,5 +129,6 @@
         <Button href={sign_up_path()} variant="link" class="px-2">Create account</Button>
       </p>
     </div>
+    {/snippet}
   </Form>
 </section>

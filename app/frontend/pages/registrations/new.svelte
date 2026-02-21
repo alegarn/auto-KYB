@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
   import { Form } from "@inertiajs/svelte";
   import Button from "/components/ui/button/button.svelte";
   import Input from "/components/ui/input/input.svelte";
   import Label from "/components/ui/label/label.svelte";
-  import { sign_in_path, sign_up_path } from "@/routes";
+  import { root_path, sign_in_path, sign_up_path } from "@/routes";
   import { page } from "@inertiajs/svelte";
 
 </script>
@@ -26,9 +26,10 @@
     method="post"
     class="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md dark:[--color-muted:var(--color-zinc-900)]"
   >
-    <div class="p-8 pb-6">
-      <div>
-        <a href="/" aria-label="go home">
+    {#snippet children({ errors, processing }: { errors: Record<string, string>, processing: boolean })}
+      <div class="p-8 pb-6">
+        <div>
+          <Button href={root_path()} aria-label="go home">
           <svg
           xmlns="http://www.w3.org/2000/svg"
           width="22"
@@ -60,7 +61,7 @@
             stroke-width="1.5"
           ></path>
         </svg>
-        </a>
+      </Button>
         <h1 class="text-title mb-1 mt-4 text-xl font-semibold">
           Create a Quick KYB Account
         </h1>
@@ -99,46 +100,17 @@
       <hr class="my-4 border-dashed" />
 
       <div class="space-y-5">
-        <!-- 
-        <div class="grid grid-cols-2 gap-3">
-          <div class="space-y-2">
-            <Label for="firstname" class="block text-sm">Firstname</Label>
-            <Input type="text" required name="firstname" id="firstname" />
-          </div>
-          <div class="space-y-2">
-            <Label for="lastname" class="block text-sm">Lastname</Label>
-            <Input type="text" required name="lastname" id="lastname" />
-          </div>
-        </div>
- -->
         <div class="space-y-2">
           <Label for="email" class="block text-sm">Email</Label>
           <Input type="email" required name="email" id="email" />
+          {#if errors.email}
+            <p class="text-sm text-red-500">{errors.email}</p>
+          {/if}
         </div>
 
-        <div class="space-y-2">
-          <Label for="password" class="text-title text-sm">Password</Label>
-          <Input
-            type="password"
-            required
-            name="password"
-            id="password"
-            class="input sz-md variant-mixed"
-          />
-        </div>
-
-        <div class="space-y-2">
-          <Label for="password_confirmation" class="text-title text-sm">Confirm Password</Label>
-          <Input
-            type="password"
-            required
-            name="password_confirmation"
-            id="password_confirmation"
-            class="input sz-md variant-mixed"
-          />
-        </div>
-
-        <Button class="w-full" type="submit">Sign up</Button>
+        <Button class="w-full" type="submit" disabled={processing}>
+          {processing ? 'Creating...' : 'Create account'}
+        </Button>
       </div>
     </div>
 
@@ -148,5 +120,6 @@
         <Button href={sign_in_path()} variant="link" class="px-2">Sign in</Button>
       </p>
     </div>
+    {/snippet}
   </Form>
 </section>
