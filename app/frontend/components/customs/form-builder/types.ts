@@ -77,6 +77,7 @@ export interface FieldMetadata {
   separator?: SeparatorConfig;
   logo?: LogoConfig;
   text_content?: string;
+  export_key?: string;
 }
 
 export interface FormField {

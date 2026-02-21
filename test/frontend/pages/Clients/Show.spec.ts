@@ -15,32 +15,26 @@ const render = (component: any, options: { props?: Record<string, unknown> } = {
     return result;
   };
 
-// Mock the routes used by the component
-const mockClientsPath = vi.fn(() => '/clients');
-const mockDashboardPath = vi.fn(() => '/dashboard');
-const mockEditClientPath = vi.fn((id: string) => `/clients/${id}/edit`);
-const mockClientPath = vi.fn((id: string) => `/clients/${id}`);
-const mockClientFormsPath = vi.fn(() => '/client_forms');
+import { router } from '@inertiajs/svelte';
 
+// Mock the routes used by the component
 vi.mock('@/routes', () => ({
-  clients_path: mockClientsPath,
-  dashboard_path: mockDashboardPath,
-  edit_client_path: mockEditClientPath,
-  client_path: mockClientPath,
-  client_forms_path: mockClientFormsPath
+  clients_path: vi.fn(() => '/clients'),
+  dashboard_path: vi.fn(() => '/dashboard'),
+  edit_client_path: vi.fn((id: string) => `/clients/${id}/edit`),
+  client_path: vi.fn((id: string) => `/clients/${id}`),
+  client_forms_path: vi.fn(() => '/client_forms'),
+  forms_path: vi.fn(() => '/forms'),
+  export_responses_client_form_path: vi.fn((id: string) => `/client_forms/${id}/export_responses`),
+  export_client_path: vi.fn((id: string) => `/clients/${id}/export`),
+  download_uploaded_file_path: vi.fn((id: string) => `/uploaded_files/${id}/download`),
+  uploaded_file_path: vi.fn((id: string) => `/uploaded_files/${id}`)
 }));
 
-// Mock the Inertia router
-var mockDelete = vi.fn();
-vi.mock('@inertiajs/svelte', async () => {
-  const actual = await vi.importActual('@inertiajs/svelte');
-  return {
-    ...(actual as any),
-    router: {
-      delete: mockDelete
-    }
-  };
-});
+// Mock countries
+vi.mock('/lib/countries', () => ({
+  fetchCountriesData: vi.fn(() => Promise.resolve([{ name: 'USA', code: 'US', flag: '🇺🇸' }]))
+}));
 
 beforeEach(() => {
   vi.clearAllMocks();

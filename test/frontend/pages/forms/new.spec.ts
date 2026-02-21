@@ -32,18 +32,6 @@ vi.mock('@inertiajs/svelte', async () => {
   }
 })
 
-vi.mock('@/components/customs/FormBuilder.svelte', () => ({
-  default: vi.fn(() => ({
-    $$render: () => '<div data-testid="form-builder">Form Builder</div>'
-  }))
-}))
-
-vi.mock('@/components/customs/FormFieldRenderer.svelte', () => ({
-  default: vi.fn(() => ({
-    $$render: () => '<div data-testid="field-renderer">Field Renderer</div>'
-  }))
-}))
-
 vi.mock('../../mocks/inertia', async () => {
   const actual = await vi.importActual('../../mocks/inertia')
   return actual
@@ -86,6 +74,52 @@ describe('Forms New Page', () => {
     await waitFor(() => {
       expect(getByRole('heading', { name: 'Create Form' })).toBeInTheDocument()
     })
+  })
+
+  it('shows JSON and CSV results after submitting preview with fields', async () => {
+    const { getByText, getByRole, container } = render(NewForm, { props: { errors: null, session_id: 'test-session-123' } })
+
+    // Add a text field
+    const textFieldBtn = getByText('Text')
+    await fireEvent.click(textFieldBtn)
+
+    // Switch to Preview
+    const previewButton = getByText('Preview')
+    await fireEvent.click(previewButton)
+
+    await waitFor(() => {
+      expect(getByText('Submit Preview')).toBeInTheDocument()
+    })
+
+    // Fill the field
+    const input = container.querySelector('input[name="field_1"]') as HTMLInputElement
+    if (input) {
+      input.value = 'Test Value'
+      input.setAttribute('value', 'Test Value')
+      await fireEvent.input(input, { target: { value: 'Test Value' } })
+      await fireEvent.change(input, { target: { value: 'Test Value' } })
+    }
+
+    // Submit preview
+    const form = container.querySelector('form')
+    if (form) {
+      await fireEvent.submit(form)
+    }
+
+    // Check JSON results
+    await waitFor(() => {
+      expect(getByText('Preview Results')).toBeInTheDocument()
+    })
+    
+    const pre = container.querySelector('pre')
+    expect(pre?.textContent).toContain('"Text field": "Test Value"')
+
+    // Switch to CSV
+    const csvBtn = getByText('CSV')
+    await fireEvent.click(csvBtn)
+
+    expect(pre?.textContent).toContain('label,value')
+    expect(pre?.textContent).toContain('Text field,Test Value')
   })
 
   it('calls router.post with correct data when creating form', async () => {

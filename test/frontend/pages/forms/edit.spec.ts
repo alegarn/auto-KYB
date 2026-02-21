@@ -40,20 +40,6 @@ vi.mock('/components/customs/app-sidebar.svelte', () => ({
   default: vi.fn(() => ({ $$render: () => '<div data-testid="app-sidebar">Sidebar</div>' }))
 }))
 
-// Mock FormBuilder and FormFieldRenderer to avoid dynamic loader import issues
-vi.mock('@/components/customs/FormBuilder.svelte', () => ({
-  default: vi.fn(() => ({ $$render: () => '<div data-testid="form-builder">Form Builder<input id="field_field-1" name="field_field-1" aria-label="First Name" /></div>' }))
-}))
-vi.mock('/components/customs/FormBuilder.svelte', () => ({
-  default: vi.fn(() => ({ $$render: () => '<div data-testid="form-builder">Form Builder<input id="field_field-1" name="field_field-1" aria-label="First Name" /></div>' }))
-}))
-
-vi.mock('@/components/customs/FormFieldRenderer.svelte', () => ({
-  default: vi.fn(() => ({ $$render: () => '<input id="field_field-1" name="field_field-1" aria-label="First Name" />' }))
-}))
-vi.mock('/components/customs/FormFieldRenderer.svelte', () => ({
-  default: vi.fn(() => ({ $$render: () => '<input id="field_field-1" name="field_field-1" aria-label="First Name" />' }))
-}))
 // Also mock the loader module used in the app to avoid runtime dynamic import issues
 vi.mock('@/components/ui/loader/FormBuilderLoader.svelte', () => ({
   default: vi.fn(() => ({ $$render: () => '<div data-testid="form-builder">Form Builder<input id="field_field-1" name="field_field-1" aria-label="First Name" /></div>' }))
@@ -569,5 +555,64 @@ describe('Forms Edit Page', () => {
     })
 
     expect(getByText('Cancel')).toBeInTheDocument()
+  })
+
+  it('shows JSON and CSV results after submitting preview with fields', async () => {
+    const fakeForm = {
+      id: '1',
+      name: 'Test Form',
+      description: 'desc',
+      form_fields: [
+        { id: '1', label: 'First Name', field_type: 'text', position: 1, metadata: { export_key: 'first_name' } }
+      ],
+      structure: { settings: {} }
+    }
+
+    const { getByText, container } = render(Edit, {
+      props: {
+        form: fakeForm,
+        errors: null,
+        error: null,
+        session_id: 'test-session-123'
+      }
+    })
+
+    // Switch to Preview
+    const previewButton = getByText('Preview')
+    await fireEvent.click(previewButton)
+
+    await waitFor(() => {
+      expect(getByText('Submit Preview')).toBeInTheDocument()
+    })
+
+    // Fill the field
+    const input = container.querySelector('input[name="field_1"]') as HTMLInputElement
+    if (input) {
+      input.value = 'John Doe'
+      input.setAttribute('value', 'John Doe')
+      await fireEvent.input(input, { target: { value: 'John Doe' } })
+      await fireEvent.change(input, { target: { value: 'John Doe' } })
+    }
+
+    // Submit preview
+    const form = container.querySelector('form')
+    if (form) {
+      await fireEvent.submit(form)
+    }
+
+    // Check JSON results
+    await waitFor(() => {
+      expect(getByText('Preview Results')).toBeInTheDocument()
+    })
+    
+    const pre = container.querySelector('pre')
+    expect(pre?.textContent).toContain('"first_name": "John Doe"')
+
+    // Switch to CSV
+    const csvBtn = getByText('CSV')
+    await fireEvent.click(csvBtn)
+
+    expect(pre?.textContent).toContain('label,value')
+    expect(pre?.textContent).toContain('first_name,John Doe')
   })
 })

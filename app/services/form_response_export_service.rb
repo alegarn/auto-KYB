@@ -32,7 +32,7 @@ class FormResponseExportService
         form_name: @client_form.form.name,
         client_name: @client_form.client.name
       },
-      fields: form_fields.map { |f| { id: f.id, label: f.label, field_type: f.field_type } },
+      fields: form_fields.map { |f| { id: f.id, label: f.label, export_key: f.metadata&.dig("export_key").presence || f.label, field_type: f.field_type } },
       responses: form_responses.map do |response|
         {
           # version: response.version, --- IGNORE ---
@@ -47,7 +47,7 @@ class FormResponseExportService
 
   def build_header(form_fields)
     # ignore version in export
-    [ "Created At" ] + form_fields.map(&:label)
+    [ "Created At" ] + form_fields.map { |f| f.metadata&.dig("export_key").presence || f.label }
   end
 
   def build_row(response, form_fields)
@@ -66,6 +66,7 @@ class FormResponseExportService
     form_fields.each do |field|
       result[field.id.to_s] = {
         label: field.label,
+        export_key: field.metadata&.dig("export_key").presence || field.label,
         value: data[field.id.to_s]
       }
     end
