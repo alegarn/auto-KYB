@@ -3,6 +3,7 @@
   import Canvas from "./form-builder/Canvas.svelte";
   import FieldConfig from "./form-builder/FieldConfig.svelte";
   import FormSettingsPanel from "./form-builder/FormSettings.svelte";
+  import FormMappingPanel from "./form-builder/FormMapping.svelte";
   import { createField, type FormField, type FieldType, type FormSettings } from "./form-builder/types";
   import type { DropResult } from "@/lib/dnd";
 
@@ -14,7 +15,7 @@
   let { fields = $bindable([]), settings = $bindable({}) }: Props = $props();
 
   let selectedIndex = $state<number | null>(null);
-  let rightPanelView = $state<'field' | 'settings'>('field');
+  let rightPanelView = $state<'field' | 'settings' | 'mapping'>('field');
 
   function addField(fieldType: FieldType) {
     const newField = createField(fieldType, fields.length + 1);
@@ -140,12 +141,24 @@
       >
         Styling
       </button>
+      <button
+        type="button"
+        class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {rightPanelView === 'mapping' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => rightPanelView = 'mapping'}
+      >
+        Mapping
+      </button>
     </div>
 
     {#if rightPanelView === 'settings'}
       <FormSettingsPanel
         {settings}
         onupdate={(s) => settings = s}
+      />
+    {:else if rightPanelView === 'mapping'}
+      <FormMappingPanel
+        {fields}
+        onupdate={updateField}
       />
     {:else if selectedField && selectedIndex !== null}
       <FieldConfig

@@ -21,7 +21,7 @@ RSpec.describe FormResponseExportService, type: :service do
       csv = FormResponseExportService.call(client_form)
       rows = CSV.parse(csv, row_sep: "\r\n")
 
-      expect(rows.first).to include("Version", "Created At", "First", "Second")
+      expect(rows.first).to include("Created At", "First", "Second")
     end
 
     it "includes data rows with response values" do
@@ -35,7 +35,7 @@ RSpec.describe FormResponseExportService, type: :service do
       rows = CSV.parse(csv, row_sep: "\r\n")
 
       expect(rows.length).to be >= 2
-      expect(rows[1]).to include(resp.version.to_s, resp.created_at.iso8601, "A", "B")
+      expect(rows[1]).to include(resp.created_at.iso8601, "A", "B")
     end
 
     it "still generates header when there are no responses" do

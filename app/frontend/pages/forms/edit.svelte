@@ -44,7 +44,7 @@
       if (outputFormat === 'json') {
         const out: Record<string, any> = {}
         flds.forEach((f: any) => {
-          const key = f.label != null ? String(f.label) : String(f.id)
+          const key = f.metadata?.export_key || (f.label != null ? String(f.label) : String(f.id))
           const val = results[f.id]
           out[key] = val === undefined ? null : val
         })
@@ -58,7 +58,8 @@
         if (s.includes('"') || s.includes(',') || s.includes('\n')) {
           s = '"' + s.replace(/"/g, '""') + '"'
         }
-        rows.push([String(f.label), s])
+        const key = f.metadata?.export_key || String(f.label)
+        rows.push([key, s])
       })
       return rows.map(r => r.join(',')).join('\n')
     } catch (e) {
