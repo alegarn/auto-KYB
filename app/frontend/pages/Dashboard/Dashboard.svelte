@@ -259,7 +259,7 @@
   </Card.Root>
 
   <div class="space-y-6">
-    <Card.Root>
+<!--     <Card.Root>
       <Card.Header>
         <Card.Title>Quick actions</Card.Title>
         <Card.Description>Jump back into key workflows.</Card.Description>
@@ -279,7 +279,7 @@
         </Button>
       </Card.Content>
     </Card.Root>
-
+ -->
     <Card.Root>
       <Card.Header>
         <Card.Title>Recent forms</Card.Title>
