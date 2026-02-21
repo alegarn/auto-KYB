@@ -3,7 +3,6 @@ require_relative "../config/environment"
 require "rails/test_help"
 
 class ActiveSupport::TestCase
-
   # Run tests in parallel with specified workers
   parallelize(workers: :number_of_processors)
 
@@ -14,5 +13,4 @@ class ActiveSupport::TestCase
   def sign_in_as(user)
     post(sign_in_url, params: { email: user.email, password: "Secret1*3*5*" }); user
   end
-
 end
