@@ -16,6 +16,7 @@ export default defineConfig({
     conditions: ['browser']
   },
   test: {
+    globals: true,
     exclude: ['**/stories/**', '**/node_modules/**'],
     environment: 'jsdom',
     setupFiles: ['spec/setupTests.ts'],

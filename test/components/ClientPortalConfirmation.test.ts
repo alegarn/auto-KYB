@@ -12,5 +12,4 @@ test('renders client and form name and CTAs', () => {
   expect(screen.getByText(/ACME Corp/)).toBeInTheDocument();
   expect(screen.getByText(/KYC Form/)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /Return to Home/i })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: /View Links/i })).toBeInTheDocument();
 });

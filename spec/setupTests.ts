@@ -1,4 +1,6 @@
 import { vi, expect } from 'vitest'
+globalThis.expect = expect
+import '@testing-library/jest-dom'
 import * as matchers from '@testing-library/jest-dom/matchers'
 import { readable } from 'svelte/store'
 

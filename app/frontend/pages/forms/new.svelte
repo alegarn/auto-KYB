@@ -30,17 +30,17 @@
 
       if (outputFormat === 'json') {
         const out: Record<string, any> = {}
-        flds.forEach((f: any) => {
-          const key = f.metadata?.export_key || (f.label != null ? String(f.label) : String(f.id))
-          const val = results[f.id]
+        flds.forEach((f: any, i: number) => {
+          const key = f.metadata?.export_key || (f.label != null ? String(f.label) : String(f.id ?? f.position ?? i))
+          const val = results[f.id ?? f.position ?? i]
           out[key] = val === undefined ? null : val
         })
         return JSON.stringify(out, null, 2)
       }
 
       const rows: string[][] = [["label", "value"]]
-      flds.forEach((f: any) => {
-        const val = results[f.id]
+      flds.forEach((f: any, i: number) => {
+        const val = results[f.id ?? f.position ?? i]
         let s = val === null || val === undefined ? '' : String(val)
         if (s.includes('"') || s.includes(',') || s.includes('\n')) {
           s = '"' + s.replace(/"/g, '""') + '"'
@@ -183,14 +183,14 @@
                 />
               {:else}
                 <Field class="mb-4">
-                  <FieldLabel for={`field_${field['id']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
+                  <FieldLabel for={`field_${field['id'] ?? field['position']}`}>{field['label']}{#if field['required']}*{/if}</FieldLabel>
                   <FieldContent>
                     <FormFieldRenderer
-                      id={`field_${field['id']}`}
+                      id={`field_${field['id'] ?? field['position']}`}
                       label={field['label']}
                       type={field.field_type || 'text'}
                       required={field.required}
-                      name={`field_${field['id']}`}
+                      name={`field_${field['id'] ?? field['position']}`}
                       value={''}
                       inputOnly={true}
                       onChange={()=>{}}

@@ -24,6 +24,17 @@ RSpec.describe FormResponseExportService, type: :service do
       expect(rows.first).to include("Created At", "First", "Second")
     end
 
+    it "uses export_key for header row if present" do
+      create(:form_field, form: form, label: "First Name", metadata: { "export_key" => "first_name" })
+      create(:form_field, form: form, label: "Last Name")
+      client_form.form.reload
+
+      csv = FormResponseExportService.call(client_form)
+      rows = CSV.parse(csv, row_sep: "\r\n")
+
+      expect(rows.first).to include("Created At", "first_name", "Last Name")
+    end
+
     it "includes data rows with response values" do
       f1 = create(:form_field, form: form, label: "One")
       f2 = create(:form_field, form: form, label: "Two")
@@ -91,6 +102,16 @@ RSpec.describe FormResponseExportService, type: :service do
       expect(payload[:fields]).to be_an(Array)
       expect(payload[:responses]).to be_an(Array)
       expect(payload[:responses].first[:data].keys).to include(f1.id.to_s)
+    end
+
+    it "uses export_key in fields if present" do
+      f1 = create(:form_field, form: form, label: "First Name", metadata: { "export_key" => "first_name" })
+      client_form.form.reload
+      client_form.form_responses.create!(data: { f1.id.to_s => "John" })
+
+      payload = FormResponseExportService.as_json_payload(client_form)
+
+      expect(payload[:fields].first[:export_key]).to eq("first_name")
     end
   end
 end
