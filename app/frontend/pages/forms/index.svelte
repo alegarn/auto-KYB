@@ -200,7 +200,7 @@
 							bind:value={search}
 							class="sm:w-56"
 						/>
-						<div class="flex flex-wrap gap-2">
+						<!-- <div class="flex flex-wrap gap-2">
 							{#each statusFilters as status}
 								<Button
 									size="sm"
@@ -210,7 +210,7 @@
 									{labelForStatus(status)}
 								</Button>
 							{/each}
-						</div>
+						</div> -->
 					</div>
 				</Card.Header>
 				<Card.Content class="space-y-3">
