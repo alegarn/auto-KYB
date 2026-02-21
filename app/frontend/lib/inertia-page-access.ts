@@ -3,7 +3,6 @@ export const PUBLIC_PAGE_PREFIXES = [
   'Home/',
   'sessions/',
   'registrations/',
-  'inertia_example/',
 ] as const
 
 export const NO_SIDEBAR_PAGE_PREFIXES = [
