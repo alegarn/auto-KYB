@@ -6,8 +6,8 @@ class User < ApplicationRecord
     email
   end
 
-  generates_token_for :password_reset, expires_in: 20.minutes do
-    password_salt.last(10)
+  generates_token_for :signin, expires_in: 10.minutes do
+    email
   end
 
 
@@ -16,7 +16,6 @@ class User < ApplicationRecord
   has_many :clients, dependent: :destroy
 
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
-  validates :password, allow_nil: true, length: { minimum: 12 }
 
   normalizes :email, with: -> { _1.strip.downcase }
 
@@ -24,13 +23,15 @@ class User < ApplicationRecord
     self.verified = false
   end
 
-  after_update if: :password_digest_previously_changed? do
-    sessions.where.not(id: Current.session&.id).delete_all
-  end
+  before_validation :assign_random_password, on: :create, if: -> { password.blank? }
 
   after_create :initialize_default_forms
 
   private
+
+  def assign_random_password
+    self.password = self.password_confirmation = SecureRandom.base58(24)
+  end
 
   def initialize_default_forms
     FormService.initialize_default_for_user(self)
