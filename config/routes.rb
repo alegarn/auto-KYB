@@ -16,6 +16,7 @@ Rails.application.routes.draw do
   resources :forms do
     member do
       get :confirm_delete
+      post :duplicate
     end
   end
 

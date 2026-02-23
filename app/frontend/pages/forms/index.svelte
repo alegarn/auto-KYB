@@ -6,9 +6,10 @@
 	import { Skeleton } from "/components/ui/skeleton";
 	import { Form as InertiaForm, inertia, useForm } from '@inertiajs/svelte'
 	import Modal from "/components/ui/modal.svelte";
-	import { new_form_path, form_path, edit_form_path } from "@/routes";
+	import { new_form_path, form_path, edit_form_path, duplicate_form_path } from "@/routes";
 	import { page } from '@inertiajs/svelte'
 	import Toast from "/components/customs/Toast.svelte"
+	import { Copy } from "@lucide/svelte";
 
 	type FormStatus = "draft" | "submitted" | "approved" | "rejected";
 	type Form = {
@@ -24,6 +25,7 @@
   let selectedToDelete = $state(null as Form | null);
 
   const deleteForm = useForm({});
+  const duplicateFormAction = useForm({});
 
   function openDeleteModal(f: Form) {
     selectedToDelete = f;
@@ -38,6 +40,10 @@
         showModal = false;
       },
     });
+  }
+
+  function duplicateForm(f: Form) {
+    $duplicateFormAction.post(duplicate_form_path(f.id));
   }
 
 	const statusFilters = ["all", "draft", "submitted", "approved", "rejected"] as const;
@@ -241,6 +247,9 @@
 										<span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(form.status)}`}>
 											{form.status}
 										</span>
+										<Button type="button" variant="ghost" size="icon" onclick={() => duplicateForm(form)} title="Duplicate form">
+											<Copy class="h-4 w-4" />
+										</Button>
 										<Button href={edit_form_path(form.id)} class="no-underline" size="sm" variant="secondary">Update</Button>
 										<Button type="button" variant="destructive" size="sm" onclick={() => openDeleteModal(form)}>Delete</Button>
 									</div>
