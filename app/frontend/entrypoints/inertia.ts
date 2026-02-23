@@ -1,6 +1,7 @@
 import { createInertiaApp, type ResolvedComponent } from '@inertiajs/svelte'
 import { mount } from 'svelte'
 import AuthenticatedLayout from '../layouts/AuthenticatedLayout.svelte'
+import PublicLayout from '../layouts/PublicLayout.svelte'
 import { isNoSidebarPage, isPublicPage } from '../lib/inertia-page-access'
 
 createInertiaApp({
@@ -15,9 +16,18 @@ createInertiaApp({
 
     const resolved = await page()
 
+    let layout = resolved.layout
+    if (layout === undefined) {
+      if (name.startsWith('Home/') || name.startsWith('Public/')) {
+        layout = PublicLayout
+      } else if (!isPublicPage(name) && !isNoSidebarPage(name)) {
+        layout = AuthenticatedLayout
+      }
+    }
+
     return {
       default: resolved.default,
-      layout: resolved.layout || ((isPublicPage(name) || isNoSidebarPage(name)) ? undefined : AuthenticatedLayout),
+      layout,
     } as ResolvedComponent
   },
 

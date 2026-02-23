@@ -1,14 +1,15 @@
-<script>
+<script lang="ts">
   import { root_path, quickstart_path } from "@/routes"
+  import { inertia, page } from '@inertiajs/svelte'
   import logo from "@/assets/quick_kyb_horizontal.svg";
   const links = [
     {
       title: "Features",
-      href: `${root_path}#features`,
+      href: `${root_path()}#features`,
     },
     {
       title: "Solution",
-      href: "#features",
+      href: `${root_path()}#features`,
     },
     /* {
       title: "Customers",
@@ -16,7 +17,7 @@
     }, */
     {
       title: "Pricing",
-      href: `${root_path}#pricing`,
+      href: `${root_path()}#pricing`,
     },
     {
       title: "Quickstart",
@@ -24,14 +25,33 @@
     },
     {
       title: "About",
-      href: "#",
+      href: `${root_path()}#about`,
     },
   ];
+
+  let currentPath = $derived($page?.url?.split('?')[0].split('#')[0] || '/');
+
+  function getLinkProps(href: string) {
+    const isHashLink = href.includes('#');
+    const linkPath = href.split('#')[0] || '/';
+    
+    if (isHashLink && linkPath === currentPath) {
+      return {
+        href: href.substring(href.indexOf('#')),
+        useInertia: false
+      };
+    }
+    
+    return {
+      href,
+      useInertia: true
+    };
+  }
 </script>
 
 <footer class="py-16 md:py-32">
   <div class="mx-auto max-w-5xl px-6">
-    <a href="/" aria-label="go home" class="mx-auto block size-fit">
+    <a href="/" aria-label="go home" class="mx-auto block size-fit" use:inertia>
       <img
         src={logo}
         alt="Logo"
@@ -43,12 +63,22 @@
 
     <div class="my-8 flex flex-wrap justify-center gap-6 text-sm">
       {#each links as link}
-        <a
-          href={link.href}
-          class="text-muted-foreground hover:text-primary block duration-150"
-        >
-          <span>{link.title}</span>
-        </a>
+        {#if getLinkProps(link.href).useInertia}
+          <a
+            href={getLinkProps(link.href).href}
+            class="text-muted-foreground hover:text-primary block duration-150"
+            use:inertia
+          >
+            <span>{link.title}</span>
+          </a>
+        {:else}
+          <a
+            href={getLinkProps(link.href).href}
+            class="text-muted-foreground hover:text-primary block duration-150"
+          >
+            <span>{link.title}</span>
+          </a>
+        {/if}
       {/each}
     </div>
 <!-- 

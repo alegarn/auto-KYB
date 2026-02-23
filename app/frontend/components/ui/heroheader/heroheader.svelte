@@ -5,30 +5,48 @@
   import X from "@lucide/svelte/icons/x";
   import { scrollY } from "svelte/reactivity/window";
   import Button from "../button/button.svelte";
-  import { inertia, Link } from '@inertiajs/svelte'
-  import { quickstart_path } from '@/routes';
+  import { inertia, Link, page } from '@inertiajs/svelte'
   import logo from "@/assets/quick_kyb_horizontal.svg";
-  let { user, sign_in_path, sign_up_path } = $props();
+  let { user, sign_in_path, sign_up_path, root_path, quickstart_path } = $props();
 
   type MenuItem = {
     name: string;
     href: string;
   };
 
-  let menuItems: MenuItem[] = [
-    { name: "Features", href: "#features",  },
-    { name: "Pricing", href: "#pricing" },
-    { name: "Quickstart", href: quickstart_path() },
-    { name: "About", href: "#about" },
-  ];
-
   let menuState = $state(false);
+
+  let menuItems = $derived([
+    { name: "Features", href: `${root_path()}#features` },
+    { name: "Pricing", href: `${root_path()}#pricing` },
+    { name: "Quickstart", href: quickstart_path() },
+    { name: "About", href: "/#about" },
+  ]);
   let isScrolled = $derived.by(() => {
     if (scrollY.current !== undefined && scrollY.current > 50) {
       return true;
     }
     return false;
   });
+
+  let currentPath = $derived($page?.url?.split('?')[0].split('#')[0] || '/');
+
+  function getLinkProps(href: string) {
+    const isHashLink = href.includes('#');
+    const linkPath = href.split('#')[0] || '/';
+    
+    if (isHashLink && linkPath === currentPath) {
+      return {
+        href: href.substring(href.indexOf('#')),
+        useInertia: false
+      };
+    }
+    
+    return {
+      href,
+      useInertia: true
+    };
+  }
 </script>
 
 <header>
@@ -45,7 +63,7 @@
         class="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4"
       >
         <div class="flex w-full justify-between lg:w-auto">
-          <a href="/" aria-label="home" class="flex items-center space-x-2">
+          <a href="/" aria-label="home" class="flex items-center space-x-2" use:inertia>
             <img
               src={logo}
               alt="Logo"
@@ -79,12 +97,22 @@
           <ul class="flex gap-8 text-sm">
             {#each menuItems as item, index}
               <li>
-                <a
-                  href={item.href}
-                  class="text-muted-foreground hover:text-accent-foreground block duration-150"
-                >
-                  <span>{item.name}</span>
-                </a>
+                {#if getLinkProps(item.href).useInertia}
+                  <a
+                    href={getLinkProps(item.href).href}
+                    class="text-muted-foreground hover:text-accent-foreground block duration-150"
+                    use:inertia
+                  >
+                    <span>{item.name}</span>
+                  </a>
+                {:else}
+                  <a
+                    href={getLinkProps(item.href).href}
+                    class="text-muted-foreground hover:text-accent-foreground block duration-150"
+                  >
+                    <span>{item.name}</span>
+                  </a>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -99,13 +127,22 @@
             <ul class="space-y-6 text-base">
               {#each menuItems as item, index}
                 <li>
-                  <a
-                    href={item.href}
-                    class="text-muted-foreground hover:text-accent-foreground block duration-150"
-                    use:inertia
-                  >
-                    <span>{item.name}</span>
-                  </a>
+                  {#if getLinkProps(item.href).useInertia}
+                    <a
+                      href={getLinkProps(item.href).href}
+                      class="text-muted-foreground hover:text-accent-foreground block duration-150"
+                      use:inertia
+                    >
+                      <span>{item.name}</span>
+                    </a>
+                  {:else}
+                    <a
+                      href={getLinkProps(item.href).href}
+                      class="text-muted-foreground hover:text-accent-foreground block duration-150"
+                    >
+                      <span>{item.name}</span>
+                    </a>
+                  {/if}
                 </li>
               {/each}
             </ul>
@@ -119,7 +156,6 @@
                 size="sm"
                 class={cn(isScrolled && "lg:hidden")}
                 href={sign_in_path()}
-                useInertia={false}
               >
                 Login
               </Button>
@@ -127,7 +163,6 @@
                 href={sign_up_path()}
                 size="sm" 
                 class={cn(isScrolled && "lg:hidden")}
-                useInertia={false}
               >
                 Sign Up
               </Button>
