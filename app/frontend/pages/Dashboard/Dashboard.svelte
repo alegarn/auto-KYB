@@ -5,7 +5,8 @@
   import { Input } from "/components/ui/input";
   import Modal from "/components/ui/modal.svelte";
   import { Skeleton } from "/components/ui/skeleton";
-  import { new_form_path, form_path, new_client_path, client_path, edit_client_path } from "@/routes";
+  import { new_form_path, form_path, new_client_path, client_path, edit_client_path, quickstart_path } from "@/routes";
+  import BookOpenIcon from "@lucide/svelte/icons/book-open";
 
   type Client = {
     id: string;
@@ -151,6 +152,10 @@
     <p class="text-sm text-muted-foreground">{user?.email}</p>
   </div>
   <div class="flex flex-col gap-2 sm:flex-row">
+    <Button href={quickstart_path()} variant="outline" class="gap-2">
+      <BookOpenIcon class="h-4 w-4" />
+      Quickstart Guide
+    </Button>
     <Button href={new_form_path()} variant="secondary">New Form</Button>
     <Button href={new_client_path()} variant="default">New Client</Button>
 

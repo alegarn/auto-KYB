@@ -16,9 +16,9 @@ RSpec.describe "ClientPortal::UploadedFiles", type: :request do
   describe "POST /client_portal/uploaded_files" do
     it "marks draft client form as filled and linked client as active on upload-only flow" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect([302, 303]).to include(response.status)
+      expect([ 302, 303 ]).to include(response.status)
 
-      file = Tempfile.new(["portal-upload", ".pdf"])
+      file = Tempfile.new([ "portal-upload", ".pdf" ])
       file.write("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n")
       file.rewind
 
@@ -43,9 +43,9 @@ RSpec.describe "ClientPortal::UploadedFiles", type: :request do
 
     it "does not change statuses when upload validation fails" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect([302, 303]).to include(response.status)
+      expect([ 302, 303 ]).to include(response.status)
 
-      invalid = Tempfile.new(["portal-upload", ".txt"])
+      invalid = Tempfile.new([ "portal-upload", ".txt" ])
       invalid.write("not an allowed document")
       invalid.rewind
 

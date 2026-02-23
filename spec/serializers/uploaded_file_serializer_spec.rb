@@ -47,7 +47,7 @@ RSpec.describe UploadedFileSerializer do
 
   describe ".collection" do
     it "serializes a collection to an array of hashes" do
-      files = [build_file(id: 1), build_file(id: 2)]
+      files = [ build_file(id: 1), build_file(id: 2) ]
       result = described_class.collection(files)
       expect(result).to be_an(Array)
       expect(result.size).to eq(2)
@@ -60,7 +60,7 @@ RSpec.describe UploadedFileSerializer do
       f1 = build_file(id: 1, field_key: "one")
       f2 = build_file(id: 2, field_key: "two")
 
-      result = described_class.by_field_key([f1, f2])
+      result = described_class.by_field_key([ f1, f2 ])
 
       expect(result.keys).to contain_exactly("one", "two")
       expect(result["one"]["id"]).to eq(f1.id)

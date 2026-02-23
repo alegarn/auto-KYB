@@ -22,7 +22,7 @@ class FormInitializer
       { label: "Upload ID (Front)", field_type: "file", required: false, position: 14 },
       { label: "Upload ID (Back)", field_type: "file", required: false, position: 15 },
       { label: "Upload Proof of Address (utility bill, bank statement)", field_type: "file", required: false, position: 16 },
-      { label: "Are you a Politically Exposed Person (PEP)?", field_type: "select", required: false, metadata: { options: ["Yes", "No", "Prefer not to say"] }, position: 17 },
+      { label: "Are you a Politically Exposed Person (PEP)?", field_type: "select", required: false, metadata: { options: [ "Yes", "No", "Prefer not to say" ] }, position: 17 },
       { label: "Source of Funds / Occupation", field_type: "textarea", required: false, position: 18 },
 
       # KYB - business
@@ -52,14 +52,14 @@ class FormInitializer
       { label: "AML", field_type: "section", metadata: { description: "Guidance: see basic AML checklist at https://aml.example.com and provide supporting docs." }, required: false, position: 40 },
       { label: "Politically Exposed Person (PEP) Details", field_type: "textarea", required: false, position: 41 },
       { label: "Sanctions / Watchlist Declarations", field_type: "textarea", required: false, position: 42 },
-      { label: "Sanctions check consent", field_type: "checkbox", required: false, metadata: { options: ["I consent"] }, position: 43 },
+      { label: "Sanctions check consent", field_type: "checkbox", required: false, metadata: { options: [ "I consent" ] }, position: 43 },
       { label: "AML Policy Agreement (upload signed)", field_type: "file", required: false, position: 44 },
       { label: "Expected Monthly Volume (for AML risk scoring)", field_type: "number", required: false, position: 45 },
 
       # Services
       { label: "Services", field_type: "section", metadata: { description: "Select required services and read notes at https://services.example.com" }, required: false, position: 46 },
-      { label: "Select required services", field_type: "checkbox", required: false, metadata: { options: ["Payments", "Escrow", "High-risk processing", "Verification", "Legal advisory"], allow_multiple: true }, position: 47 },
-      { label: "PCI / Compliance required?", field_type: "checkbox", required: false, metadata: { options: ["Yes"] }, position: 48 },
+      { label: "Select required services", field_type: "checkbox", required: false, metadata: { options: [ "Payments", "Escrow", "High-risk processing", "Verification", "Legal advisory" ], allow_multiple: true }, position: 47 },
+      { label: "PCI / Compliance required?", field_type: "checkbox", required: false, metadata: { options: [ "Yes" ] }, position: 48 },
       { label: "Additional agreements or attachments", field_type: "file", required: false, position: 49 },
       { label: "Contact person for services", field_type: "text", required: false, position: 50 }
     ]

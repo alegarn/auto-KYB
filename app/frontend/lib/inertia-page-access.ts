@@ -1,6 +1,7 @@
 export const PUBLIC_PAGE_PREFIXES = [
   'ClientPortal/',
   'Home/',
+  'Public/',
   'sessions/',
   'registrations/',
 ] as const
