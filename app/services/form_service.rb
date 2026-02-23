@@ -103,16 +103,8 @@ class FormService
   def self.duplicate_form(user, form)
     raise ActiveRecord::RecordNotFound unless form.user_id == user.id
 
-    base_name = form.name.sub(/\s*\(\d+\)$/, '').strip
-    
-    existing_names = user.forms.where("name LIKE ?", "#{base_name}%").pluck(:name)
-    
-    new_name = "#{base_name} (1)"
-    counter = 1
-    while existing_names.include?(new_name)
-      counter += 1
-      new_name = "#{base_name} (#{counter})"
-    end
+    base_name = duplicate_base_name(form.name)
+    new_name = next_duplicate_name_for_user(user, base_name)
 
     new_structure = form.structure.deep_dup || {}
     new_structure["fields"] = form.form_fields.order(:position).map do |ff|
@@ -127,5 +119,23 @@ class FormService
 
     create_form(user, { name: new_name, structure: new_structure })
   end
+
+  def self.duplicate_base_name(name)
+    name.to_s.sub(/\s*\(\d+\)\z/, "").strip
+  end
+  private_class_method :duplicate_base_name
+
+  def self.next_duplicate_name_for_user(user, base_name)
+    escaped_base = Regexp.escape(base_name)
+    duplicate_regex = /\A#{escaped_base} \((\d+)\)\z/
+
+    existing_names = user.forms
+                         .where("name = ? OR name LIKE ?", base_name, "#{base_name} (%)")
+                         .pluck(:name)
+
+    max_suffix = existing_names.filter_map { |name| duplicate_regex.match(name)&.captures&.first&.to_i }.max || 0
+    "#{base_name} (#{max_suffix + 1})"
+  end
+  private_class_method :next_duplicate_name_for_user
 
 end

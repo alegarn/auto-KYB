@@ -53,7 +53,7 @@ class FormsController < ApplicationController
   def duplicate
     form = current_user.forms.find(params[:id])
     new_form = FormService.duplicate_form(current_user, form)
-    
+
     respond_to do |format|
       format.html do
         redirect_to edit_form_path(new_form), flash: {

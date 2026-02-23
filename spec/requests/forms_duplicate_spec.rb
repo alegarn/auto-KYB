@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Forms Duplicate', type: :request do
-  let!(:user) { User.create!(email: 'test@example.com', password: 'securepassword123') }
+  let!(:user) { create(:user) }
   let!(:form) do
     FormService.create_form(user, {
       name: 'My Form',
@@ -18,11 +18,17 @@ RSpec.describe 'Forms Duplicate', type: :request do
 
   describe 'POST /forms/:id/duplicate' do
     it 'duplicates the form and redirects to the edit page' do
+      existing_ids = Form.pluck(:id)
+
       expect {
         post duplicate_form_path(form), headers: headers
       }.to change(Form, :count).by(1)
 
-      new_form = Form.last
+      created_ids = Form.pluck(:id) - existing_ids
+      expect(created_ids.size).to eq(1)
+
+      new_form = Form.find(created_ids.first)
+      expect(new_form.user_id).to eq(user.id)
       expect(new_form.name).to eq('My Form (1)')
       expect(new_form.form_fields.count).to eq(1)
 
@@ -31,10 +37,13 @@ RSpec.describe 'Forms Duplicate', type: :request do
     end
 
     it 'returns 404 if the form belongs to another user' do
-      other_user = User.create!(email: 'other@example.com', password: 'securepassword123')
+      other_user = create(:user)
       other_form = FormService.create_form(other_user, { name: 'Other Form', structure: {} })
 
-      post duplicate_form_path(other_form), headers: headers
+      expect {
+        post duplicate_form_path(other_form), headers: headers
+      }.not_to change(Form, :count)
+
       expect(response).to have_http_status(:not_found)
     end
   end
