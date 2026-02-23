@@ -17,6 +17,8 @@
   let settings = $state<FormSettings>({})
   let clientError = $state("")
   let submitting = $state(false)
+  let showMappingWarning = $state(false)
+  let mappingValid = $state(true)
 
   // preview state
   let preview = $state(false)
@@ -90,6 +92,14 @@
       clientError = "Name is required"
       return
     }
+
+    if (!mappingValid) {
+      clientError = "Not all fields are unique for export mapping."
+      showMappingWarning = true
+      return
+    }
+
+    showMappingWarning = false
 
     submitting = true
     router.post(forms_path(), {
@@ -225,7 +235,20 @@
             </div>
           </div>
         {:else}
-          <FormBuilder bind:fields bind:settings />
+          <FormBuilder
+            bind:fields
+            bind:settings
+            {showMappingWarning}
+            onmappingvaliditychange={(isValid) => {
+              mappingValid = isValid
+              if (isValid) {
+                showMappingWarning = false
+                if (clientError === 'Not all fields are unique for export mapping.') {
+                  clientError = ''
+                }
+              }
+            }}
+          />
         {/if}
       {/if}
 </section>

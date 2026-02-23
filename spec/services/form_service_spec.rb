@@ -12,6 +12,23 @@ RSpec.describe FormService do
       expect(form.form_fields.count).to eq(1)
       expect(form.form_fields.first.label).to eq('Name')
     end
+
+    it 'raises DuplicateExportKeysError when effective export keys are duplicated' do
+      user = User.create!(email: 'svc1_dup@example.com', password: 'securepassword123')
+      params = {
+        name: 'Dup Export Keys',
+        structure: {
+          fields: [
+            { label: 'Company Name', field_type: 'text', metadata: { export_key: 'company_name' } },
+            { label: 'Legal Name', field_type: 'text', metadata: { export_key: 'company_name' } }
+          ]
+        }
+      }
+
+      expect {
+        FormService.create_form(user, params)
+      }.to raise_error(FormService::DuplicateExportKeysError)
+    end
   end
 
   describe '.update_form' do
@@ -48,6 +65,24 @@ RSpec.describe FormService do
       params = { structure: { fields: [] } }
 
       expect { FormService.update_form(user, form, params) }.to raise_error(FormService::DataLossWarning)
+    end
+
+    it 'raises DuplicateExportKeysError when labels collide without explicit export keys' do
+      user = User.create!(email: 'svc2_dup@example.com', password: 'securepassword123')
+      form = user.forms.create!(name: 'Update Dup')
+
+      params = {
+        structure: {
+          fields: [
+            { label: 'Field Name', field_type: 'text' },
+            { label: 'Field Name', field_type: 'email' }
+          ]
+        }
+      }
+
+      expect {
+        FormService.update_form(user, form, params)
+      }.to raise_error(FormService::DuplicateExportKeysError)
     end
   end
 
