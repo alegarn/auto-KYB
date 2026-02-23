@@ -50,6 +50,24 @@ class FormsController < ApplicationController
     end
   end
 
+  def duplicate
+    form = current_user.forms.find(params[:id])
+    new_form = FormService.duplicate_form(current_user, form)
+    
+    respond_to do |format|
+      format.html do
+        redirect_to edit_form_path(new_form), flash: {
+          inertia: {
+            toast: {
+              message: "Form duplicated successfully",
+              type: "notice"
+            }
+          }
+        }, status: :see_other
+      end
+    end
+  end
+
   def update
     form = current_user.forms.find(params[:id])
     FormService.update_form(current_user, form, form_params.to_h)

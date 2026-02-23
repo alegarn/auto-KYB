@@ -100,4 +100,32 @@ class FormService
     form.destroy!
   end
 
+  def self.duplicate_form(user, form)
+    raise ActiveRecord::RecordNotFound unless form.user_id == user.id
+
+    base_name = form.name.sub(/\s*\(\d+\)$/, '').strip
+    
+    existing_names = user.forms.where("name LIKE ?", "#{base_name}%").pluck(:name)
+    
+    new_name = "#{base_name} (1)"
+    counter = 1
+    while existing_names.include?(new_name)
+      counter += 1
+      new_name = "#{base_name} (#{counter})"
+    end
+
+    new_structure = form.structure.deep_dup || {}
+    new_structure["fields"] = form.form_fields.order(:position).map do |ff|
+      {
+        "label" => ff.label,
+        "field_type" => ff.field_type,
+        "required" => ff.required,
+        "position" => ff.position,
+        "metadata" => ff.metadata || {}
+      }
+    end
+
+    create_form(user, { name: new_name, structure: new_structure })
+  end
+
 end
