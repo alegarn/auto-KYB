@@ -25,7 +25,7 @@ Rails.application.routes.draw do
     end
   end
 
-  resources :uploaded_files, only: [:destroy] do
+  resources :uploaded_files, only: [ :destroy ] do
     member do
       post :download
     end
@@ -45,8 +45,8 @@ Rails.application.routes.draw do
     resource :email,              only: [ :edit, :update ]
     resource :email_verification, only: [ :show, :create ]
   end
-  
-  get '/auth/:provider/callback', to: 'sessions#omniauth'
+
+  get "/auth/:provider/callback", to: "sessions#omniauth"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
@@ -74,7 +74,7 @@ Rails.application.routes.draw do
     delete "logout", to: "sessions#destroy", as: :logout
 
     resource :form_response, only: [ :show, :update ]
-    resources :uploaded_files, only: [:create]
+    resources :uploaded_files, only: [ :create ]
     get "confirmation", to: "confirmations#show", as: :confirmation
   end
 end

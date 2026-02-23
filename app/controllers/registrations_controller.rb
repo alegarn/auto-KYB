@@ -14,8 +14,8 @@ class RegistrationsController < ApplicationController
       send_email_verification
       redirect_to sign_in_path, notice: "Welcome! Check your email to verify your account"
     else
-      flash.now.inertia[:alert] = 'There was an error with your registration'
-      render inertia: 'registrations/new', props: { user: @user }, status: :unprocessable_entity
+      flash.now.inertia[:alert] = "There was an error with your registration"
+      render inertia: "registrations/new", props: { user: @user }, status: :unprocessable_entity
     end
   end
 

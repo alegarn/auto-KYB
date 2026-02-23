@@ -16,9 +16,9 @@ class FileUploadConstraints
   }.freeze
 
   MAGIC_BYTES_BY_CONTENT_TYPE = {
-    "application/pdf" => ["%PDF"],
-    "image/jpeg" => ["\xFF\xD8\xFF".b],
-    "image/png" => ["\x89PNG".b]
+    "application/pdf" => [ "%PDF" ],
+    "image/jpeg" => [ "\xFF\xD8\xFF".b ],
+    "image/png" => [ "\x89PNG".b ]
   }.freeze
 
   def self.allowed_content_types

@@ -73,9 +73,9 @@ class FileValidationService
   def read_header(bytes)
     io = if @file.respond_to?(:tempfile)
            @file.tempfile
-         elsif @file.respond_to?(:read)
+    elsif @file.respond_to?(:read)
            @file
-         end
+    end
 
     return nil unless io
 

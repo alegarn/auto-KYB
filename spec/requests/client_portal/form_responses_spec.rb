@@ -16,7 +16,7 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
   describe "PATCH /client_portal/form_response" do
     it "validates, locks, clears session and redirects to confirmation" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect([302, 303]).to include(response.status)
+      expect([ 302, 303 ]).to include(response.status)
 
       patch client_portal_form_response_path, params: { form_response: { data: { foo: 'bar' }, validate: true } }
 
@@ -31,7 +31,7 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
 
     it "returns inertia props on partial save" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect([302, 303]).to include(response.status)
+      expect([ 302, 303 ]).to include(response.status)
 
       patch client_portal_form_response_path,
             params: { form_response: { data: { foo: 'bar' }, partial: true } },
@@ -45,7 +45,7 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
 
     it "rejects updates when client_form is locked (validated)" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect([302, 303]).to include(response.status)
+      expect([ 302, 303 ]).to include(response.status)
 
       # Validate first
       patch client_portal_form_response_path, params: { form_response: { data: { foo: 'bar' }, validate: true } }
@@ -79,7 +79,7 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
   describe "GET /client_portal/form_response (show)" do
     it "renders the form payload when authenticated" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect([302, 303]).to include(response.status)
+      expect([ 302, 303 ]).to include(response.status)
 
       get client_portal_form_response_path
       expect(response).to have_http_status(:ok)
@@ -90,7 +90,7 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
   describe "PATCH /client_portal/form_response (update)" do
     it "creates a FormResponse and sets status to filled on first save" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect([302, 303]).to include(response.status)
+      expect([ 302, 303 ]).to include(response.status)
 
       expect {
         patch client_portal_form_response_path,
@@ -107,7 +107,7 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
 
     it "validates and locks the client_form when validate flag is true" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
-      expect([302, 303]).to include(response.status)
+      expect([ 302, 303 ]).to include(response.status)
 
       patch client_portal_form_response_path,
             params: { form_response: { data: { ok: true }, validate: true } },

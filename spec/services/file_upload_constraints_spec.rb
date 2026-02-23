@@ -5,7 +5,7 @@ RSpec.describe FileUploadConstraints, type: :model do
 
   describe ".allowed_content_types" do
     before do
-      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", ["application/pdf", "image/png"]) 
+      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", [ "application/pdf", "image/png" ])
       stub_const("UploadedFile::MAX_FILE_SIZE", 5_000_000)
     end
     it "returns the configured allowed content types" do
@@ -15,7 +15,7 @@ RSpec.describe FileUploadConstraints, type: :model do
 
   describe ".max_file_size_bytes" do
     before do
-      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", ["application/pdf", "image/png"]) 
+      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", [ "application/pdf", "image/png" ])
       stub_const("UploadedFile::MAX_FILE_SIZE", 5_000_000)
     end
     it "returns the configured max file size" do
@@ -25,7 +25,7 @@ RSpec.describe FileUploadConstraints, type: :model do
 
   describe "derived helpers" do
     before do
-      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", ["application/pdf", "image/png"]) 
+      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", [ "application/pdf", "image/png" ])
       stub_const("UploadedFile::MAX_FILE_SIZE", 5_000_000)
     end
     it "computes allowed extensions from the content types" do
@@ -49,7 +49,7 @@ RSpec.describe FileUploadConstraints, type: :model do
 
   describe ".as_json" do
     before do
-      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", ["application/pdf", "image/png"]) 
+      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", [ "application/pdf", "image/png" ])
       stub_const("UploadedFile::MAX_FILE_SIZE", 5_000_000)
     end
     it "returns a serializable hash of constraints" do
@@ -67,7 +67,7 @@ RSpec.describe FileUploadConstraints, type: :model do
 
   context "when an unknown content type is present" do
     before do
-      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", ["application/pdf", "application/zip"]) 
+      stub_const("UploadedFile::ALLOWED_CONTENT_TYPES", [ "application/pdf", "application/zip" ])
     end
 
     it "falls back to mime string for unknown type labels" do
