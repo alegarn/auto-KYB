@@ -186,6 +186,20 @@
     await handler.submit(e)
   }
 
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter') return
+    const target = e.target as HTMLElement | null
+    if (!target) return
+    const tag = target.tagName
+    // allow Enter in textareas, buttons, contenteditable elements, and explicit submit inputs
+    if (tag === 'TEXTAREA' || tag === 'BUTTON' || target.isContentEditable) return
+    if (target instanceof HTMLInputElement) {
+      const t = target.type
+      if (t === 'submit' || t === 'button' || t === 'checkbox' || t === 'radio') return
+    }
+    e.preventDefault()
+  }
+
 </script>
 
 <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8">
@@ -210,7 +224,7 @@
         <h1 class="text-xl font-semibold text-foreground mb-4">{portalForm.name}</h1>
       {/if}
 
-      <Form method="patch" onsubmit={submit} class="space-y-4" aria-busy={$form.processing}>
+      <Form method="patch" onsubmit={submit} onkeydown={handleKeydown} class="space-y-4" aria-busy={$form.processing}>
         {#each portalForm.form_fields as field (field.id ?? field.position)}
           {#if isLayoutField(field.field_type ?? field.type)}
             <FormFieldRenderer
