@@ -8,6 +8,7 @@ class ApplicationController < ActionController::Base
 
   before_action :set_current_request_details
   before_action :authenticate
+  before_action :require_active_subscription!, unless: :subscription_exempt?
 
   helper_method :current_user, :current_session_id, :user_props, :default_inertia_props
 
@@ -68,6 +69,41 @@ class ApplicationController < ActionController::Base
     def inertia_page_expired_error
       redirect_back_or_to("/", allow_other_host: false,
         notice: "The page expired, please try again.")
+    end
+
+    # Ensure user has an active or trialing subscription for most pages
+    def require_active_subscription!
+      # If there's no authenticated user, let authenticate handle redirect
+      return unless Current.session&.user
+
+      user = Current.session.user
+
+      allowed = if user.trialing?
+        true
+      elsif user.active?
+        user.active_subscription?
+      else
+        false
+      end
+
+      unless allowed
+        redirect_to subscription_required_path and return
+      end
+    end
+
+    # Define which routes/controllers are exempt from subscription checks
+    def subscription_exempt?
+      # Exempt auth and registration flows
+      return true if controller_name.in?(%w[registrations sessions])
+
+      # Exempt public pages
+      return true if controller_name == "home"
+
+      # Exempt checkout and billing related controllers and webhook endpoints
+      return true if controller_name.in?(%w[checkout_sessions stripe_webhooks settings client_portal])
+      return true if request.path.start_with?("/webhooks")
+
+      false
     end
 
 end

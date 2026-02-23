@@ -447,6 +447,7 @@ GEM
       net-ssh (>= 2.8.0)
       ostruct
     stringio (3.2.0)
+    stripe (18.3.1)
     thor (1.5.0)
     thruster (0.1.18)
     thruster (0.1.18-aarch64-linux)
@@ -530,6 +531,7 @@ DEPENDENCIES
   solid_cable
   solid_cache
   solid_queue
+  stripe (~> 18.3.0)
   thruster
   tzinfo-data
   vite_rails (~> 3.0)
@@ -696,6 +698,7 @@ CHECKSUMS
   sorbet-runtime (0.6.12913) sha256=b07b29c4070e7729fcda55f42ca2cf76ed369537be6680b36208e66c17934ff1
   sshkit (1.25.0) sha256=c8c6543cdb60f91f1d277306d585dd11b6a064cb44eab0972827e4311ff96744
   stringio (3.2.0) sha256=c37cb2e58b4ffbd33fe5cd948c05934af997b36e0b6ca6fdf43afa234cf222e1
+  stripe (18.3.1) sha256=0ff81b277c87640fc5107815dd489f4cccc973a34940cf5adfefb880f456c1ad
   thor (1.5.0) sha256=e3a9e55fe857e44859ce104a84675ab6e8cd59c650a49106a05f55f136425e73
   thruster (0.1.18) sha256=f025103bc7c8e6747436bb9de058c366840d2871560574ea7070a9bc8608a889
   thruster (0.1.18-aarch64-linux) sha256=16f3d49468d76a9a5de86b7bdedf535b7b80da7c16495ca8ec96cfdc256870e2

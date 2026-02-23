@@ -6,9 +6,12 @@
   import { Input } from "/components/ui/input";
   import * as Sheet from "/components/ui/sheet";
 
+  // Props & state
   let { user } = $props();
   let deleteConfirmation = $state("");
   let deletingAccount = $state(false);
+  let billingLoading = $state(false);
+  let billingError = $state<string | null>(null);
 
   const canDeleteAccount = $derived(deleteConfirmation.trim() === "DELETE");
 
@@ -26,6 +29,23 @@
     }
   });
 
+  const subscriptionStatus = $derived.by(() => user?.subscription_status ?? null);
+
+  const subscribed = $derived.by(() => {
+    const s = user?.subscription_status;
+    return s === "active" || s === "trialing";
+  });
+
+  const subscriptionEndsAtLabel = $derived.by(() => {
+    if (!user?.subscription_ends_at) return null;
+    try {
+      const date = new Date(user.subscription_ends_at);
+      return date.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
+    } catch {
+      return user.subscription_ends_at;
+    }
+  });
+
   function submitAccountDeletion() {
     if (!canDeleteAccount || deletingAccount) return;
 
@@ -37,6 +57,38 @@
         deletingAccount = false;
       },
     });
+  }
+
+  async function openBillingPortal() {
+    if (billingLoading) return;
+    billingLoading = true;
+    billingError = null;
+
+    try {
+      const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+      const res = await fetch('/subscriptions/billing_portal', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Unable to open billing portal');
+      }
+
+      const body = await res.json();
+      if (body.url) {
+        window.location.href = body.url;
+        return;
+      }
+
+      throw new Error('No portal url returned');
+    } catch (err) {
+      billingError = (err as Error).message;
+      console.error('Billing portal error', err);
+    } finally {
+      billingLoading = false;
+    }
   }
 </script>
 
@@ -62,6 +114,30 @@
           <label class="text-sm font-medium" for="settings-created">Account created</label>
           <Input id="settings-created" value={createdAtLabel} disabled />
         </div>
+
+        <!-- Billing section -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium">Billing</label>
+          <div class="flex flex-col gap-2">
+            {#if subscriptionStatus}
+              <p class="text-sm">Status: <strong>{subscriptionStatus}</strong></p>
+              {#if subscriptionEndsAtLabel}
+                <p class="text-sm">Ends at: <strong>{subscriptionEndsAtLabel}</strong></p>
+              {/if}
+              {#if subscribed}
+                <Button variant="secondary" class="w-full" onclick={openBillingPortal} disabled={billingLoading}>
+                  {#if billingLoading}Opening...{:else}Manage subscription{/if}
+                </Button>
+              {/if}
+            {:else}
+              <p class="text-sm text-muted-foreground">No subscription information available.</p>
+            {/if}
+            {#if billingError}
+              <p class="text-sm text-destructive">{billingError}</p>
+            {/if}
+          </div>
+        </div>
+
       </Card.Content>
     </Card.Root>
 

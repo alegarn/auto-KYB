@@ -27,6 +27,35 @@ class User < ApplicationRecord
 
   after_create :initialize_default_forms
 
+  # Subscription statuses from Stripe / application state
+  enum subscription_status: {
+    incomplete: 'incomplete',
+    trialing:   'trialing',
+    active:     'active',
+    past_due:   'past_due',
+    canceled:   'canceled',
+    unpaid:     'unpaid'
+  }
+
+  # Returns true when the user has an active or trialing subscription
+  def subscribed?
+    active? || trialing?
+  end
+
+  # Returns true when subscription is active and not expired
+  # subscription_ends_at may be nil for non-expiring subscriptions
+  def active_subscription?
+    return false unless active?
+    return true if subscription_ends_at.nil?
+
+    subscription_ends_at > Time.current
+  end
+
+  # Returns true when the user is currently on a trial
+  def on_trial?
+    trialing?
+  end
+
   private
 
   def assign_random_password

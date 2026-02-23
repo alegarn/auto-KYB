@@ -78,4 +78,18 @@ Rails.application.routes.draw do
     resources :uploaded_files, only: [ :create ]
     get "confirmation", to: "confirmations#show", as: :confirmation
   end
+
+  # Stripe Checkout sessions for subscription flow
+  post "checkout_sessions", to: "checkout_sessions#create"
+  get  "checkout_sessions/success", to: "checkout_sessions#success", as: :checkout_sessions_success
+  get  "checkout_sessions/cancel", to: "checkout_sessions#cancel", as: :checkout_sessions_cancel
+
+  # Subscription required page
+  get "subscription/required", to: "subscriptions#required", as: :subscription_required
+
+  # Billing portal endpoint
+  post "subscriptions/billing_portal", to: "subscriptions#billing_portal"
+
+  # Stripe webhooks (exempt from authentication/CSRF in controller)
+  post "/webhooks/stripe", to: "stripe_webhooks#create"
 end

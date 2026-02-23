@@ -6,6 +6,22 @@
   import { root_path, sign_in_path, sign_up_path } from "@/routes";
   import { page } from "@inertiajs/svelte";
   import logo from "@/assets/quick_kyb_icon.svg";
+  import { writable } from "svelte/store";
+
+  const checkoutLoading = writable(false);
+  const stripeError = writable<string | null>(null);
+
+  function handleSuccess(event: CustomEvent) {
+    const detail = event.detail || {};
+    const response = detail.props || detail;
+
+    if (response.url) {
+      checkoutLoading.set(true);
+      window.location.href = response.url;
+    } else if (response.error) {
+      stripeError.set(response.error);
+    }
+  }
 </script>
 
 {#if $page?.flash?.alert}
@@ -24,6 +40,7 @@
   <Form
     action={sign_up_path()}
     method="post"
+    onsuccess={handleSuccess}
     class="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md dark:[--color-muted:var(--color-zinc-900)]"
   >
     {#snippet children({ errors, processing }: { errors: Record<string, string>, processing: boolean })}
@@ -84,9 +101,17 @@
           {/if}
         </div>
 
-        <Button class="w-full" type="submit" disabled={processing}>
-          {processing ? 'Creating...' : 'Create account'}
+        <Button class="w-full" type="submit" disabled={processing || $checkoutLoading}>
+          {#if $checkoutLoading}
+            Redirecting to payment...
+          {:else}
+            {processing ? 'Creating...' : 'Create account'}
+          {/if}
         </Button>
+
+        {#if $stripeError}
+          <p class="mt-2 text-sm text-red-500">{$stripeError}</p>
+        {/if}
       </div>
     </div>
 

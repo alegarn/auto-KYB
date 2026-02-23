@@ -12,10 +12,61 @@ class RegistrationsController < ApplicationController
 
     if @user.save
       send_email_verification
-      redirect_to sign_in_path, notice: "Welcome! Check your email to verify your account"
+
+      # Create a session for the newly registered user (log them in)
+      @session = @user.sessions.create!
+      cookies.permanent.signed[:session_token] = @session.id
+
+      # Create Stripe Checkout Session and return URL to frontend (or redirect for HTML)
+      price_id = ENV['STRIPE_BASIC_PLAN_PRICE_ID']
+      unless price_id.present?
+        Rails.logger.error("Stripe: missing STRIPE_BASIC_PLAN_PRICE_ID")
+        respond_to do |format|
+          format.json { render json: { error: 'Pricing not configured' }, status: :unprocessable_entity }
+          format.html { redirect_to sign_in_path, notice: "Welcome! Check your email to verify your account" }
+        end
+        return
+      end
+
+      begin
+        if @user.stripe_customer_id.blank?
+          customer = Stripe::Customer.create(email: @user.email, metadata: { user_id: @user.id })
+          @user.update!(stripe_customer_id: customer.id)
+        end
+
+        checkout_session = Stripe::Checkout::Session.create(
+          mode: 'subscription',
+          customer: @user.stripe_customer_id,
+          line_items: [ { price: price_id, quantity: 1 } ],
+          success_url: checkout_sessions_success_url + '?session_id={CHECKOUT_SESSION_ID}',
+          cancel_url: checkout_sessions_cancel_url,
+          metadata: { user_id: @user.id }
+        )
+
+        respond_to do |format|
+          format.json { render json: { url: checkout_session.url }, status: :created }
+          format.html { redirect_to checkout_session.url }
+        end
+      rescue Stripe::StripeError => e
+        Rails.logger.error("Stripe error creating checkout session for user=#{@user&.id}: #{e.message}")
+        respond_to do |format|
+          format.json { render json: { error: 'Payment provider error' }, status: :bad_gateway }
+          format.html { redirect_to sign_in_path, alert: 'Payment provider error' }
+        end
+      rescue => e
+        Rails.logger.error("Registrations#create unexpected error: #{e.class} #{e.message}")
+        respond_to do |format|
+          format.json { render json: { error: 'Internal server error' }, status: :internal_server_error }
+          format.html { redirect_to sign_in_path, alert: 'Internal server error' }
+        end
+      end
+
     else
       flash.now.inertia[:alert] = "There was an error with your registration"
-      render inertia: "registrations/new", props: { user: @user }, status: :unprocessable_entity
+      respond_to do |format|
+        format.json { render json: { errors: @user.errors }, status: :unprocessable_entity }
+        format.html { render inertia: "registrations/new", props: { user: @user }, status: :unprocessable_entity }
+      end
     end
   end
 
