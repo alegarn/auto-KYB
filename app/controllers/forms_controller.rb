@@ -56,7 +56,7 @@ class FormsController < ApplicationController
 
     respond_to do |format|
       format.html do
-        redirect_to edit_form_path(new_form), flash: {
+        redirect_to forms_path, flash: {
           inertia: {
             toast: {
               message: "Form duplicated successfully",

@@ -17,7 +17,7 @@ RSpec.describe 'Forms Duplicate', type: :request do
   let(:headers) { { 'Cookie' => "session_token=#{session_record.id}" } }
 
   describe 'POST /forms/:id/duplicate' do
-    it 'duplicates the form and redirects to the edit page' do
+    it 'duplicates the form and redirects to the index page' do
       existing_ids = Form.pluck(:id)
 
       expect {
@@ -32,7 +32,7 @@ RSpec.describe 'Forms Duplicate', type: :request do
       expect(new_form.name).to eq('My Form (1)')
       expect(new_form.form_fields.count).to eq(1)
 
-      expect(response).to redirect_to(edit_form_path(new_form))
+      expect(response).to redirect_to(forms_path)
       expect(flash[:inertia][:toast][:message]).to eq('Form duplicated successfully')
     end
 
