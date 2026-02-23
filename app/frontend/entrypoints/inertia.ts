@@ -19,9 +19,9 @@ createInertiaApp({
     let layout = resolved.layout
     if (layout === undefined) {
       if (name.startsWith('Home/') || name.startsWith('Public/')) {
-        layout = PublicLayout
+        layout = PublicLayout as any
       } else if (!isPublicPage(name) && !isNoSidebarPage(name)) {
-        layout = AuthenticatedLayout
+        layout = AuthenticatedLayout as any
       }
     }
 
