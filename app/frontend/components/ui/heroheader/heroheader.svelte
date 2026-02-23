@@ -15,10 +15,9 @@
   };
 
   let menuItems: MenuItem[] = [
-    { name: "Features", href: "#a",  },
-    { name: "Solution", href: "#a" },
+    { name: "Features", href: "#features",  },
     { name: "Pricing", href: "#pricing" },
-    { name: "About", href: "#a" },
+    { name: "About", href: "#about" },
   ];
 
   let menuState = $state(false);
@@ -81,7 +80,6 @@
                 <a
                   href={item.href}
                   class="text-muted-foreground hover:text-accent-foreground block duration-150"
-                  use:inertia
                 >
                   <span>{item.name}</span>
                 </a>

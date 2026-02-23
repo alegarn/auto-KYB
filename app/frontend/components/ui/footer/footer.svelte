@@ -8,12 +8,12 @@
     },
     {
       title: "Solution",
-      href: "#",
+      href: "#features",
     },
-    {
+    /* {
       title: "Customers",
       href: "#",
-    },
+    }, */
     {
       title: "Pricing",
       href: `${root_path}#pricing`,
@@ -51,6 +51,7 @@
         </a>
       {/each}
     </div>
+<!-- 
     <div class="my-8 flex flex-wrap justify-center gap-6 text-sm">
       <a
         href="#"
@@ -177,9 +178,10 @@
           ></path>
         </svg>
       </a>
-    </div>
+    </div> 
+-->
     <span class="text-muted-foreground block text-center text-sm">
-      © {new Date().getFullYear()} Auto KYB, All rights reserved</span
+      © {new Date().getFullYear()} Quick KYB, All rights reserved</span
     >
   </div>
 </footer>
