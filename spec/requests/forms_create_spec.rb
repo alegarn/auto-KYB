@@ -24,4 +24,27 @@ RSpec.describe "Forms Create", type: :request do
     expect(form.form_fields.first.label).to eq('Full Name')
     expect(form.structure['fields'].first['label']).to eq('Full Name')
   end
+
+  it "returns unprocessable entity when export mapping keys are duplicated" do
+    user = FactoryBot.create(:user)
+    session_record = user.sessions.create!
+
+    params = {
+      form: {
+        name: 'Customer Info',
+        structure: {
+          fields: [
+            { label: 'Company Name', field_type: 'text', metadata: { export_key: 'company_name' } },
+            { label: 'Legal Name', field_type: 'text', metadata: { export_key: 'company_name' } }
+          ]
+        }
+      }
+    }
+
+    headers = { 'Cookie' => "session_token=#{session_record.id}" }
+
+    post "/forms", params: params, headers: headers
+
+    expect(response).to have_http_status(:unprocessable_entity)
+  end
 end

@@ -4,15 +4,22 @@
   import FieldConfig from "./form-builder/FieldConfig.svelte";
   import FormSettingsPanel from "./form-builder/FormSettings.svelte";
   import FormMappingPanel from "./form-builder/FormMapping.svelte";
-  import { createField, type FormField, type FieldType, type FormSettings } from "./form-builder/types";
+  import { createField, duplicateExportKeys, type FormField, type FieldType, type FormSettings } from "./form-builder/types";
   import type { DropResult } from "@/lib/dnd";
 
   interface Props {
     fields: FormField[];
     settings?: FormSettings;
+    showMappingWarning?: boolean;
+    onmappingvaliditychange?: (isValid: boolean) => void;
   }
 
-  let { fields = $bindable([]), settings = $bindable({}) }: Props = $props();
+  let {
+    fields = $bindable([]),
+    settings = $bindable({}),
+    showMappingWarning = false,
+    onmappingvaliditychange,
+  }: Props = $props();
 
   let selectedIndex = $state<number | null>(null);
   let rightPanelView = $state<'field' | 'settings' | 'mapping'>('field');
@@ -105,6 +112,19 @@
       ? fields[selectedIndex]
       : null
   );
+
+  const duplicateMappingKeys = $derived(duplicateExportKeys(fields));
+  const hasMappingDuplicates = $derived(duplicateMappingKeys.length > 0);
+
+  $effect(() => {
+    onmappingvaliditychange?.(!hasMappingDuplicates);
+  });
+
+  $effect(() => {
+    if (showMappingWarning && hasMappingDuplicates) {
+      rightPanelView = 'mapping';
+    }
+  });
 </script>
 
 <div class="grid gap-4 lg:grid-cols-[240px_1fr_280px] w-full">
@@ -143,7 +163,7 @@
       </button>
       <button
         type="button"
-        class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {rightPanelView === 'mapping' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+        class="flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors {rightPanelView === 'mapping' ? 'bg-background shadow-sm border-border' : 'border-transparent text-muted-foreground hover:text-foreground'} {showMappingWarning && hasMappingDuplicates ? 'border-destructive text-destructive ring-1 ring-destructive/30' : ''}"
         onclick={() => rightPanelView = 'mapping'}
       >
         Mapping
@@ -159,6 +179,8 @@
       <FormMappingPanel
         {fields}
         onupdate={updateField}
+        showValidation={showMappingWarning}
+        duplicateKeys={duplicateMappingKeys}
       />
     {:else if selectedField && selectedIndex !== null}
       <FieldConfig

@@ -31,9 +31,9 @@
       <div class="mb-3">
         <label class="block font-medium mb-1" for={fid}>{f.label}</label>
         {#if f.field_type === 'textarea'}
-          <textarea id={f.label} class="w-full p-2 border rounded" placeholder={f.label}></textarea>
+          <textarea id={fid} name={fid} class="w-full p-2 border rounded" placeholder={f.label}></textarea>
         {:else if f.field_type === 'select'}
-          <select id={f.label} class="w-full p-2 border rounded"><option>Option</option></select>
+          <select id={fid} name={fid} class="w-full p-2 border rounded"><option>Option</option></select>
         {:else if f.field_type === 'buttons'}
           <ButtonsField
             options={(f.metadata.options || []).map((o) => ({ label: o, value: o }))}

@@ -1,6 +1,16 @@
 class FormService
 
   class DataLossWarning < StandardError; end
+  class DuplicateExportKeysError < StandardError
+
+    attr_reader :duplicate_keys
+
+    def initialize(duplicate_keys)
+      @duplicate_keys = duplicate_keys
+      super("Export mapping keys must be unique")
+    end
+
+  end
 
   def self.initialize_default_for_user(user)
     Rails.logger.info("FormService: initializing default form for user=#{user.id}")
@@ -15,6 +25,7 @@ class FormService
   def self.create_form(user, params)
     # Normalize structure to a plain Hash so we can access string or symbol keys
     struct = params[:structure].respond_to?(:to_h) ? params[:structure].to_h : (params[:structure] || {})
+    validate_unique_export_keys!(struct)
     ActiveRecord::Base.transaction do
       form = user.forms.create!(name: params[:name], structure: struct)
       (struct["fields"] || struct[:fields] || []).each_with_index do |f, idx|
@@ -45,6 +56,8 @@ class FormService
         end
       end
     end
+
+    validate_unique_export_keys!(params[:structure]) if params[:structure]
 
     ActiveRecord::Base.transaction do
       form.update!(name: params[:name]) if params.key?(:name)
@@ -137,5 +150,38 @@ class FormService
     "#{base_name} (#{max_suffix + 1})"
   end
   private_class_method :next_duplicate_name_for_user
+
+  def self.validate_unique_export_keys!(structure)
+    return unless structure
+
+    fields = structure[:fields] || structure["fields"] || []
+    return if fields.blank?
+
+    layout_types = %w[section subtitle static_text separator logo]
+    seen_by_normalized_key = {}
+    duplicates = []
+
+    fields.each do |field|
+      field_type = field[:field_type] || field["field_type"]
+      next if layout_types.include?(field_type.to_s)
+
+      label = (field[:label] || field["label"]).to_s
+      metadata = field[:metadata] || field["metadata"] || {}
+      export_key = metadata[:export_key] || metadata["export_key"]
+      effective_key = export_key.to_s.presence || label
+
+      normalized = effective_key.to_s.strip.downcase
+      next if normalized.blank?
+
+      if seen_by_normalized_key.key?(normalized)
+        duplicates << effective_key.to_s.strip
+      else
+        seen_by_normalized_key[normalized] = true
+      end
+    end
+
+    raise DuplicateExportKeysError.new(duplicates.uniq) if duplicates.any?
+  end
+  private_class_method :validate_unique_export_keys!
 
 end

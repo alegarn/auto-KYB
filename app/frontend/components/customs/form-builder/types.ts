@@ -129,6 +129,38 @@ export function isLayoutField(fieldType: FieldType): boolean {
   return ['section', 'subtitle', 'static_text', 'separator', 'logo'].includes(fieldType);
 }
 
+export function effectiveExportKey(field: FormField, fallbackIndex = 0): string {
+  const explicit = field.metadata?.export_key?.toString().trim();
+  if (explicit) return explicit;
+
+  const label = field.label?.toString().trim();
+  if (label) return label;
+
+  return `field_${field.id ?? field.position ?? fallbackIndex + 1}`;
+}
+
+export function duplicateExportKeys(fields: FormField[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+
+  fields.forEach((field, index) => {
+    if (isLayoutField(field.field_type)) return;
+
+    const key = effectiveExportKey(field, index).trim();
+    if (!key) return;
+
+    const normalized = key.toLowerCase();
+    if (seen.has(normalized)) {
+      duplicates.add(key);
+      return;
+    }
+
+    seen.add(normalized);
+  });
+
+  return Array.from(duplicates);
+}
+
 /**
  * Allowed file extensions for file fields in the builder.
  * Stored canonical form includes the leading dot, e.g. ".pdf".

@@ -53,4 +53,38 @@ describe('FormBuilder', () => {
     expect(queryByText('Data Export Mapping')).not.toBeInTheDocument()
     expect(queryByText('Form Styling')).not.toBeInTheDocument()
   })
+
+  it('shows mapping warning state and auto-opens Mapping tab when duplicates exist', () => {
+    const fields = [
+      { id: '1', label: 'Company Name', field_type: 'text', required: false, position: 1, metadata: { export_key: 'company_name' } },
+      { id: '2', label: 'Legal Name', field_type: 'text', required: false, position: 2, metadata: { export_key: 'company_name' } }
+    ]
+
+    const { getByText } = render(FormBuilder, {
+      fields,
+      settings: {},
+      showMappingWarning: true,
+    })
+
+    const mappingTab = getByText('Mapping').closest('button')
+    expect(mappingTab).toHaveClass('border-destructive')
+    expect(getByText('Data Export Mapping')).toBeInTheDocument()
+    expect(getByText('Not all fields are unique for export. Duplicate mapping keys found.')).toBeInTheDocument()
+  })
+
+  it('emits mapping validity callback with false when duplicates exist', () => {
+    const fields = [
+      { id: '1', label: 'Email', field_type: 'text', required: false, position: 1, metadata: { export_key: 'email' } },
+      { id: '2', label: 'Alt Email', field_type: 'text', required: false, position: 2, metadata: { export_key: 'email' } }
+    ]
+    const onmappingvaliditychange = vi.fn()
+
+    render(FormBuilder, {
+      fields,
+      settings: {},
+      onmappingvaliditychange,
+    })
+
+    expect(onmappingvaliditychange).toHaveBeenCalledWith(false)
+  })
 })

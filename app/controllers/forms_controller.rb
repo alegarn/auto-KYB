@@ -25,6 +25,15 @@ class FormsController < ApplicationController
   def create
     FormService.create_form(current_user, form_params.to_h)
     redirect_to forms_path, status: :see_other
+  rescue FormService::DuplicateExportKeysError => e
+    error_messages = [ "Export mapping keys must be unique. Duplicate keys: #{e.duplicate_keys.join(', ')}" ]
+    if request.format.json?
+      render json: { errors: error_messages }, status: :unprocessable_entity
+    else
+      render inertia: "forms/new", props: default_inertia_props.merge(
+        errors: error_messages
+      ), status: :unprocessable_entity
+    end
   rescue ActiveRecord::RecordInvalid => e
     render inertia: "forms/new", props: default_inertia_props.merge(
       errors: e.record.errors.full_messages
@@ -93,6 +102,16 @@ class FormsController < ApplicationController
         }
       }
     }, status: :see_other
+  rescue FormService::DuplicateExportKeysError => e
+    error_messages = [ "Export mapping keys must be unique. Duplicate keys: #{e.duplicate_keys.join(', ')}" ]
+    if request.format.json?
+      render json: { errors: error_messages }, status: :unprocessable_entity
+    else
+      render inertia: "forms/edit", props: {
+        form: form ? FormDetailSerializer.new(form).as_json : nil,
+        errors: error_messages
+      }, status: :unprocessable_entity
+    end
   rescue ActiveRecord::RecordInvalid => e
     render inertia: "forms/edit", props: {
       form: form ? FormDetailSerializer.new(form).as_json : nil,

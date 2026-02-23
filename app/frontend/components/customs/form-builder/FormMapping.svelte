@@ -7,16 +7,19 @@
   interface Props {
     fields: FormField[];
     onupdate: (index: number, patch: Partial<FormField>) => void;
+    showValidation?: boolean;
+    duplicateKeys?: string[];
   }
 
-  let { fields, onupdate }: Props = $props();
+  let { fields, onupdate, showValidation = false, duplicateKeys = [] }: Props = $props();
 
-  // Filter out layout fields that don't have data
   const dataFields = $derived(
     fields.map((f, i) => ({ field: f, index: i })).filter(
       ({ field }) => !['section', 'subtitle', 'static_text', 'separator', 'logo'].includes(field.field_type)
     )
   );
+
+  const hasDuplicateKeys = $derived(duplicateKeys.length > 0);
 
   function toSnakeCase(str: string) {
     return str
@@ -66,6 +69,12 @@
   <p class="mb-4 text-xs text-muted-foreground">
     Customize the keys used when exporting form responses to CSV or JSON. If left blank, the field's label will be used.
   </p>
+
+  {#if showValidation && hasDuplicateKeys}
+    <div class="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+      Not all fields are unique for export. Duplicate mapping keys found.
+    </div>
+  {/if}
 
   {#if dataFields.length > 0}
     <div class="mb-4 flex flex-wrap gap-2">
