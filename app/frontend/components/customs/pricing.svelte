@@ -17,20 +17,16 @@
       "Required vs validated field flags",
       "Partial updates allowed",
       "Provider notified on validation",
-      "Raw data export (text / CSV)",
+      "Raw data export (JSON / CSV)",
     ],
     pro: [
       "Everything in Basic",
-      "CRM exports: HubSpot, Salesforce, Zoho",
-      "Field-level validation by approvers",
-      "Scheduled and on-demand CSV exports",
+      "CRM exports: HubSpot, Salesforce",
     ],
     premium: [
       "Everything in Pro",
-      "Admin pre-onboard company research + KYB autocomplete",
-      "Client-side company autocomplete during signup",
-      "Autocompletion finalised on client validation",
-      "Custom CRM mapping & advanced integration support",
+      "Client pre-onboard company research",
+      "Client company KYB autocomplete on form",
     ],
   };
 </script>
@@ -41,10 +37,8 @@
       <h1 class="text-center text-4xl font-semibold lg:text-5xl">
         Pricing that Scales with You
       </h1>
-      <p>
-        Gemini is evolving to be more than just the models. It supports an
-        entire to the APIs and platforms helping developers and businesses
-        innovate.
+      <p class="text-muted-foreground">
+        Streamline your client onboarding with customizable KYC/KYB forms, secure data collection, and seamless CRM integrations.
       </p>
     </div>
 
@@ -54,7 +48,7 @@
       <Card class="flex flex-col">
         <CardHeader>
           <CardTitle class="font-medium">Basic</CardTitle>
-          <span class="my-3 block text-2xl font-semibold">$9 / mo</span>
+          <span class="my-3 block text-2xl font-semibold">$99 / mo</span>
           <CardDescription class="text-sm">Per editor</CardDescription>
         </CardHeader>
 
@@ -78,16 +72,16 @@
         </CardFooter>
       </Card>
 
-      <Card class="relative flex flex-col">
+      <Card class="relative flex flex-col opacity-80">
         <span
-          class="bg-linear-to-br/increasing absolute inset-x-0 -top-3 mx-auto flex h-6 w-fit items-center rounded-full from-purple-400 to-amber-300 px-3 py-1 text-xs font-medium text-amber-950 ring-1 ring-inset ring-white/20 ring-offset-1 ring-offset-gray-950/5"
-          >Popular</span
+          class="bg-muted text-muted-foreground absolute inset-x-0 -top-3 mx-auto flex h-6 w-fit items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ring-white/20 ring-offset-1 ring-offset-gray-950/5"
+          >Coming Soon</span
         >
 
         <div class="flex flex-col flex-1">
           <CardHeader>
             <CardTitle class="font-medium">Pro</CardTitle>
-            <span class="my-3 block text-2xl font-semibold">$29 / mo</span>
+            <span class="my-3 block text-2xl font-semibold">$499 / mo</span>
             <CardDescription class="text-sm">Per editor</CardDescription>
           </CardHeader>
 
@@ -104,17 +98,22 @@
           </CardContent>
 
           <CardFooter class="mt-auto">
-            <Button class="w-full">
-              Get Started
+            <Button class="w-full" disabled>
+              Coming Soon
             </Button>
           </CardFooter>
         </div>
       </Card>
 
-      <Card class="flex flex-col">
+      <Card class="relative flex flex-col opacity-80">
+        <span
+          class="bg-muted text-muted-foreground absolute inset-x-0 -top-3 mx-auto flex h-6 w-fit items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ring-white/20 ring-offset-1 ring-offset-gray-950/5"
+          >Coming Soon</span
+        >
+
         <CardHeader>
           <CardTitle class="font-medium">Premium</CardTitle>
-          <span class="my-3 block text-2xl font-semibold">$49 / mo</span>
+          <span class="my-3 block text-2xl font-semibold">$999 / mo</span>
           <CardDescription class="text-sm">Per editor</CardDescription>
         </CardHeader>
 
@@ -132,10 +131,22 @@
         </CardContent>
 
         <CardFooter class="mt-auto">
-          <Button variant="outline" class="w-full">
-            Get Started
+          <Button variant="outline" class="w-full" disabled>
+            Coming Soon
           </Button>
         </CardFooter>
+      </Card>
+    </div>
+
+    <div class="mt-8 md:mt-12">
+      <Card class="flex flex-col md:flex-row items-center justify-between p-6 md:p-8">
+        <div class="space-y-2 text-center md:text-left">
+          <h3 class="text-2xl font-semibold">Custom</h3>
+          <p class="text-muted-foreground">Custom CRM mapping & advanced integration support</p>
+        </div>
+        <div class="mt-6 md:mt-0">
+          <Button variant="outline" size="lg">Contact Sales</Button>
+        </div>
       </Card>
     </div>
   </div>
