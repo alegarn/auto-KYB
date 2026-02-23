@@ -66,7 +66,7 @@ class FormsController < ApplicationController
         }, status: :see_other
       end
     end
-  rescue FormService::DataLossWarning => e
+  rescue FormService::DataLossWarning
     redirect_to edit_form_path(form), flash: {
       inertia: {
         toast: {

@@ -9,6 +9,7 @@ class DashboardController < ApplicationController
       user: current_user,
       clients: clients,
       recent_forms: FormSerializer.collection(q.recent_forms),
+      stats: q.stats,
       meta: {
         page: @pagy.page,
         per_page: (@pagy.vars[:items] || clients_page.size),

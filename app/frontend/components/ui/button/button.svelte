@@ -59,19 +59,32 @@
 </script>
 
 {#if href}
-	<Link
-		data-slot="button"
-		class={cn(buttonVariants({ variant, size }), className)}
-		href={disabled ? undefined : href}
-		aria-disabled={disabled}
-		role={disabled ? "link" : undefined}
-		tabindex={disabled ? -1 : undefined}
-		viewTransition={useInertia}
-		{...restProps}
-    prefetch={true}
-	>
-		{@render children?.()}
-</Link>
+  {#if useInertia}
+    <Link
+      data-slot="button"
+      class={cn(buttonVariants({ variant, size }), className)}
+      href={disabled ? undefined : href}
+      aria-disabled={disabled}
+      role={disabled ? "link" : undefined}
+      tabindex={disabled ? -1 : undefined}
+      {...restProps}
+      prefetch={true}
+    >
+      {@render children?.()}
+    </Link>
+  {:else}
+    <a
+      data-slot="button"
+      class={cn(buttonVariants({ variant, size }), className)}
+      href={disabled ? undefined : href}
+      aria-disabled={disabled}
+      role={disabled ? "link" : undefined}
+      tabindex={disabled ? -1 : undefined}
+      {...restProps}
+    >
+      {@render children?.()}
+    </a>
+  {/if}
 {:else}
 	<button
 		bind:this={ref}

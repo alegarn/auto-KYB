@@ -11,7 +11,7 @@ RSpec.describe "Countries", type: :request do
 
     context "when authenticated" do
       it "returns the countries JSON" do
-        user = sign_in_user
+        sign_in_user
         get '/countries', headers: { 'Cookie' => "session_token=#{Current.session.id}" }, as: :json
         expect(response).to have_http_status(:ok)
         payload = JSON.parse(response.body)
