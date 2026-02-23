@@ -62,7 +62,7 @@
             <h1
               class="mt-8 text-balance text-6xl md:text-7xl lg:mt-16 xl:text-[5.25rem]"
             >
-              Fast KYC
+              Quick KYB
             </h1>
             <p class="mx-auto mt-8 max-w-2xl text-balance text-lg">
               Cut friction, not compliance — seamless KYC/KYB that keeps payments moving.
