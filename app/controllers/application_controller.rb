@@ -66,7 +66,7 @@ class ApplicationController < ActionController::Base
     end
 
     def inertia_page_expired_error
-      redirect_back_or_to('/', allow_other_host: false,
+      redirect_back_or_to("/", allow_other_host: false,
         notice: "The page expired, please try again.")
     end
 

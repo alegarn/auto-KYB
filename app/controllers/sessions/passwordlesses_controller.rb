@@ -1,4 +1,5 @@
 class Sessions::PasswordlessesController < ApplicationController
+
   skip_before_action :authenticate
 
   before_action :set_user, only: :edit
@@ -16,4 +17,5 @@ class Sessions::PasswordlessesController < ApplicationController
     rescue ActiveSupport::MessageVerifier::InvalidSignature, ActiveRecord::RecordNotFound
       redirect_to sign_in_path, alert: "That sign in link is invalid or expired"
     end
+
 end

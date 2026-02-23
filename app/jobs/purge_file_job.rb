@@ -1,4 +1,5 @@
 class PurgeFileJob < ApplicationJob
+
   queue_as :default
 
   def perform(uploaded_file_id)
@@ -8,7 +9,7 @@ class PurgeFileJob < ApplicationJob
     return if uploaded_file.available?
 
     if uploaded_file.downloaded?
-      return unless uploaded_file.purge_scheduled_at.present?
+      return if uploaded_file.purge_scheduled_at.blank?
       return if Time.current < uploaded_file.purge_scheduled_at
     end
 
@@ -23,4 +24,5 @@ class PurgeFileJob < ApplicationJob
     Rails.logger.error("[FilePurge] Error purging file=#{uploaded_file_id}: #{e.message}")
     raise
   end
+
 end

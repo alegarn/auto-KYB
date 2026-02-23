@@ -12,7 +12,7 @@ gem "puma", ">= 5.0"
 gem "jbuilder"
 
 # environment variable management for Rails [
-gem 'dotenv-rails', groups: [:development, :test]
+gem "dotenv-rails", groups: [ :development, :test ]
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 gem "bcrypt", "~> 3.1.7"
@@ -53,7 +53,7 @@ gem "authentication-zero"
 gem "omniauth"
 # Provides a mitigation against CVE-2015-9284 [https://github.com/cookpad/omniauth-rails_csrf_protection]
 gem "omniauth-rails_csrf_protection"
-gem 'omniauth-google-oauth2'
+gem "omniauth-google-oauth2"
 
 # Brings Rails named routes to javascript
 # $ rails generate js_routes:middleware

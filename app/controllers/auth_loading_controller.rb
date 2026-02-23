@@ -1,4 +1,5 @@
 class AuthLoadingController < ApplicationController
+
   def show
     render inertia: "Auth/Loading", props: {
       redirect_to: dashboard_path,
@@ -10,4 +11,5 @@ class AuthLoadingController < ApplicationController
     def bootstrap_ready?
       true
     end
+
 end

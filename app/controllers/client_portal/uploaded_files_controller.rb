@@ -15,7 +15,7 @@ module ClientPortal
         return render json: { error: "No file provided" }, status: :unprocessable_entity
       end
 
-      unless field_key.present?
+      if field_key.blank?
         return render json: { error: "Field key is required" }, status: :unprocessable_entity
       end
 
