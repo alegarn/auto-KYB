@@ -50,14 +50,14 @@ class ClientForm < ApplicationRecord
     with_lock do
       old_response_ids = form_responses.pluck(:id)
       available_files = UploadedFile.where(form_response_id: old_response_ids).available
-      available_files.update_all(form_response_id: nil)
+      available_files.find_each { |file| file.update!(form_response_id: nil) }
 
       form_responses.delete_all
       response = FormResponse.create!(client_form: self, data: data)
 
       UploadedFile.where(client_id: client_id, form_response_id: nil)
                   .available
-                  .update_all(form_response_id: response.id)
+                  .find_each { |file| file.update!(form_response_id: response.id) }
     end
 
     if validate
