@@ -103,7 +103,7 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
     let(:uid) { "google-uid-123" }
     let(:email) { "oauth@example.com" }
 
-    def omniauth_hash(provider: provider, uid: uid, email: email)
+    def omniauth_hash(provider: self.provider, uid: self.uid, email: self.email)
       {
         "provider" => provider,
         "uid" => uid,
