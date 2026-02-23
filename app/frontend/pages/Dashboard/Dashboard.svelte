@@ -22,7 +22,7 @@
     updated_at: string;
   };
 
-  let { user, clients: initialClients, recent_forms: initialForms, meta } = $props();
+  let { user, clients: initialClients, recent_forms: initialForms, meta, stats } = $props();
 
   let clients = $derived<Client[]>(initialClients ?? []);
   let forms = $derived<Form[]>(initialForms ?? []);
@@ -91,11 +91,6 @@
       onError: () => (loadingClients = false),
     });
   }
-  const totalClients = $derived.by(() => clients.length);
-  const activeClients = $derived.by(() => clients.filter((client) => client.status === "active").length);
-  const pendingClients = $derived.by(() => clients.filter((client) => client.status === "validated").length);
-  const pendingForms = $derived.by(() => forms.filter((form) => form.status === "submitted").length);
-
   const recentForms = $derived.by(() => forms.slice(0, 5));
 
   const formStatusBadge = (status: Form["status"]) => {
@@ -169,34 +164,34 @@
       <Card.Description>Across all statuses</Card.Description>
     </Card.Header>
     <Card.Content>
-      <p class="text-3xl font-semibold">{totalClients}</p>
+      <p class="text-3xl font-semibold">{stats.total_clients}</p>
+    </Card.Content>
+  </Card.Root>
+  <Card.Root>
+    <Card.Header>
+      <Card.Title>Validated clients</Card.Title>
+      <Card.Description>Approved and verified</Card.Description>
+    </Card.Header>
+    <Card.Content>
+      <p class="text-3xl font-semibold">{stats.validated_clients}</p>
     </Card.Content>
   </Card.Root>
   <Card.Root>
     <Card.Header>
       <Card.Title>Active clients</Card.Title>
-      <Card.Description>Currently onboarded</Card.Description>
+      <Card.Description>Currently onboarding</Card.Description>
     </Card.Header>
     <Card.Content>
-      <p class="text-3xl font-semibold">{activeClients}</p>
+      <p class="text-3xl font-semibold">{stats.active_clients}</p>
     </Card.Content>
   </Card.Root>
   <Card.Root>
     <Card.Header>
-      <Card.Title>Pending reviews</Card.Title>
-      <Card.Description>Clients awaiting approval</Card.Description>
+      <Card.Title>Linked clients</Card.Title>
+      <Card.Description>Clients with a linked form</Card.Description>
     </Card.Header>
     <Card.Content>
-      <p class="text-3xl font-semibold">{pendingClients}</p>
-    </Card.Content>
-  </Card.Root>
-  <Card.Root>
-    <Card.Header>
-      <Card.Title>Forms to review</Card.Title>
-      <Card.Description>Submitted forms</Card.Description>
-    </Card.Header>
-    <Card.Content>
-      <p class="text-3xl font-semibold">{pendingForms}</p>
+      <p class="text-3xl font-semibold">{stats.linked_clients}</p>
     </Card.Content>
   </Card.Root>
 </section>
