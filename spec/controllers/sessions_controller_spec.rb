@@ -36,64 +36,52 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
   end
 
   describe "POST #create" do
-    context "with valid credentials" do
-      it "creates a session" do
+    context "when user exists and is verified" do
+      before { user.update!(verified: true) }
+
+      it "sends a passwordless email" do
         expect {
-          post :create, params: { email: user.email, password: "password123456" }
-        }.to change { Session.count }.by(1)
+          post :create, params: { email: user.email }
+        }.to have_enqueued_mail(UserMailer, :passwordless).with(params: { user: user }, args: [])
       end
 
-      it "sets the permanent session token cookie" do
-        post :create, params: { email: user.email, password: "password123456" }
+      it "redirects to sign_in_path with a notice" do
+        post :create, params: { email: user.email }
 
-        expect(cookies.signed[:session_token]).to be_present
-      end
-
-      it "redirects to auth_loading_path" do
-        post :create, params: { email: user.email, password: "password123456" }
-
-        expect(response).to redirect_to(auth_loading_path)
-      end
-
-      it "sets a success notice" do
-        post :create, params: { email: user.email, password: "password123456" }
-
-        expect(flash[:notice]).to eq("Signed in successfully")
+        expect(response).to redirect_to(sign_in_path)
+        expect(flash[:notice]).to eq("If the email is registered, you'll receive a sign-in link shortly")
       end
     end
 
-    context "with invalid credentials" do
-      it "does not create a session" do
+    context "when user exists but is not verified" do
+      before { user.update!(verified: false) }
+
+      it "sends an email verification email" do
         expect {
-          post :create, params: { email: user.email, password: "wrongpassword" }
-        }.not_to change { Session.count }
+          post :create, params: { email: user.email }
+        }.to have_enqueued_mail(UserMailer, :email_verification).with(params: { user: user }, args: [])
       end
 
-      it "does not set the session token cookie" do
-        post :create, params: { email: user.email, password: "wrongpassword" }
+      it "redirects to sign_in_path with a notice" do
+        post :create, params: { email: user.email }
 
-        expect(cookies.signed[:session_token]).to be_nil
+        expect(response).to redirect_to(sign_in_path)
+        expect(flash[:notice]).to eq("If the email is registered, you'll receive a sign-in link shortly")
       end
+    end
 
-      it "redirects to sign_in_path with email hint" do
-        post :create, params: { email: user.email, password: "wrongpassword" }
-
-        expect(response).to redirect_to(sign_in_path(email_hint: user.email))
-      end
-
-      it "sets an error alert" do
-        post :create, params: { email: user.email, password: "wrongpassword" }
-
-        expect(flash[:alert]).to eq("That email or password is incorrect")
-      end
-
-      it "handles nil email parameter" do
+    context "when user does not exist" do
+      it "does not send any email" do
         expect {
-          post :create, params: { email: nil, password: "wrongpassword" }
-        }.not_to change { Session.count }
+          post :create, params: { email: "nonexistent@example.com" }
+        }.not_to have_enqueued_mail
+      end
 
-        expect(response).to redirect_to(sign_in_path(email_hint: nil))
-        expect(flash[:alert]).to eq("That email or password is incorrect")
+      it "redirects to sign_in_path with the same notice to prevent enumeration" do
+        post :create, params: { email: "nonexistent@example.com" }
+
+        expect(response).to redirect_to(sign_in_path)
+        expect(flash[:notice]).to eq("If the email is registered, you'll receive a sign-in link shortly")
       end
     end
   end
