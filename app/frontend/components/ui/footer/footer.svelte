@@ -1,5 +1,5 @@
 <script>
-  import { root_path } from "@/routes"
+  import { root_path, quickstart_path } from "@/routes"
   import logo from "@/assets/quick_kyb_horizontal.svg";
   const links = [
     {
@@ -19,8 +19,8 @@
       href: `${root_path}#pricing`,
     },
     {
-      title: "Help",
-      href: "#",
+      title: "Quickstart",
+      href: quickstart_path(),
     },
     {
       title: "About",

@@ -4,8 +4,9 @@
   import HouseIcon from "@lucide/svelte/icons/house";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import UsersIcon from "@lucide/svelte/icons/users";
+  import BookOpenIcon from "@lucide/svelte/icons/book-open";
   import { Link, page } from "@inertiajs/svelte";
-  import { clients_path, dashboard_path, forms_path } from "@/routes";
+  import { clients_path, dashboard_path, forms_path, quickstart_path } from "@/routes";
 
   // Menu items.
   const items = [
@@ -13,6 +14,11 @@
       title: "Dashboard",
       url: dashboard_path(),
       icon: HouseIcon,
+    },
+    {
+      title: "Quickstart",
+      url: quickstart_path(),
+      icon: BookOpenIcon,
     },
     {
       title: "My Forms",

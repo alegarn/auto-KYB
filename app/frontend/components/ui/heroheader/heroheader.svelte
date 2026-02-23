@@ -6,6 +6,7 @@
   import { scrollY } from "svelte/reactivity/window";
   import Button from "../button/button.svelte";
   import { inertia, Link } from '@inertiajs/svelte'
+  import { quickstart_path } from '@/routes';
   import logo from "@/assets/quick_kyb_horizontal.svg";
   let { user, sign_in_path, sign_up_path } = $props();
 
@@ -17,6 +18,7 @@
   let menuItems: MenuItem[] = [
     { name: "Features", href: "#features",  },
     { name: "Pricing", href: "#pricing" },
+    { name: "Quickstart", href: quickstart_path() },
     { name: "About", href: "#about" },
   ];
 

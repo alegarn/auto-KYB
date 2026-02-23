@@ -10,6 +10,7 @@ Rails.application.routes.draw do
   get "countries", to: "countries#index", defaults: { format: :json }
 
   get "dashboard", to: "dashboard#index"
+  get "quickstart", to: "quickstart#index"
   get "auth/loading", to: "auth_loading#show", as: :auth_loading
 
   resources :forms do
