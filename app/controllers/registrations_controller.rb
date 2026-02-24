@@ -15,7 +15,7 @@ class RegistrationsController < ApplicationController
   def complete
     session_id = params[:session_id]
     if session_id.blank?
-      return redirect_to sign_up_path, alert: "Invalid session."
+      return redirect_to sign_in_path, notice: "If you just completed a payment, please check your email for a login link. (Note: Ensure your Stripe Pricing Table success URL includes ?session_id={CHECKOUT_SESSION_ID})"
     end
 
     begin

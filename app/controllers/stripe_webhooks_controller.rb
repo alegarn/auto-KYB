@@ -30,7 +30,7 @@ class StripeWebhooksController < ApplicationController
            'invoice.payment_failed'
         # Delegate actual processing to background job for performance
         # The job should inspect event.to_h and act accordingly.
-        ProcessStripeEventJob.perform_later(event: event.to_h)
+        ProcessStripeEventJob.perform_later(event: JSON.parse(event.to_json))
       else
         Rails.logger.info("[Stripe] Ignoring unsupported event type: #{event.type}")
       end

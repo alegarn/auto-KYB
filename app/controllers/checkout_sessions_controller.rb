@@ -51,7 +51,11 @@ class CheckoutSessionsController < ApplicationController
   def success
     # This is now handled by RegistrationsController#complete
     # But we keep this for legacy or other flows if needed, or redirect to complete
-    redirect_to complete_registration_path(session_id: params[:session_id])
+    if params[:session_id].present?
+      redirect_to complete_registration_path(session_id: params[:session_id])
+    else
+      redirect_to sign_in_path, notice: "If you just completed a payment, please check your email for a login link."
+    end
   end
 
   # Renders cancelled payment page

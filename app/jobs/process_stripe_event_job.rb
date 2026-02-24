@@ -52,11 +52,12 @@ class ProcessStripeEventJob < ApplicationJob
         email: email,
         stripe_customer_id: customer_id,
         stripe_subscription_id: subscription_id,
-        subscription_status: 'active'
+        subscription_status: 'active',
+        verified: true
       )
       
       # Send an email to the user with a link to complete their registration
-      # UserMailer.with(user: user).complete_registration.deliver_later
+      UserMailer.with(user: user).passwordless.deliver_later
       return
     end
 
