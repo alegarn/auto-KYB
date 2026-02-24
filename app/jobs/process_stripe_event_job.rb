@@ -34,6 +34,7 @@ class ProcessStripeEventJob < ApplicationJob
 
     customer_id = session['customer'] || session['customer_id']
     subscription_id = session['subscription']
+    email = session.dig('customer_details', 'email')
 
     if customer_id.blank?
       Rails.logger.warn("[Stripe] checkout.session.completed missing customer id in session id=#{session['id']}")
@@ -41,8 +42,21 @@ class ProcessStripeEventJob < ApplicationJob
     end
 
     user = User.find_by(stripe_customer_id: customer_id)
-    unless user
-      Rails.logger.warn("[Stripe] checkout.session.completed: user not found for stripe_customer_id=#{customer_id}")
+    
+    if user.nil?
+      # In the "Pay First" flow, the user might not exist yet if they haven't completed the frontend registration step.
+      # We create a placeholder user here to ensure we don't lose the subscription link if they close the browser.
+      Rails.logger.info("[Stripe] checkout.session.completed: user not found for stripe_customer_id=#{customer_id}. Creating placeholder.")
+      
+      user = User.create!(
+        email: email,
+        stripe_customer_id: customer_id,
+        stripe_subscription_id: subscription_id,
+        subscription_status: 'active'
+      )
+      
+      # Send an email to the user with a link to complete their registration
+      # UserMailer.with(user: user).complete_registration.deliver_later
       return
     end
 

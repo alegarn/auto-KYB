@@ -117,7 +117,7 @@
 
         <!-- Billing section -->
         <div class="space-y-2">
-          <label class="text-sm font-medium">Billing</label>
+          <div class="text-sm font-medium">Billing</div>
           <div class="flex flex-col gap-2">
             {#if subscriptionStatus}
               <p class="text-sm">Status: <strong>{subscriptionStatus}</strong></p>

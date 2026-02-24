@@ -1,27 +1,27 @@
 <script lang="ts">
   import { Form } from "@inertiajs/svelte";
   import Button from "/components/ui/button/button.svelte";
-  import Input from "/components/ui/input/input.svelte";
-  import Label from "/components/ui/label/label.svelte";
-  import { root_path, sign_in_path, sign_up_path } from "@/routes";
+  import { root_path, sign_in_path } from "@/routes";
   import { page } from "@inertiajs/svelte";
   import logo from "@/assets/quick_kyb_icon.svg";
-  import { writable } from "svelte/store";
+  import { onMount } from "svelte";
 
-  const checkoutLoading = writable(false);
-  const stripeError = writable<string | null>(null);
+  let { stripe_publishable_key, stripe_pricing_table_id, customer_email } = $props();
 
-  function handleSuccess(event: CustomEvent) {
-    const detail = event.detail || {};
-    const response = detail.props || detail;
+  onMount(() => {
+    // Dynamically load the Stripe pricing table script
+    const script = document.createElement("script");
+    script.src = "https://js.stripe.com/v3/pricing-table.js";
+    script.async = true;
+    document.head.appendChild(script);
 
-    if (response.url) {
-      checkoutLoading.set(true);
-      window.location.href = response.url;
-    } else if (response.error) {
-      stripeError.set(response.error);
-    }
-  }
+    return () => {
+      // Cleanup if needed
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
+  });
 </script>
 
 {#if $page?.flash?.alert}
@@ -36,32 +36,25 @@
 <section
   class="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent"
 >
-
-  <Form
-    action={sign_up_path()}
-    method="post"
-    onsuccess={handleSuccess}
-    class="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md dark:[--color-muted:var(--color-zinc-900)]"
-  >
-    {#snippet children({ errors, processing }: { errors: Record<string, string>, processing: boolean })}
-      <div class="p-8 pb-6">
-        <div>
-          <Button href={root_path()} aria-label="go home" variant="ghost">
-          <img
-              src={logo}
-              alt="Logo"
-              class="h-8 w-auto rounded-sm"
-              width="32"
-              height="32"
-            />
+  <div class="m-auto w-full max-w-4xl">
+    <div class="text-center mb-8">
+      <Button href={root_path()} aria-label="go home" variant="ghost">
+        <img
+          src={logo}
+          alt="Logo"
+          class="h-12 w-auto rounded-sm mx-auto"
+          width="48"
+          height="48"
+        />
       </Button>
-        <h1 class="text-title mb-1 mt-4 text-xl font-semibold">
-          Create a Quick KYB Account
-        </h1>
-        <p class="text-sm">Welcome! Create an account to get started</p>
-      </div>
+      <h1 class="text-title mb-2 mt-4 text-3xl font-bold">
+        Choose your plan
+      </h1>
+      <p class="text-lg text-muted-foreground">Select a plan to create your Quick KYB account</p>
+    </div>
 
-      <div class="mt-6 grid grid-cols-1 gap-3">
+    {#if !customer_email}
+      <div class="mb-8 max-w-sm mx-auto">
         <a href="/auth/google_oauth2" data-turbo="false" class="w-full focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background selection:bg-primary selection:text-primary-foreground ring-offset-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs h-9 px-4 py-2 has-[>svg]:px-3 justify-center">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -88,39 +81,38 @@
           </svg>
           <span>Sign up with Google</span>
         </a>
-      </div>
-
-      <hr class="my-4 border-dashed" />
-
-      <div class="space-y-5">
-        <div class="space-y-2">
-          <Label for="email" class="block text-sm">Email</Label>
-          <Input type="email" required name="email" id="email" />
-          {#if errors.email}
-            <p class="text-sm text-red-500">{errors.email}</p>
-          {/if}
+        
+        <div class="relative my-6">
+          <div class="absolute inset-0 flex items-center">
+            <span class="w-full border-t"></span>
+          </div>
+          <div class="relative flex justify-center text-xs uppercase">
+            <span class="bg-zinc-50 px-2 text-muted-foreground dark:bg-transparent">Or continue with email</span>
+          </div>
         </div>
-
-        <Button class="w-full" type="submit" disabled={processing || $checkoutLoading}>
-          {#if $checkoutLoading}
-            Redirecting to payment...
-          {:else}
-            {processing ? 'Creating...' : 'Create account'}
-          {/if}
-        </Button>
-
-        {#if $stripeError}
-          <p class="mt-2 text-sm text-red-500">{$stripeError}</p>
-        {/if}
       </div>
-    </div>
+    {/if}
 
-    <div class="bg-muted rounded-(--radius) border p-3">
-      <p class="text-accent-foreground text-center text-sm">
-        Have an account ?
+    {#if stripe_publishable_key && stripe_pricing_table_id}
+      <div class="bg-card rounded-[calc(var(--radius)+.125rem)] border p-4 shadow-md dark:[--color-muted:var(--color-zinc-900)]">
+        <stripe-pricing-table 
+          pricing-table-id={stripe_pricing_table_id}
+          publishable-key={stripe_publishable_key}
+          customer-email={customer_email || undefined}
+        >
+        </stripe-pricing-table>
+      </div>
+    {:else}
+      <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md text-center">
+        Stripe configuration is missing. Please check your environment variables.
+      </div>
+    {/if}
+
+    <div class="mt-8 text-center">
+      <p class="text-accent-foreground text-sm">
+        Already have an account?
         <Button href={sign_in_path()} variant="link" class="px-2">Sign in</Button>
       </p>
     </div>
-    {/snippet}
-  </Form>
+  </div>
 </section>

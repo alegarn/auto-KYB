@@ -1,72 +1,81 @@
 class RegistrationsController < ApplicationController
 
-  skip_before_action :authenticate, only: %i[new create]
+  skip_before_action :authenticate, only: %i[new complete finalize]
 
   def new
     @user = User.new
-    render inertia: "registrations/new", props: { user: @user }
+    render inertia: "registrations/new", props: { 
+      user: @user,
+      stripe_publishable_key: ENV['STRIPE_PUBLISHABLE_KEY'],
+      stripe_pricing_table_id: ENV['STRIPE_PRICING_TABLE_ID'],
+      customer_email: Current.user&.email
+    }
   end
 
-  def create
-    @user = User.new(user_params)
+  def complete
+    session_id = params[:session_id]
+    if session_id.blank?
+      return redirect_to sign_up_path, alert: "Invalid session."
+    end
 
-    if @user.save
-      send_email_verification
-
-      # Create a session for the newly registered user (log them in)
-      @session = @user.sessions.create!
-      cookies.permanent.signed[:session_token] = @session.id
-
-      # Create Stripe Checkout Session and return URL to frontend (or redirect for HTML)
-      price_id = ENV['STRIPE_BASIC_PLAN_PRICE_ID']
-      unless price_id.present?
-        Rails.logger.error("Stripe: missing STRIPE_BASIC_PLAN_PRICE_ID")
-        respond_to do |format|
-          format.json { render json: { error: 'Pricing not configured' }, status: :unprocessable_entity }
-          format.html { redirect_to sign_in_path, notice: "Welcome! Check your email to verify your account" }
-        end
-        return
+    begin
+      checkout_session = Stripe::Checkout::Session.retrieve(session_id)
+      if checkout_session.payment_status != 'paid'
+        return redirect_to sign_up_path, alert: "Payment not completed."
       end
 
-      begin
-        if @user.stripe_customer_id.blank?
-          customer = Stripe::Customer.create(email: @user.email, metadata: { user_id: @user.id })
-          @user.update!(stripe_customer_id: customer.id)
-        end
-
-        checkout_session = Stripe::Checkout::Session.create(
-          mode: 'subscription',
-          customer: @user.stripe_customer_id,
-          line_items: [ { price: price_id, quantity: 1 } ],
-          success_url: checkout_sessions_success_url + '?session_id={CHECKOUT_SESSION_ID}',
-          cancel_url: checkout_sessions_cancel_url,
-          metadata: { user_id: @user.id }
-        )
-
-        respond_to do |format|
-          format.json { render json: { url: checkout_session.url }, status: :created }
-          format.html { redirect_to checkout_session.url }
-        end
-      rescue Stripe::StripeError => e
-        Rails.logger.error("Stripe error creating checkout session for user=#{@user&.id}: #{e.message}")
-        respond_to do |format|
-          format.json { render json: { error: 'Payment provider error' }, status: :bad_gateway }
-          format.html { redirect_to sign_in_path, alert: 'Payment provider error' }
-        end
-      rescue => e
-        Rails.logger.error("Registrations#create unexpected error: #{e.class} #{e.message}")
-        respond_to do |format|
-          format.json { render json: { error: 'Internal server error' }, status: :internal_server_error }
-          format.html { redirect_to sign_in_path, alert: 'Internal server error' }
-        end
+      customer_id = checkout_session.customer
+      user = User.find_by(stripe_customer_id: customer_id)
+      
+      if user && user.password_digest.present? && user.sessions.any?
+         # User already fully registered
+         redirect_to sign_in_path, notice: "Account already created. Please sign in."
+         return
       end
 
-    else
-      flash.now.inertia[:alert] = "There was an error with your registration"
-      respond_to do |format|
-        format.json { render json: { errors: @user.errors }, status: :unprocessable_entity }
-        format.html { render inertia: "registrations/new", props: { user: @user }, status: :unprocessable_entity }
+      email = checkout_session.customer_details&.email
+      render inertia: "registrations/Complete", props: { email: email, session_id: session_id }
+    rescue Stripe::StripeError => e
+      Rails.logger.error("Stripe error retrieving session: #{e.message}")
+      redirect_to sign_up_path, alert: "Unable to verify payment."
+    end
+  end
+
+  def finalize
+    session_id = params[:session_id]
+    password = params[:password]
+    password_confirmation = params[:password_confirmation]
+
+    begin
+      checkout_session = Stripe::Checkout::Session.retrieve(session_id)
+      if checkout_session.payment_status != 'paid'
+        return render json: { error: "Payment not completed." }, status: :unprocessable_entity
       end
+
+      customer_id = checkout_session.customer
+      email = checkout_session.customer_details&.email
+      subscription_id = checkout_session.subscription
+
+      user = User.find_or_initialize_by(stripe_customer_id: customer_id)
+      user.email = email
+      user.password = password
+      user.password_confirmation = password_confirmation
+      user.stripe_subscription_id = subscription_id
+      user.subscription_status = 'active'
+      user.verified = true # Since they paid via Stripe, we can consider their email verified
+
+      if user.save
+        # Log them in
+        @session = user.sessions.create!
+        cookies.permanent.signed[:session_token] = @session.id
+        
+        render json: { redirect_url: dashboard_path }, status: :created
+      else
+        render json: { errors: user.errors }, status: :unprocessable_entity
+      end
+    rescue Stripe::StripeError => e
+      Rails.logger.error("Stripe error finalizing registration: #{e.message}")
+      render json: { error: "Payment verification failed." }, status: :bad_gateway
     end
   end
 

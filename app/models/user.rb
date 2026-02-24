@@ -28,7 +28,7 @@ class User < ApplicationRecord
   after_create :initialize_default_forms
 
   # Subscription statuses from Stripe / application state
-  enum subscription_status: {
+  enum :subscription_status, {
     incomplete: 'incomplete',
     trialing:   'trialing',
     active:     'active',

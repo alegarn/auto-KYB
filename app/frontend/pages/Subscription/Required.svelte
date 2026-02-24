@@ -1,23 +1,8 @@
 <script lang="ts">
-  import { useForm } from '@inertiajs/svelte'
-  import { checkout_sessions_path } from '@/routes'
+  import { sign_up_path } from '@/routes'
 
   const props = $props()
   const user = $derived(props.user)
-
-  const form = useForm({})
-
-  function startCheckout() {
-    $form.post(checkout_sessions_path(), {
-      preserveState: true,
-      onSuccess: (page) => {
-        const url = page?.props?.url
-        if (typeof url === 'string' && typeof window !== 'undefined' && window.location) {
-          window.location.href = url
-        }
-      }
-    })
-  }
 </script>
 
 <main class="min-h-screen flex items-center justify-center p-6 bg-slate-50">
@@ -32,7 +17,7 @@
     </ul>
 
     <div class="flex items-center gap-4">
-      <button onclick={startCheckout} class="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Start subscription</button>
+      <a href={sign_up_path()} class="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Start subscription</a>
       <a href="/" class="text-sm text-slate-500">Return to public home</a>
     </div>
   </section>

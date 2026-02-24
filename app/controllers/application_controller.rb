@@ -7,6 +7,7 @@ class ApplicationController < ActionController::Base
   allow_browser versions: :modern
 
   before_action :set_current_request_details
+  before_action :set_current_user
   before_action :authenticate
   before_action :require_active_subscription!, unless: :subscription_exempt?
 
@@ -44,18 +45,20 @@ class ApplicationController < ActionController::Base
   end
 
   private
-    def authenticate
-      # Allow tests that set Current.session directly to bypass cookie-based lookup
+    def set_current_user
       return if Current.session&.user.present?
 
       token = cookies.signed[:session_token] || cookies[:session_token] || request.cookies["session_token"]
-      Rails.logger.debug "[TEST LOG] ApplicationController#authenticate called; token=#{token.inspect}" if Rails.env.test?
       if session_record = Session.find_by(id: token)
         if session_record.user.present?
           Current.session = session_record
-          return
         end
       end
+    end
+
+    def authenticate
+      # Allow tests that set Current.session directly to bypass cookie-based lookup
+      return if Current.session&.user.present?
 
       redirect_to(sign_in_path) and return
     end
