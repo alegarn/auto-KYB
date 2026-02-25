@@ -35,11 +35,7 @@ class RegistrationsController < ApplicationController
       user.verified = true
       user.save!
 
-      UserMailer.with(user: user).passwordless.deliver_later
-
-      redirect_to sign_in_path,
-        notice: "Account created! Check your email for a sign-in link.",
-        status: :see_other
+      render inertia: "registrations/Complete", props: { email: email }
     rescue Stripe::StripeError => e
       Rails.logger.error("Stripe error in complete: #{e.message}")
       redirect_to sign_up_path, alert: "Unable to verify payment."
