@@ -39,7 +39,6 @@ Rails.application.routes.draw do
   get  "sign_in/:sid", to: "sessions/passwordlesses#edit", as: :passwordless_sign_in
   get  "sign_up", to: "registrations#new"
   get  "registrations/complete", to: "registrations#complete", as: :complete_registration
-  post "registrations/finalize", to: "registrations#finalize", as: :finalize_registration
   delete "sign_up", to: "registrations#destroy"
   resources :sessions, only: [ :index, :show, :destroy ]
 

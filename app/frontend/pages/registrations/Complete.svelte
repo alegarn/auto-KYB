@@ -3,20 +3,11 @@
   import Button from "/components/ui/button/button.svelte";
   import Input from "/components/ui/input/input.svelte";
   import Label from "/components/ui/label/label.svelte";
-  import { root_path, sign_in_path } from "@/routes";
+  import { root_path } from "@/routes";
   import { page } from "@inertiajs/svelte";
   import logo from "@/assets/quick_kyb_icon.svg";
 
   let { email, session_id } = $props();
-
-  function handleSuccess(event: CustomEvent) {
-    const detail = event.detail || {};
-    const response = detail.props || detail;
-
-    if (response.redirect_url) {
-      window.location.href = response.redirect_url;
-    }
-  }
 </script>
 
 {#if $page?.flash?.alert}
@@ -34,7 +25,6 @@
   <Form
     action="/registrations/finalize"
     method="post"
-    onsuccess={handleSuccess}
     class="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md dark:[--color-muted:var(--color-zinc-900)]"
   >
     {#snippet children({ errors, processing }: { errors: Record<string, string>, processing: boolean })}
