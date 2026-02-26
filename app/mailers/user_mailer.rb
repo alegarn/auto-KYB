@@ -7,6 +7,13 @@ class UserMailer < ApplicationMailer
     mail to: @user.email, subject: "Your sign-in link"
   end
 
+  def welcome
+    @user = params[:user]
+    @signin_token = @user.generate_token_for(:signin)
+
+    mail to: @user.email, subject: "Welcome to Quick KYB — here's your sign-in link"
+  end
+
   def email_verification
     @user = params[:user]
     @signed_id = @user.generate_token_for(:email_verification)

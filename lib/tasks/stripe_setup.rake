@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-
+=begin 
 namespace :stripe_setup do
   desc "Create Basic Plan product and monthly price in Stripe and print the price ID"
   task create_basic_plan: :environment do
@@ -57,3 +57,4 @@ namespace :stripe_setup do
     end
   end
 end
+=end

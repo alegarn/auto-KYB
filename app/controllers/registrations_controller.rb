@@ -1,6 +1,7 @@
 class RegistrationsController < ApplicationController
 
   skip_before_action :authenticate, only: %i[new complete]
+  before_action :skip_authorization
 
   def new
     @user = User.new
@@ -28,12 +29,20 @@ class RegistrationsController < ApplicationController
       email = checkout_session.customer_details&.email
       subscription_id = checkout_session.subscription
 
-      user = User.find_or_initialize_by(stripe_customer_id: customer_id)
+      # The Stripe Pricing Table creates a customer directly (bypassing our backend),
+      # so an existing user (e.g. OAuth) may not yet have stripe_customer_id set.
+      # Find by stripe_customer_id first, then fall back to email to avoid a duplicate-email error.
+      user = User.find_by(stripe_customer_id: customer_id) ||
+             User.find_by(email: email) ||
+             User.new
+      user.stripe_customer_id = customer_id
       user.email = email
       user.stripe_subscription_id = subscription_id
       user.subscription_status = 'active'
       user.verified = true
       user.save!
+
+      UserMailer.with(user: user).welcome.deliver_later
 
       render inertia: "registrations/Complete", props: { email: email }
     rescue Stripe::StripeError => e
@@ -62,6 +71,8 @@ class RegistrationsController < ApplicationController
       return
     end
 
+    user.update!(provider: nil, uid: nil) if user.provider.present? || user.uid.present?
+
     user.destroy!
     cookies.delete(:session_token)
     Current.session = nil
@@ -70,6 +81,10 @@ class RegistrationsController < ApplicationController
                 notice: "Your account has been deleted.",
                 status: :see_other
   rescue ActiveRecord::RecordNotDestroyed
+    redirect_to settings_path,
+                alert: "We could not delete your account. Please try again.",
+                status: :see_other
+  rescue ActiveRecord::RecordInvalid
     redirect_to settings_path,
                 alert: "We could not delete your account. Please try again.",
                 status: :see_other

@@ -4,6 +4,7 @@ class StripeWebhooksController < ApplicationController
   # Webhook endpoints are called by Stripe; disable CSRF and authentication
   skip_before_action :verify_authenticity_token
   skip_before_action :authenticate
+  before_action :skip_authorization
 
   # POST /webhooks/stripe
   def create

@@ -1,6 +1,7 @@
 class Sessions::PasswordlessesController < ApplicationController
 
   skip_before_action :authenticate
+  before_action :skip_authorization
 
   before_action :set_user, only: :edit
 
@@ -8,7 +9,8 @@ class Sessions::PasswordlessesController < ApplicationController
     session_record = @user.sessions.create!
     cookies.signed.permanent[:session_token] = { value: session_record.id, httponly: true }
 
-    redirect_to(auth_loading_path, notice: "Signed in successfully", status: :see_other)
+    destination = @user.onboarding_completed? ? auth_loading_path : auth_setup_settings_path
+    redirect_to(destination, notice: "Signed in successfully", status: :see_other)
   end
 
   private

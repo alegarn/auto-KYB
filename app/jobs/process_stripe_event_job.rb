@@ -101,6 +101,11 @@ class ProcessStripeEventJob < ApplicationJob
     attrs = {}
     attrs[:subscription_status] = new_status if new_status.present? && user.subscription_status != new_status
 
+    # Clear subscription_canceled_at on reactivation so the 1-year purge window resets
+    if new_status.in?(%w[active trialing]) && user.subscription_canceled_at.present?
+      attrs[:subscription_canceled_at] = nil
+    end
+
     if current_period_end.present?
       ends_at = Time.zone.at(current_period_end.to_i)
       attrs[:subscription_ends_at] = ends_at if user.subscription_ends_at != ends_at
@@ -146,6 +151,7 @@ class ProcessStripeEventJob < ApplicationJob
 
     attrs = {}
     attrs[:subscription_status] = 'canceled' unless user.subscription_status == 'canceled'
+    attrs[:subscription_canceled_at] = Time.current if user.subscription_canceled_at.nil?
 
     if sub['ended_at'].present?
       ended_at = Time.zone.at(sub['ended_at'].to_i)

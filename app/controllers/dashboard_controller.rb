@@ -1,6 +1,7 @@
 class DashboardController < ApplicationController
 
   def index
+    authorize :dashboard, :show?
     q = DashboardQuery.new(current_user)
     @pagy, clients_page = pagy(q.clients_scope.order(created_at: :desc), items: 10, page: params[:page])
     clients = ClientSerializer.collection(clients_page)

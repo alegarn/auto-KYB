@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_23_153500) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_25_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -144,18 +144,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_23_153500) do
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", null: false
+    t.boolean "onboarding_completed", default: false, null: false
     t.string "password_digest", null: false
     t.string "provider"
     t.string "stripe_customer_id"
     t.string "stripe_subscription_id"
+    t.datetime "subscription_canceled_at"
     t.datetime "subscription_ends_at"
     t.string "subscription_status", default: "incomplete", null: false
     t.string "uid"
     t.datetime "updated_at", null: false
     t.boolean "verified", default: false, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["provider", "uid"], name: "index_users_on_provider_uid_unique", unique: true, where: "((provider IS NOT NULL) AND (uid IS NOT NULL))"
     t.index ["stripe_customer_id"], name: "index_users_on_stripe_customer_id"
     t.index ["stripe_subscription_id"], name: "index_users_on_stripe_subscription_id"
+    t.index ["subscription_canceled_at"], name: "index_users_on_subscription_canceled_at"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
