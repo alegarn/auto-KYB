@@ -16,6 +16,8 @@ class ProcessStripeEventJob < ApplicationJob
       handle_subscription_deleted(event.dig('data', 'object'))
     when 'invoice.payment_failed'
       handle_invoice_payment_failed(event.dig('data', 'object'))
+    when 'invoice.paid'
+      handle_invoice_paid(event.dig('data', 'object'))
     else
       Rails.logger.info("[Stripe] No handler implemented for event type #{event['type']}")
     end
@@ -198,14 +200,46 @@ class ProcessStripeEventJob < ApplicationJob
       Rails.logger.info("[Stripe] invoice.payment_failed: user already past_due user_id=#{user.id}")
     end
 
-    if defined?(UserMailer) && UserMailer.respond_to?(:subscription_payment_failed)
-      UserMailer.subscription_payment_failed(user).deliver_later
-      Rails.logger.info("[Stripe] Enqueued subscription payment failed email for user_id=#{user.id}")
-    else
-      Rails.logger.info("[Stripe] No mailer configured to send payment failed email for user_id=#{user.id}")
-    end
+    UserMailer.with(user: user).subscription_payment_failed.deliver_later
+    Rails.logger.info("[Stripe] Enqueued subscription payment failed email for user_id=#{user.id}")
   rescue => e
     Rails.logger.error("[Stripe] Error handling invoice.payment_failed: #{e.class} #{e.message}")
+    raise
+  end
+
+  def handle_invoice_paid(invoice)
+    unless invoice
+      Rails.logger.warn('[Stripe] Missing invoice object for invoice.paid')
+      return
+    end
+
+    # Only handle subscription invoices (ignore one-time charges)
+    return unless invoice['subscription'].present?
+
+    customer_id = invoice['customer']
+    if customer_id.blank?
+      Rails.logger.warn('[Stripe] invoice.paid missing customer id')
+      return
+    end
+
+    user = User.find_by(stripe_customer_id: customer_id)
+    unless user
+      Rails.logger.warn("[Stripe] invoice.paid: user not found for stripe_customer_id=#{customer_id}")
+      return
+    end
+
+    # Recover from past_due: Stripe also fires customer.subscription.updated, but
+    # handling invoice.paid explicitly lets us send a recovery notification.
+    if user.subscription_status == 'past_due'
+      user.update!(subscription_status: 'active')
+      Rails.logger.info("[Stripe] Recovered subscription from past_due for user_id=#{user.id}")
+      UserMailer.with(user: user).subscription_payment_recovered.deliver_later
+      Rails.logger.info("[Stripe] Enqueued payment recovered email for user_id=#{user.id}")
+    else
+      Rails.logger.info("[Stripe] invoice.paid: no status change needed for user_id=#{user.id} status=#{user.subscription_status}")
+    end
+  rescue => e
+    Rails.logger.error("[Stripe] Error handling invoice.paid: #{e.class} #{e.message}")
     raise
   end
 end

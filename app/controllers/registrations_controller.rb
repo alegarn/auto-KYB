@@ -39,6 +39,7 @@ class RegistrationsController < ApplicationController
       user.email = email
       user.stripe_subscription_id = subscription_id
       user.subscription_status = 'active'
+      user.subscription_canceled_at = nil
       user.verified = true
       user.save!
 

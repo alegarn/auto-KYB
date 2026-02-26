@@ -28,7 +28,8 @@ class StripeWebhooksController < ApplicationController
       when 'checkout.session.completed',
            'customer.subscription.updated',
            'customer.subscription.deleted',
-           'invoice.payment_failed'
+           'invoice.payment_failed',
+           'invoice.paid'
         # Delegate actual processing to background job for performance
         # The job should inspect event.to_h and act accordingly.
         ProcessStripeEventJob.perform_later(event: JSON.parse(event.to_json))

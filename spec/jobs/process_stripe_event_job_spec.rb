@@ -299,6 +299,13 @@ RSpec.describe ProcessStripeEventJob, type: :job do
           user.reload
         }.to change(user, :subscription_status).from('active').to('past_due')
       end
+
+      it "enqueues a payment failed email" do
+        invoice = { 'customer' => 'cus_inv_1' }
+        expect {
+          described_class.perform_now(event: event_for('invoice.payment_failed', invoice))
+        }.to have_enqueued_mail(UserMailer, :subscription_payment_failed).with(params: { user: user }, args: [])
+      end
     end
 
     context "when already past_due (idempotent)" do
@@ -310,6 +317,77 @@ RSpec.describe ProcessStripeEventJob, type: :job do
           described_class.perform_now(event: event_for('invoice.payment_failed', invoice))
           user.reload
         }.not_to change(user, :subscription_status)
+      end
+    end
+  end
+
+  # ─────────────────────────────────────────────────────────────
+  # invoice.paid  (subscription renewal & past_due recovery)
+  # ─────────────────────────────────────────────────────────────
+  describe "invoice.paid" do
+    context "when the invoice object is nil" do
+      it "returns early without error" do
+        expect {
+          described_class.perform_now(event: event_for('invoice.paid', nil))
+        }.not_to raise_error
+      end
+    end
+
+    context "when invoice has no subscription (one-time charge)" do
+      it "does not change any user" do
+        invoice = { 'customer' => 'cus_inv_3', 'subscription' => nil }
+        user    = create(:user, stripe_customer_id: 'cus_inv_3', subscription_status: 'past_due')
+        expect {
+          described_class.perform_now(event: event_for('invoice.paid', invoice))
+          user.reload
+        }.not_to change(user, :subscription_status)
+      end
+    end
+
+    context "when no user matches" do
+      it "returns early without error" do
+        invoice = { 'customer' => 'cus_ghost', 'subscription' => 'sub_ghost' }
+        expect {
+          described_class.perform_now(event: event_for('invoice.paid', invoice))
+        }.not_to raise_error
+      end
+    end
+
+    context "when user is past_due and payment succeeds" do
+      let!(:user) { create(:user, stripe_customer_id: 'cus_inv_4', subscription_status: 'past_due') }
+
+      it "sets subscription_status back to active" do
+        invoice = { 'customer' => 'cus_inv_4', 'subscription' => 'sub_inv_4' }
+        expect {
+          described_class.perform_now(event: event_for('invoice.paid', invoice))
+          user.reload
+        }.to change(user, :subscription_status).from('past_due').to('active')
+      end
+
+      it "enqueues a payment recovered email" do
+        invoice = { 'customer' => 'cus_inv_4', 'subscription' => 'sub_inv_4' }
+        expect {
+          described_class.perform_now(event: event_for('invoice.paid', invoice))
+        }.to have_enqueued_mail(UserMailer, :subscription_payment_recovered).with(params: { user: user }, args: [])
+      end
+    end
+
+    context "when user is already active (regular renewal, idempotent)" do
+      let!(:user) { create(:user, :subscribed, stripe_customer_id: 'cus_inv_5') }
+
+      it "does not change subscription_status" do
+        invoice = { 'customer' => 'cus_inv_5', 'subscription' => 'sub_inv_5' }
+        expect {
+          described_class.perform_now(event: event_for('invoice.paid', invoice))
+          user.reload
+        }.not_to change(user, :subscription_status)
+      end
+
+      it "does not enqueue a recovery email" do
+        invoice = { 'customer' => 'cus_inv_5', 'subscription' => 'sub_inv_5' }
+        expect {
+          described_class.perform_now(event: event_for('invoice.paid', invoice))
+        }.not_to have_enqueued_mail(UserMailer, :subscription_payment_recovered)
       end
     end
   end

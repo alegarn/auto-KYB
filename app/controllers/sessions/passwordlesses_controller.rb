@@ -6,6 +6,11 @@ class Sessions::PasswordlessesController < ApplicationController
   before_action :set_user, only: :edit
 
   def edit
+    unless @user.eligible_for_sign_in?
+      redirect_to sign_in_path, alert: "Your account is no longer active."
+      return
+    end
+
     session_record = @user.sessions.create!
     cookies.signed.permanent[:session_token] = { value: session_record.id, httponly: true }
 

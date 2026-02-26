@@ -21,4 +21,14 @@ class UserMailer < ApplicationMailer
     mail to: @user.email, subject: "Verify your email"
   end
 
+  def subscription_payment_failed
+    @user = params[:user]
+    mail to: @user.email, subject: "Action required: payment failed for your Quick KYB subscription"
+  end
+
+  def subscription_payment_recovered
+    @user = params[:user]
+    mail to: @user.email, subject: "Payment confirmed — your Quick KYB subscription is active"
+  end
+
 end
