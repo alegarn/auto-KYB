@@ -1,12 +1,40 @@
 module TestAuthHelpers
   def sign_in_user(user = nil)
-    user ||= FactoryBot.create(:user)
+    user ||= FactoryBot.create(:user, onboarding_completed: true, verified: true, subscription_status: 'active')
     # For system tests using a JS browser driver, perform an actual sign-in via the UI
     if defined?(page) && page.respond_to?(:driver) && page.driver.respond_to?(:browser) && page.driver.browser.respond_to?(:manage)
       visit sign_in_path
-      fill_in 'Username', with: user.email
-      fill_in 'Password', with: 'a_secure_password_123'
-      click_button 'Sign In'
+      fill_in 'email', with: user.email
+      
+      # We need to wait for the job to be enqueued and executed
+      if defined?(perform_enqueued_jobs)
+        perform_enqueued_jobs do
+          click_button 'Email me a sign-in link'
+          # Wait for the success message to ensure the request completed
+          expect(page).to have_content("If the email is registered, you'll receive a sign-in link shortly")
+        end
+      else
+        click_button 'Email me a sign-in link'
+        expect(page).to have_content("If the email is registered, you'll receive a sign-in link shortly")
+      end
+      
+      # Get the link from the email
+      mail = ActionMailer::Base.deliveries.last
+      if mail
+        body = mail.body.encoded
+        link = body.match(/href="([^"]+sid=[^"]+)"/)[1]
+        
+        # Visit magic link
+        visit link
+        
+        # Wait for sign in to complete
+        expect(page).to have_content("Dashboard")
+      else
+        # Fallback if email wasn't sent (e.g. in some test environments)
+        session_record = user.sessions.create!
+        visit passwordless_sign_in_path(sid: user.generate_token_for(:signin))
+        expect(page).to have_content("Dashboard")
+      end
     else
       # Controllers rely on Current.session; create a session and set it
       session_record = user.sessions.create!
