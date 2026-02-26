@@ -2,6 +2,7 @@ class UploadedFilesController < ApplicationController
 
   include ActiveStorage::SetCurrent
 
+  before_action :authorize_subscription
   before_action :set_uploaded_file
 
   def download
@@ -34,6 +35,10 @@ class UploadedFilesController < ApplicationController
   end
 
   private
+
+  def authorize_subscription
+    authorize :uploaded_file, :index?
+  end
 
   def set_uploaded_file
     @uploaded_file = UploadedFile.find(params[:id])

@@ -1,9 +1,26 @@
 class SettingsController < ApplicationController
 
   def index
+    authorize :settings, :show?
     render inertia: "Settings/Index", props: {
       user: current_user
     }
+  end
+
+  # GET /settings/auth_setup — first-time login: choose auth method
+  def auth_setup
+    authorize :settings, :show?
+    render inertia: "Settings/AuthSetup", props: {
+      user: { email: current_user.email },
+      google_auth_url: "/auth/google_oauth2"
+    }
+  end
+
+  # PATCH /settings/auth_setup — mark onboarding as completed (email choice)
+  def complete_onboarding
+    authorize :settings, :update?
+    current_user.update!(onboarding_completed: true)
+    redirect_to auth_loading_path, notice: "You're all set!", status: :see_other
   end
 
   private

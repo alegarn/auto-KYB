@@ -1,6 +1,7 @@
 class SessionsController < ApplicationController
 
   skip_before_action :authenticate, only: %i[ new create omniauth ]
+  before_action :skip_authorization
 
   before_action :set_session, only: :destroy
 
@@ -14,6 +15,7 @@ class SessionsController < ApplicationController
 
   def create
     user = User.find_by(email: normalized_email)
+    user = nil unless user&.eligible_for_sign_in?
 
     if user&.verified?
       UserMailer.with(user: user).passwordless.deliver_later
@@ -32,11 +34,32 @@ class SessionsController < ApplicationController
   end
 
   def omniauth
-    user = find_or_build_oauth_user
+    # If the user is already authenticated they are linking a provider, not signing in
+    if Current.user
+      provider = request.env.dig("omniauth.auth", "provider")
+      uid      = request.env.dig("omniauth.auth", "uid")
 
+      if provider.present? && uid.present?
+        owner = User.find_by(provider: provider, uid: uid)
+        if owner.present? && owner.id != Current.user.id
+          redirect_to settings_path,
+                      alert: "This Google account is already linked to another user.",
+                      status: :see_other
+          return
+        end
+
+        Current.user.update!(provider: provider, uid: uid, onboarding_completed: true)
+        redirect_to auth_loading_path, notice: "Google account connected successfully.", status: :see_other
+      else
+        redirect_to settings_path, alert: "Could not connect Google account. Please try again.", status: :see_other
+      end
+      return
+    end
+
+    user = find_or_build_oauth_user
     if user&.persisted?
       start_user_session!(user)
-      redirect_to auth_loading_path, notice: "Signed in successfully", status: :see_other
+      redirect_to post_login_path_for(user), notice: "Signed in successfully", status: :see_other
     else
       oauth_failure_redirect
     end
@@ -51,15 +74,22 @@ class SessionsController < ApplicationController
       cookies.permanent.signed[:session_token] = @session.id
     end
 
+    def post_login_path_for(user)
+      return auth_setup_settings_path unless user.onboarding_completed?
+      auth_loading_path
+    end
+
     def find_or_build_oauth_user
       provider = oauth_provider
       uid = oauth_uid
       email = oauth_email
       return nil if provider.blank? || uid.blank? || email.blank?
 
-      User.find_by(provider: provider, uid: uid) ||
-        find_or_link_user_by_email(provider: provider, uid: uid, email: email) ||
-        create_oauth_user(provider: provider, uid: uid, email: email)
+      user = User.find_by(provider: provider, uid: uid) ||
+             find_or_link_user_by_email(provider: provider, uid: uid, email: email)
+      return nil unless user&.eligible_for_sign_in?
+
+      user
     end
 
     def find_or_link_user_by_email(provider:, uid:, email:)
@@ -67,17 +97,10 @@ class SessionsController < ApplicationController
       return nil unless user
 
       return nil if user.provider.present? && (user.provider != provider || user.uid != uid)
+      return nil unless user.eligible_for_sign_in?
 
       user.update!(provider: provider, uid: uid) if user.provider.blank? || user.uid.blank?
       user
-    end
-
-    def create_oauth_user(provider:, uid:, email:)
-      User.create!(
-        email: email,
-        provider: provider,
-        uid: uid
-      )
     end
 
     def oauth_auth

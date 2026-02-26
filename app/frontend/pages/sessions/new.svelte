@@ -5,6 +5,11 @@
   import Label from "/components/ui/label/label.svelte";
   import { sign_up_path } from '@/routes';
   import logo from "@/assets/quick_kyb_icon.svg";
+
+  const csrfToken =
+    typeof document === 'undefined'
+      ? ''
+      : ((document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '');
 </script>
 
 {#if $page.flash?.alert}
@@ -72,7 +77,9 @@
       </div>
 
       <div class="grid grid-cols-1 gap-3">
-        <a href="/auth/google_oauth2" data-turbo="false" class="w-full focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background selection:bg-primary selection:text-primary-foreground ring-offset-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs h-9 px-4 py-2 has-[>svg]:px-3 justify-center">
+        <form action="/auth/google_oauth2" method="post" data-turbo="false">
+          <input type="hidden" name="authenticity_token" value={csrfToken} />
+          <button type="submit" class="w-full focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-background selection:bg-primary selection:text-primary-foreground ring-offset-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs h-9 px-4 py-2 has-[>svg]:px-3 justify-center">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="0.98em"
@@ -97,7 +104,8 @@
             ></path>
           </svg>
           <span>Sign in with Google</span>
-        </a>
+          </button>
+        </form>
       </div>
     </div>
     <div class="p-3">

@@ -1,18 +1,39 @@
 class ApplicationController < ActionController::Base
 
   include Pagy::Backend
+  include Pundit::Authorization
+
   rescue_from ActionController::InvalidAuthenticityToken, with: :inertia_page_expired_error
+  rescue_from Pundit::NotAuthorizedError, with: :pundit_not_authorized
 
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
 
   before_action :set_current_request_details
+  before_action :set_current_user
   before_action :authenticate
 
   helper_method :current_user, :current_session_id, :user_props, :default_inertia_props
 
   inertia_share flash: -> { flash.to_hash },
-               session_id: -> { current_session_id }
+               session_id: -> { current_session_id },
+               auth: -> {
+                 user = current_user
+                 next nil unless user
+
+                 {
+                   user: {
+                     id:                   user.id,
+                     email:                user.email,
+                     onboarding_completed: user.onboarding_completed
+                   },
+                   subscription: {
+                     status:      user.subscription_status,
+                     active:      user.active_subscription? || user.trialing?,
+                     canceled_at: user.subscription_canceled_at&.iso8601
+                   }
+                 }
+               }
 
   def current_user
     Current.session&.user
@@ -43,18 +64,20 @@ class ApplicationController < ActionController::Base
   end
 
   private
-    def authenticate
-      # Allow tests that set Current.session directly to bypass cookie-based lookup
+    def set_current_user
       return if Current.session&.user.present?
 
       token = cookies.signed[:session_token] || cookies[:session_token] || request.cookies["session_token"]
-      Rails.logger.debug "[TEST LOG] ApplicationController#authenticate called; token=#{token.inspect}" if Rails.env.test?
       if session_record = Session.find_by(id: token)
         if session_record.user.present?
           Current.session = session_record
-          return
         end
       end
+    end
+
+    def authenticate
+      # Allow tests that set Current.session directly to bypass cookie-based lookup
+      return if Current.session&.user.present?
 
       redirect_to(sign_in_path) and return
     end
@@ -68,6 +91,15 @@ class ApplicationController < ActionController::Base
     def inertia_page_expired_error
       redirect_back_or_to("/", allow_other_host: false,
         notice: "The page expired, please try again.")
+    end
+
+    def pundit_not_authorized
+      if current_user
+        redirect_to subscription_required_path,
+                    alert: "You need an active subscription to access this page."
+      else
+        redirect_to sign_in_path
+      end
     end
 
 end

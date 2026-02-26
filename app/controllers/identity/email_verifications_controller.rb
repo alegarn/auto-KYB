@@ -1,6 +1,7 @@
 class Identity::EmailVerificationsController < ApplicationController
 
   skip_before_action :authenticate, only: :show
+  before_action :authorize_identity_action
 
   before_action :set_user, only: :show
 
@@ -15,6 +16,10 @@ class Identity::EmailVerificationsController < ApplicationController
   end
 
   private
+    def authorize_identity_action
+      skip_authorization
+    end
+
     def set_user
       @user = User.find_by_token_for!(:email_verification, params[:sid])
     rescue ActiveSupport::MessageVerifier::InvalidSignature, ActiveRecord::RecordNotFound

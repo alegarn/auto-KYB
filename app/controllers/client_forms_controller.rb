@@ -1,5 +1,6 @@
 class ClientFormsController < ApplicationController
 
+  before_action :authorize_subscription
   before_action :set_client_form, only: [ :password_reveal, :export_responses ]
 
   # POST /client_forms
@@ -76,6 +77,10 @@ class ClientFormsController < ApplicationController
   end
 
   private
+
+  def authorize_subscription
+    authorize :client_form, :index?
+  end
 
   def set_client_form
     @client_form = ClientForm.includes({ form: :form_fields }, :form_responses, :client).find(params[:id])

@@ -16,6 +16,9 @@ class User < ApplicationRecord
   has_many :clients, dependent: :destroy
 
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :provider, presence: true, if: -> { uid.present? }
+  validates :uid, presence: true, if: -> { provider.present? }
+  validates :uid, uniqueness: { scope: :provider }, allow_blank: true
 
   normalizes :email, with: -> { _1.strip.downcase }
 
@@ -26,6 +29,45 @@ class User < ApplicationRecord
   before_validation :assign_random_password, on: :create, if: -> { password.blank? }
 
   after_create :initialize_default_forms
+
+  # Subscription statuses from Stripe / application state
+  enum :subscription_status, {
+    incomplete: 'incomplete',
+    trialing:   'trialing',
+    active:     'active',
+    past_due:   'past_due',
+    canceled:   'canceled',
+    unpaid:     'unpaid'
+  }
+
+  # Returns true when the user has an active or trialing subscription
+  def subscribed?
+    active? || trialing?
+  end
+
+  # Returns true when subscription is active and not expired
+  # subscription_ends_at may be nil for non-expiring subscriptions
+  def active_subscription?
+    return false unless active?
+    return true if subscription_ends_at.nil?
+
+    subscription_ends_at > Time.current
+  end
+
+  # Returns true when the user is currently on a trial
+  def on_trial?
+    trialing?
+  end
+
+  def eligible_for_sign_in?
+    return true if active? || trialing?
+
+    canceled_within_retention_window?
+  end
+
+  def canceled_within_retention_window?
+    canceled? && subscription_canceled_at.present? && subscription_canceled_at > 1.year.ago
+  end
 
   private
 

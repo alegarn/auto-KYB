@@ -1,5 +1,7 @@
 class AuthLoadingController < ApplicationController
 
+  before_action :skip_authorization
+
   def show
     render inertia: "Auth/Loading", props: {
       redirect_to: dashboard_path,

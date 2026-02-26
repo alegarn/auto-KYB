@@ -1,5 +1,6 @@
 class Identity::EmailsController < ApplicationController
 
+  before_action :authorize_settings
   before_action :set_user
 
   def edit
@@ -14,6 +15,10 @@ class Identity::EmailsController < ApplicationController
   end
 
   private
+    def authorize_settings
+      authorize :settings, :update?
+    end
+
     def set_user
       @user = Current.user
     end

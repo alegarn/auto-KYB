@@ -2,6 +2,7 @@ class ClientPortal::BaseController < ApplicationController
 
   # Client portal actions are public to external clients; skip user auth
   skip_before_action :authenticate
+  before_action :skip_authorization
   before_action :load_client_form
 
   private

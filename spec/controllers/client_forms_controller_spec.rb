@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe ClientFormsController, type: :controller do
-  let(:user) { create(:user) }
+  let(:user) { create(:user, :subscribed) }
   let(:session_record) { user.sessions.create! }
 
   before do

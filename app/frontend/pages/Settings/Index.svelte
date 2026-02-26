@@ -6,10 +6,19 @@
   import { Input } from "/components/ui/input";
   import * as Sheet from "/components/ui/sheet";
 
+  // Props & state
   let { user } = $props();
   let deleteConfirmation = $state("");
   let deletingAccount = $state(false);
+  let billingLoading = $state(false);
+  let billingError = $state<string | null>(null);
+  let oauthLoading = $state(false);
+  const csrfToken =
+    typeof document === 'undefined'
+      ? ''
+      : ((document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '');
 
+  const googleConnected = $derived(!!user?.provider);
   const canDeleteAccount = $derived(deleteConfirmation.trim() === "DELETE");
 
   const createdAtLabel = $derived.by(() => {
@@ -26,6 +35,23 @@
     }
   });
 
+  const subscriptionStatus = $derived.by(() => user?.subscription_status ?? null);
+
+  const subscribed = $derived.by(() => {
+    const s = user?.subscription_status;
+    return s === "active" || s === "trialing";
+  });
+
+  const subscriptionEndsAtLabel = $derived.by(() => {
+    if (!user?.subscription_ends_at) return null;
+    try {
+      const date = new Date(user.subscription_ends_at);
+      return date.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
+    } catch {
+      return user.subscription_ends_at;
+    }
+  });
+
   function submitAccountDeletion() {
     if (!canDeleteAccount || deletingAccount) return;
 
@@ -36,6 +62,47 @@
       onFinish: () => {
         deletingAccount = false;
       },
+    });
+  }
+
+  async function openBillingPortal() {
+    if (billingLoading) return;
+    billingLoading = true;
+    billingError = null;
+
+    try {
+      const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+      const res = await fetch('/subscriptions/billing_portal', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Unable to open billing portal');
+      }
+
+      const body = await res.json();
+      if (body.url) {
+        window.location.href = body.url;
+        return;
+      }
+
+      throw new Error('No portal url returned');
+    } catch (err) {
+      billingError = (err as Error).message;
+      console.error('Billing portal error', err);
+    } finally {
+      billingLoading = false;
+    }
+  }
+
+  function disconnectGoogle() {
+    if (oauthLoading) return;
+    oauthLoading = true;
+    router.delete('/identity/oauth_connection', {
+      preserveScroll: true,
+      onFinish: () => { oauthLoading = false; },
     });
   }
 </script>
@@ -61,6 +128,82 @@
         <div class="space-y-2">
           <label class="text-sm font-medium" for="settings-created">Account created</label>
           <Input id="settings-created" value={createdAtLabel} disabled />
+        </div>
+
+        <!-- Billing section -->
+        <div class="space-y-2">
+          <div class="text-sm font-medium">Billing</div>
+          <div class="flex flex-col gap-2">
+            {#if subscriptionStatus}
+              <p class="text-sm">Status: <strong>{subscriptionStatus}</strong></p>
+              {#if subscriptionEndsAtLabel}
+                <p class="text-sm">Ends at: <strong>{subscriptionEndsAtLabel}</strong></p>
+              {/if}
+              {#if subscribed}
+                <Button variant="secondary" class="w-full" onclick={openBillingPortal} disabled={billingLoading}>
+                  {#if billingLoading}Opening...{:else}Manage subscription{/if}
+                </Button>
+              {/if}
+            {:else}
+              <p class="text-sm text-muted-foreground">No subscription information available.</p>
+            {/if}
+            {#if billingError}
+              <p class="text-sm text-destructive">{billingError}</p>
+            {/if}
+          </div>
+        </div>
+
+      </Card.Content>
+    </Card.Root>
+
+    <Card.Root>
+      <Card.Header>
+        <Card.Title>Sign-in methods</Card.Title>
+        <Card.Description>Ways you can sign in to your account.</Card.Description>
+      </Card.Header>
+      <Card.Content class="space-y-4">
+        <!-- Magic link -->
+        <div class="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
+          <div>
+            <p class="text-sm font-medium">Email magic link</p>
+            <p class="text-xs text-muted-foreground">Always available — we email you a sign-in link.</p>
+          </div>
+          <span class="text-xs text-emerald-600 font-medium">Active</span>
+        </div>
+
+        <!-- Google OAuth -->
+        <div class="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
+          <div>
+            <p class="text-sm font-medium">Google</p>
+            <p class="text-xs text-muted-foreground">
+              {#if googleConnected}
+                Connected — sign in with your Google account.
+              {:else}
+                Not connected.
+              {/if}
+            </p>
+          </div>
+          {#if googleConnected}
+            <Button variant="outline" size="sm" onclick={disconnectGoogle} disabled={oauthLoading}>
+              {oauthLoading ? 'Disconnecting…' : 'Disconnect'}
+            </Button>
+          {:else}
+            <form action="/auth/google_oauth2" method="post" data-turbo="false">
+              <input type="hidden" name="authenticity_token" value={csrfToken} />
+              <button
+                type="submit"
+                class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium shadow-xs hover:bg-accent transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="0.9em" height="0.9em" viewBox="0 0 256 262">
+                  <path fill="#4285f4" d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622l38.755 30.023l2.685.268c24.659-22.774 38.875-56.282 38.875-96.027"></path>
+                  <path fill="#34a853" d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055c-34.523 0-63.824-22.773-74.269-54.25l-1.531.13l-40.298 31.187l-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1"></path>
+                  <path fill="#fbbc05" d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82c0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602z"></path>
+                  <path fill="#eb4335" d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0C79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251"></path>
+                </svg>
+                Connect Google
+              </button>
+            </form>
+          {/if}
         </div>
       </Card.Content>
     </Card.Root>
