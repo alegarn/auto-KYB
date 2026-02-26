@@ -97,6 +97,32 @@ RSpec.describe "Registrations", type: :request do
       end
     end
 
+    context "when a canceled user resubscribes (clears subscription_canceled_at)" do
+      let!(:canceled_user) do
+        create(:user, :canceled,
+               email:              'welcome@example.com',
+               stripe_customer_id: 'cus_new_123',
+               subscription_ends_at: 1.day.ago)
+      end
+
+      before do
+        allow(Stripe::Checkout::Session)
+          .to receive(:retrieve).with(session_id)
+          .and_return(paid_checkout_session)
+      end
+
+      it "clears subscription_canceled_at when reactivating" do
+        get complete_registration_path, params: { session_id: session_id }
+        canceled_user.reload
+        expect(canceled_user.subscription_canceled_at).to be_nil
+      end
+
+      it "sets subscription_status to active" do
+        get complete_registration_path, params: { session_id: session_id }
+        expect(canceled_user.reload.subscription_status).to eq('active')
+      end
+    end
+
     context "when payment is not completed (unpaid status)" do
       before do
         unpaid = instance_double(

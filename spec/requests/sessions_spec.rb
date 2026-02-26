@@ -109,6 +109,24 @@ RSpec.describe "Sessions", type: :request do
         }.not_to change(Session, :count)
       end
     end
+
+    context "when user is canceled beyond the 1-year retention window" do
+      let(:user) { create(:user, :canceled_over_a_year_ago, verified: true) }
+
+      it "does not create a session" do
+        token = user.generate_token_for(:signin)
+        expect {
+          get passwordless_sign_in_path(sid: token)
+        }.not_to change(Session, :count)
+      end
+
+      it "redirects to sign_in with an alert" do
+        token = user.generate_token_for(:signin)
+        get passwordless_sign_in_path(sid: token)
+        expect(response).to redirect_to(sign_in_path)
+        expect(flash[:alert]).to be_present
+      end
+    end
   end
 
   # ─────────────────────────────────────────────────────────────
