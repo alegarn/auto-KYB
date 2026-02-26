@@ -1,5 +1,6 @@
 class CheckoutSessionsController < ApplicationController
   skip_before_action :authenticate, only: [:create, :success, :cancel]
+  before_action :skip_authorization
 
   # Creates a Stripe Checkout Session
   def create

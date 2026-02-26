@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe DashboardController, type: :controller, inertia: true do
-  let(:user) { User.create!(email: "test@example.com", password: "password123456") }
+  let(:user) { User.create!(email: "test@example.com", password: "password123456", subscription_status: "active", verified: true) }
 
   describe "GET #index" do
     context "when authenticated" do

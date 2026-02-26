@@ -4,4 +4,4 @@ Rails.application.config.middleware.use OmniAuth::Builder do
       redirect_uri: "#{ENV['APP_BASE_URL']}/auth/google_oauth2/callback"
     }
 end
-OmniAuth.config.allowed_request_methods = %i[get]
+OmniAuth.config.allowed_request_methods = %i[post]

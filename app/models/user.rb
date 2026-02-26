@@ -16,6 +16,9 @@ class User < ApplicationRecord
   has_many :clients, dependent: :destroy
 
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :provider, presence: true, if: -> { uid.present? }
+  validates :uid, presence: true, if: -> { provider.present? }
+  validates :uid, uniqueness: { scope: :provider }, allow_blank: true
 
   normalizes :email, with: -> { _1.strip.downcase }
 
@@ -54,6 +57,16 @@ class User < ApplicationRecord
   # Returns true when the user is currently on a trial
   def on_trial?
     trialing?
+  end
+
+  def eligible_for_sign_in?
+    return true if active? || trialing?
+
+    canceled_within_retention_window?
+  end
+
+  def canceled_within_retention_window?
+    canceled? && subscription_canceled_at.present? && subscription_canceled_at > 1.year.ago
   end
 
   private

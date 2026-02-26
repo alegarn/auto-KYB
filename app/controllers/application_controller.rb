@@ -1,7 +1,10 @@
 class ApplicationController < ActionController::Base
 
   include Pagy::Backend
+  include Pundit::Authorization
+
   rescue_from ActionController::InvalidAuthenticityToken, with: :inertia_page_expired_error
+  rescue_from Pundit::NotAuthorizedError, with: :pundit_not_authorized
 
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
@@ -9,12 +12,28 @@ class ApplicationController < ActionController::Base
   before_action :set_current_request_details
   before_action :set_current_user
   before_action :authenticate
-  before_action :require_active_subscription!, unless: :subscription_exempt?
 
   helper_method :current_user, :current_session_id, :user_props, :default_inertia_props
 
   inertia_share flash: -> { flash.to_hash },
-               session_id: -> { current_session_id }
+               session_id: -> { current_session_id },
+               auth: -> {
+                 user = current_user
+                 next nil unless user
+
+                 {
+                   user: {
+                     id:                   user.id,
+                     email:                user.email,
+                     onboarding_completed: user.onboarding_completed
+                   },
+                   subscription: {
+                     status:      user.subscription_status,
+                     active:      user.active_subscription? || user.trialing?,
+                     canceled_at: user.subscription_canceled_at&.iso8601
+                   }
+                 }
+               }
 
   def current_user
     Current.session&.user
@@ -74,39 +93,13 @@ class ApplicationController < ActionController::Base
         notice: "The page expired, please try again.")
     end
 
-    # Ensure user has an active or trialing subscription for most pages
-    def require_active_subscription!
-      # If there's no authenticated user, let authenticate handle redirect
-      return unless Current.session&.user
-
-      user = Current.session.user
-
-      allowed = if user.trialing?
-        true
-      elsif user.active?
-        user.active_subscription?
+    def pundit_not_authorized
+      if current_user
+        redirect_to subscription_required_path,
+                    alert: "You need an active subscription to access this page."
       else
-        false
+        redirect_to sign_in_path
       end
-
-      unless allowed
-        redirect_to subscription_required_path and return
-      end
-    end
-
-    # Define which routes/controllers are exempt from subscription checks
-    def subscription_exempt?
-      # Exempt auth and registration flows
-      return true if controller_name.in?(%w[registrations sessions])
-
-      # Exempt public pages
-      return true if controller_name == "home"
-
-      # Exempt checkout and billing related controllers and webhook endpoints
-      return true if controller_name.in?(%w[checkout_sessions stripe_webhooks settings client_portal])
-      return true if request.path.start_with?("/webhooks")
-
-      false
     end
 
 end

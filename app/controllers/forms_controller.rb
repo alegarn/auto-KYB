@@ -1,5 +1,7 @@
 class FormsController < ApplicationController
 
+  before_action :authorize_subscription
+
   def index
     forms = current_user ? FormSerializer.collection(current_user.forms.order(created_at: :desc)) : []
 
@@ -120,6 +122,10 @@ class FormsController < ApplicationController
   end
 
   private
+
+  def authorize_subscription
+    authorize :form, :index?
+  end
 
   def active_form_ids
     return [] unless current_user

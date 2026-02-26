@@ -106,7 +106,8 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
         email: email,
         provider: provider,
         uid: uid,
-        password: "password123456"
+        password: "password123456",
+        onboarding_completed: true
       )
       request.env["omniauth.auth"] = omniauth_hash
 
@@ -120,7 +121,7 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
     end
 
     it "links provider and uid for existing email user" do
-      email_user = User.create!(email: email, password: "password123456")
+      email_user = User.create!(email: email, password: "password123456", onboarding_completed: true)
       request.env["omniauth.auth"] = omniauth_hash
 
       expect {
@@ -145,7 +146,8 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
       expect(created_user).to be_present
       expect(created_user.provider).to eq(provider)
       expect(created_user.uid).to eq(uid)
-      expect(response).to redirect_to(auth_loading_path)
+      # New OAuth users haven't completed onboarding yet → sent to auth_setup
+      expect(response).to redirect_to(auth_setup_settings_path)
     end
 
     it "does not relink to a different oauth identity for same email" do

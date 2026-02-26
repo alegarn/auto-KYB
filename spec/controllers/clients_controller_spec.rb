@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe ClientsController, type: :controller, inertia: true do
-  let(:user) { create(:user) }
+  let(:user) { create(:user, :subscribed) }
   let(:session) { user.sessions.create! }
 
   before do

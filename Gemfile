@@ -46,6 +46,9 @@ gem "vite_rails", "~> 3.0"
 # The Rails adapter for Inertia.js [https://inertia-rails.dev]
 gem "inertia_rails", "~> 3.10"
 
+# Authorization via policies [https://github.com/varvet/pundit]
+gem "pundit"
+
 # An authentication system generator for Rails applications
 # we leave gem here to watch for security updates
 gem "authentication-zero"

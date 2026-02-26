@@ -4,17 +4,15 @@ class SubscriptionsController < ApplicationController
 
   # Renders a page informing the user they need an active subscription
   def required
+    skip_authorization
     render inertia: "Subscription/Required", props: { user: Current.user }
   end
 
   # Creates a Stripe Billing Portal session for the current user and returns
   # the portal URL as JSON. Expects the user to be authenticated.
   def billing_portal
-    user = Current.user
-
-    unless user
-      return render json: { error: "Not authenticated" }, status: :unauthorized
-    end
+    authorize :subscription, :billing_portal?
+    user = current_user
 
     begin
       customer_id = ensure_stripe_customer_id!(user)

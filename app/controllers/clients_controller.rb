@@ -2,6 +2,7 @@ class ClientsController < ApplicationController
 
   FILTER_ALL = "all"
 
+  before_action :authorize_subscription
   before_action :set_client, only: %i[show edit update destroy export]
 
   def index
@@ -152,6 +153,10 @@ class ClientsController < ApplicationController
   end
 
   private
+
+  def authorize_subscription
+    authorize :client, :index?
+  end
 
   def client_params
     params.require(:client).permit(:name, :company_name, :company_id, :email, :phone, :country, address: %i[street city country postal_code])
