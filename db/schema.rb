@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_25_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_27_021109) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -75,6 +75,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_000001) do
     t.index ["company_id"], name: "index_clients_on_company_id"
     t.index ["country"], name: "index_clients_on_country"
     t.index ["user_id"], name: "index_clients_on_user_id"
+  end
+
+  create_table "crm_connections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "access_token"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "provider"
+    t.string "refresh_token"
+    t.string "status"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["user_id"], name: "index_crm_connections_on_user_id"
+  end
+
+  create_table "crm_transfers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "client_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "crm_connection_id", null: false
+    t.text "error_message"
+    t.string "status"
+    t.datetime "transferred_at"
+    t.datetime "updated_at", null: false
+    t.index ["client_id"], name: "index_crm_transfers_on_client_id"
+    t.index ["crm_connection_id"], name: "index_crm_transfers_on_crm_connection_id"
   end
 
   create_table "form_fields", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -167,6 +191,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_000001) do
   add_foreign_key "client_forms", "clients"
   add_foreign_key "client_forms", "forms"
   add_foreign_key "clients", "users"
+  add_foreign_key "crm_connections", "users"
+  add_foreign_key "crm_transfers", "clients"
+  add_foreign_key "crm_transfers", "crm_connections"
   add_foreign_key "form_fields", "forms"
   add_foreign_key "form_responses", "client_forms"
   add_foreign_key "forms", "users"

@@ -26,6 +26,8 @@ Rails.application.routes.draw do
     end
   end
 
+  resources :crm_transfers, only: [:index]
+
   resources :uploaded_files, only: [ :destroy ] do
     member do
       post :download

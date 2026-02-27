@@ -5,6 +5,7 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import UsersIcon from "@lucide/svelte/icons/users";
   import BookOpenIcon from "@lucide/svelte/icons/book-open";
+  import ArrowRightLeftIcon from "@lucide/svelte/icons/arrow-right-left";
   import { Link, page } from "@inertiajs/svelte";
   import { clients_path, dashboard_path, forms_path, quickstart_path } from "@/routes";
 
@@ -29,6 +30,11 @@
       title: "My Clients",
       url: clients_path(),
       icon: UsersIcon,
+    },
+    {
+      title: "CRM Transfers",
+      url: "/crm_transfers",
+      icon: ArrowRightLeftIcon,
     },
     {
       title: "Settings",

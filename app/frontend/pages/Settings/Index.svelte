@@ -52,6 +52,14 @@
     }
   });
 
+  // CRM Dummy State
+  let crmConnections = $state([
+    { provider: 'hubspot', name: 'HubSpot', connected: true, loading: false },
+    { provider: 'salesforce', name: 'Salesforce', connected: false, loading: false },
+    { provider: 'zoho', name: 'Zoho CRM', connected: false, loading: false }
+  ]);
+
+
   function submitAccountDeletion() {
     if (!canDeleteAccount || deletingAccount) return;
 
@@ -104,6 +112,29 @@
       preserveScroll: true,
       onFinish: () => { oauthLoading = false; },
     });
+  }
+
+  // Dummy CRM connections functions
+  function toggleCrmConnection(provider: string) {
+    const crm = crmConnections.find(c => c.provider === provider);
+    if (!crm) return;
+    
+    crm.loading = true;
+    setTimeout(() => {
+      crm.connected = !crm.connected;
+      crm.loading = false;
+    }, 1000);
+  }
+
+  function testCrmConnection(provider: string) {
+    const crm = crmConnections.find(c => c.provider === provider);
+    if (!crm) return;
+    
+    crm.loading = true;
+    setTimeout(() => {
+      crm.loading = false;
+      alert(`Test successful for ${crm.name}! Connection is working.`);
+    }, 1000);
   }
 </script>
 
@@ -205,6 +236,43 @@
             </form>
           {/if}
         </div>
+      </Card.Content>
+    </Card.Root>
+
+    <Card.Root>
+      <Card.Header>
+        <Card.Title>CRM Integrations</Card.Title>
+        <Card.Description>Connect your CRM to automatically export client data.</Card.Description>
+      </Card.Header>
+      <Card.Content class="space-y-4">
+        {#each crmConnections as crm}
+          <div class="flex items-center justify-between gap-3 rounded-lg border bg-background p-3">
+            <div>
+              <p class="text-sm font-medium">{crm.name}</p>
+              <p class="text-xs text-muted-foreground">
+                {#if crm.connected}
+                  Connected — data will be exported automatically.
+                {:else}
+                  Not connected.
+                {/if}
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              {#if crm.connected}
+                <Button variant="outline" size="sm" onclick={() => testCrmConnection(crm.provider)} disabled={crm.loading}>
+                  Test
+                </Button>
+                <Button variant="outline" size="sm" onclick={() => toggleCrmConnection(crm.provider)} disabled={crm.loading}>
+                  {crm.loading ? 'Disconnecting…' : 'Disconnect'}
+                </Button>
+              {:else}
+                <Button variant="default" size="sm" onclick={() => toggleCrmConnection(crm.provider)} disabled={crm.loading}>
+                  {crm.loading ? 'Connecting…' : 'Connect'}
+                </Button>
+              {/if}
+            </div>
+          </div>
+        {/each}
       </Card.Content>
     </Card.Root>
 
