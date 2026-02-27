@@ -10,6 +10,14 @@
   import { computeFileExpiry, formatDuration } from '/lib/fileExpiry';
   import { FileText, Image, Download, Trash2 } from '@lucide/svelte';
 
+
+  // To be replaced with actual CRM list from backend in the future
+  const availableCrms = [
+    { id: 'hubspot', name: 'HubSpot' },
+    { id: 'salesforce', name: 'Salesforce' },
+    { id: 'zoho', name: 'Zoho CRM' }
+  ];
+
   let { user, client = null, forms = [], client_form = null, uploaded_files = [], file_retention = null } = $props();
   let showConfirm = $state(false);
   let showFileDeleteConfirm = $state(false);
@@ -25,6 +33,13 @@
     const found = lookup[String(code).toUpperCase()];
     return found || { name: String(code), code: String(code), flag: '' };
   });
+
+  // CRM Export Dummy State
+  let showCrmExportModal = $state(false);
+  let crmExporting = $state(false);
+  let crmExportSuccess = $state(false);
+  let selectedCrms = $state<string[]>(['hubspot']); // Default selected
+  
 
   onMount(() => {
     fetchCountriesData().then((data) => { countries = data; }).catch((err) => console.error('countries load', err));
@@ -102,13 +117,49 @@
     router.delete(uploaded_file_path(fileToDelete.id))
     closeFileDeleteConfirm()
   }
+
+  function openCrmExport() {
+    showCrmExportModal = true;
+    crmExportSuccess = false;
+  }
+
+  function closeCrmExport() {
+    showCrmExportModal = false;
+  }
+
+  function toggleCrmSelection(id: string) {
+    if (selectedCrms.includes(id)) {
+      selectedCrms = selectedCrms.filter(c => c !== id);
+    } else {
+      selectedCrms = [...selectedCrms, id];
+    }
+  }
+
+  function submitCrmExport() {
+    if (selectedCrms.length === 0) return;
+    
+    crmExporting = true;
+    // Simulate network request
+    setTimeout(() => {
+      crmExporting = false;
+      crmExportSuccess = true;
+      setTimeout(() => {
+        closeCrmExport();
+      }, 2000);
+    }, 1500);
+  }
 </script>
 
 <section class="p-6 w-full">
   <div class="w-full max-w-3xl mx-auto">
-    <header class="mb-4">
-      <h1 class="text-2xl font-semibold">Client details</h1>
-      <p class="text-sm text-muted-foreground" aria-label="Signed in user">{user?.email}</p>
+    <header class="mb-4 flex justify-between items-start">
+      <div>
+        <h1 class="text-2xl font-semibold">Client details</h1>
+        <p class="text-sm text-muted-foreground" aria-label="Signed in user">{user?.email}</p>
+      </div>
+      <div class="flex gap-2">
+        <Button variant="outline" onclick={openCrmExport}>Export to CRM</Button>
+      </div>
     </header>
 
     {#if client}
@@ -307,4 +358,43 @@
       <Button href={dashboard_path()} class="btn" variant="ghost">Back to dashboard</Button>
     </div>
   </div>
+
+  <Modal
+    open={showCrmExportModal}
+    onClose={closeCrmExport}
+    onConfirm={submitCrmExport}
+    confirmText={crmExporting ? "Exporting..." : "Export"}
+    confirmDisabled={crmExporting || selectedCrms.length === 0}
+  >
+    {#snippet header()}
+      <h2 class="text-lg font-semibold">Export to CRM</h2>
+      <p class="text-sm text-muted-foreground">Select the CRMs you want to export this client's data to.</p>
+    {/snippet}
+
+    <div class="space-y-4 py-2">
+      {#if crmExportSuccess}
+        <div class="p-3 bg-emerald-50 text-emerald-700 rounded-md text-sm font-medium">
+          Successfully exported to selected CRMs!
+        </div>
+      {:else}
+        <div class="space-y-2">
+          {#each availableCrms as crm}
+            <label class="flex items-center gap-3 p-3 border rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+              <input 
+                type="checkbox" 
+                class="rounded border-gray-300 text-primary focus:ring-primary"
+                checked={selectedCrms.includes(crm.id)}
+                onchange={() => toggleCrmSelection(crm.id)}
+                disabled={crmExporting}
+              />
+              <span class="text-sm font-medium">{crm.name}</span>
+            </label>
+          {/each}
+        </div>
+        {#if selectedCrms.length === 0}
+          <p class="text-sm text-destructive">Please select at least one CRM.</p>
+        {/if}
+      {/if}
+    </div>
+  </Modal>
 </section>

@@ -10,6 +10,7 @@
   import type { FormField } from "/components/customs/form-builder/types"
   import { form_path } from '@/routes';
   import Toast from "/components/customs/Toast.svelte"
+  import Modal from '@/components/ui/modal.svelte';
 
   let { form: initial, errors: serverErrors, error: serverError } = $props()
 
@@ -38,6 +39,11 @@
   // @ts-ignore: Property 'toast' does not exist on type 'FlashData'
   const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null)
   
+  // CRM Mapping Dummy State
+  let showCrmMappingModal = $state(false);
+  let testingCrm = $state(false);
+  let testCrmSuccess = $state(false);
+
 
   function formattedResults(outputFormat: string, results: Record<string, any>): string {
     try {
@@ -139,12 +145,34 @@
   function cancel() {
     history.back()
   }
+
+  // CRM Mapping Modal functions
+  function openCrmMapping() {
+    showCrmMappingModal = true;
+    testCrmSuccess = false;
+  }
+
+  function closeCrmMapping() {
+    showCrmMappingModal = false;
+  }
+
+  function sendTestCrmData() {
+    testingCrm = true;
+    setTimeout(() => {
+      testingCrm = false;
+      testCrmSuccess = true;
+      setTimeout(() => {
+        closeCrmMapping();
+      }, 2000);
+    }, 1500);
+  }
 </script>
 
 <section class="mx-auto w-full max-w-full">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-semibold">Edit Form</h1>
         <div class="flex gap-2">
+          <Button type="button" variant="outline" onclick={openCrmMapping}>Test CRM Mapping</Button>
           <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
           <Button type="button" onclick={handleSubmit} disabled={submitting}>
             {submitting ? 'Saving...' : 'Save Changes'}
@@ -275,4 +303,43 @@
           />
         {/if}
       {/if}
+
+      <Modal
+        open={showCrmMappingModal}
+        onClose={closeCrmMapping}
+        onConfirm={sendTestCrmData}
+        confirmText={testingCrm ? "Sending..." : "Send Test Data"}
+        confirmDisabled={testingCrm}
+      >
+        {#snippet header()}
+          <h2 class="text-lg font-semibold">Test CRM Mapping</h2>
+          <p class="text-sm text-muted-foreground">Preview how your form fields map to CRM fields and send test data.</p>
+        {/snippet}
+
+        <div class="space-y-4 py-2">
+          {#if testCrmSuccess}
+            <div class="p-3 bg-emerald-50 text-emerald-700 rounded-md text-sm font-medium">
+              Test data successfully sent to connected CRMs!
+            </div>
+          {:else}
+            <div class="space-y-3">
+              <h3 class="text-sm font-medium">Field Mapping Preview</h3>
+              <div class="border rounded-md divide-y">
+                {#each fields.filter(f => !isLayoutField(f.field_type)) as field}
+                  <div class="flex items-center justify-between p-3 text-sm">
+                    <div class="font-medium">{field.label || 'Unnamed Field'}</div>
+                    <div class="text-muted-foreground flex items-center gap-2">
+                      <span>&rarr;</span>
+                      <span class="bg-muted px-2 py-1 rounded">{field.metadata?.export_key || field.label || 'unmapped'}</span>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+              <p class="text-xs text-muted-foreground mt-2">
+                Click "Send Test Data" to create a test record in your connected CRMs using placeholder values.
+              </p>
+            </div>
+          {/if}
+        </div>
+      </Modal>
 </section>
