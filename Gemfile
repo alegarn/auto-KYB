@@ -118,3 +118,5 @@ group :test do
   gem "capybara-lockstep"
   gem "selenium-webdriver"
 end
+
+gem "oauth2", "~> 2.0"

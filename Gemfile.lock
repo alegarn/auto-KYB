@@ -514,6 +514,7 @@ DEPENDENCIES
   js-routes
   kamal
   letter_opener
+  oauth2 (~> 2.0)
   omniauth
   omniauth-google-oauth2
   omniauth-rails_csrf_protection
