@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_27_021109) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_28_040703) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -81,11 +81,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_27_021109) do
     t.string "access_token"
     t.datetime "created_at", null: false
     t.datetime "expires_at"
+    t.string "hub_id"
+    t.jsonb "metadata", default: {}
     t.string "provider"
     t.string "refresh_token"
+    t.text "scopes"
     t.string "status"
+    t.string "token_type"
     t.datetime "updated_at", null: false
     t.uuid "user_id", null: false
+    t.index ["user_id", "provider"], name: "index_crm_connections_on_user_provider", unique: true
     t.index ["user_id"], name: "index_crm_connections_on_user_id"
   end
 
@@ -93,7 +98,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_27_021109) do
     t.uuid "client_id", null: false
     t.datetime "created_at", null: false
     t.uuid "crm_connection_id", null: false
+    t.string "direction", default: "export"
     t.text "error_message"
+    t.string "external_id"
+    t.string "external_type"
+    t.jsonb "payload_snapshot", default: {}
     t.string "status"
     t.datetime "transferred_at"
     t.datetime "updated_at", null: false

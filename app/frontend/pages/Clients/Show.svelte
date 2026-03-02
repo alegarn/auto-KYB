@@ -11,14 +11,8 @@
   import { FileText, Image, Download, Trash2 } from '@lucide/svelte';
 
 
-  // To be replaced with actual CRM list from backend in the future
-  const availableCrms = [
-    { id: 'hubspot', name: 'HubSpot' },
-    { id: 'salesforce', name: 'Salesforce' },
-    { id: 'zoho', name: 'Zoho CRM' }
-  ];
 
-  let { user, client = null, forms = [], client_form = null, uploaded_files = [], file_retention = null } = $props();
+  let { user, client = null, forms = [], client_form = null, uploaded_files = [], file_retention = null, crm_connections = [] } = $props();
   let showConfirm = $state(false);
   let showFileDeleteConfirm = $state(false);
   let fileToDelete = $state<any>(null);
@@ -39,7 +33,13 @@
   let crmExporting = $state(false);
   let crmExportSuccess = $state(false);
   let selectedCrms = $state<string[]>(['hubspot']); // Default selected
-  
+  const availableCrms = $derived(
+    (crm_connections || []).map((c: any) => ({
+      id: c.provider,
+      name: c.provider
+    }))
+  );
+
 
   onMount(() => {
     fetchCountriesData().then((data) => { countries = data; }).catch((err) => console.error('countries load', err));
@@ -135,18 +135,35 @@
     }
   }
 
-  function submitCrmExport() {
+  async function submitCrmExport() {
     if (selectedCrms.length === 0) return;
     
     crmExporting = true;
-    // Simulate network request
-    setTimeout(() => {
+    try {
+      const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+      const response = await fetch(`/clients/${client['id']}/export_to_crm`, {
+        method: 'POST',
+        headers: { 
+          'X-CSRF-Token': csrfToken,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ crms: selectedCrms })
+      });
+      if (response.ok) {
+        crmExportSuccess = true;
+        setTimeout(() => {
+          closeCrmExport();
+        }, 2000);
+      } else {
+        const body = await response.json();
+        alert(`Export failed: ${body.error || 'Unknown error'}`);
+      }
+    } catch (e: any) {
+      alert(`Export failed: ${e.message}`);
+    } finally {
       crmExporting = false;
-      crmExportSuccess = true;
-      setTimeout(() => {
-        closeCrmExport();
-      }, 2000);
-    }, 1500);
+    }
   }
 </script>
 

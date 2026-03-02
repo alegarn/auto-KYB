@@ -61,6 +61,54 @@ class FormsController < ApplicationController
     end
   end
 
+  def test_crm_mapping
+    form = current_user.forms.find(params[:id])
+
+    # Dummy data from form fields
+    dummy_data = {}
+    (form.structure&.dig('fields') || []).each do |f|
+      type = f['field_type'].to_s
+      next if type == 'layout' || type == 'title' || type.start_with?('lay_') || type.start_with?('section')
+      key = f.dig('metadata', 'export_key').presence || f['label']
+      dummy_data[key] = type == 'number' ? rand(1..100) : "Test #{f['label']}"
+    end
+
+    # Dummy client
+    dummy_client = OpenStruct.new(
+      name: "Test Client",
+      email: "test_crm_#{SecureRandom.hex(4)}@example.com",
+      company_name: "Test Company #{SecureRandom.hex(2)}",
+      phone: "+33123456789",
+      address: "123 Test Street",
+      country: "FR",
+      company_id: "TC-#{SecureRandom.hex(4)}"
+    )
+
+    connections = Crm::ConnectionManager.active_connections_for(current_user)
+    if connections.empty?
+      render json: { error: "No active CRM connections found." }, status: :unprocessable_entity
+      return
+    end
+
+    success = true
+    errors = []
+
+    connections.each do |conn|
+      service = Crm::ConnectionManager.service_for(conn)
+      result = service.export_data(dummy_client, dummy_data, [])
+      unless result[:success]
+        success = false
+        errors << "#{conn.provider.titleize}: #{result[:error]}"
+      end
+    end
+
+    if success
+      render json: { success: true }, status: :ok
+    else
+      render json: { error: errors.join(', ') }, status: :unprocessable_entity
+    end
+  end
+
   def duplicate
     form = current_user.forms.find(params[:id])
     new_form = FormService.duplicate_form(current_user, form)

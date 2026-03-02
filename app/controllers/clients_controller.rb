@@ -3,7 +3,7 @@ class ClientsController < ApplicationController
   FILTER_ALL = "all"
 
   before_action :authorize_subscription
-  before_action :set_client, only: %i[show edit update destroy export]
+  before_action :set_client, only: %i[show edit update destroy export export_to_crm]
 
   def index
     scope = Client.by_user(current_user.id).order(created_at: :desc)
@@ -33,7 +33,8 @@ class ClientsController < ApplicationController
       client_form: ClientFormSerializer.new(client_form).as_json,
       forms: forms_for_select,
       file_retention: FileRetentionPolicy.as_json,
-      uploaded_files: UploadedFileSerializer.collection(@client.uploaded_files.available)
+      uploaded_files: UploadedFileSerializer.collection(@client.uploaded_files.available),
+      crm_connections: current_user.crm_connections.where(status: 'active').as_json(only: [:id, :provider])
     )
   end
 
@@ -51,6 +52,52 @@ class ClientsController < ApplicationController
       end
 
       format.any { render json: ClientSerializer.new(@client).as_json }
+    end
+  end
+
+  def export_to_crm
+    selected_providers = params[:crms] || []
+    if selected_providers.empty?
+      render json: { error: "No CRM selected" }, status: :unprocessable_entity
+      return
+    end
+
+    connections = current_user.crm_connections.where(status: "active", provider: selected_providers)
+    if connections.empty?
+      render json: { error: "No active connections for selected CRMs" }, status: :unprocessable_entity
+      return
+    end
+
+    client_form = @client.client_forms.includes(:form_responses, :form).order(created_at: :desc).first
+    data = {}
+    if client_form && client_form.form_responses.any?
+      response_data = client_form.form_responses.order(:created_at).last.data || {}
+      client_form.form.form_fields.each do |f|
+        type = f.field_type.to_s
+        next if type.start_with?("lay_") || type.start_with?("section") || type == "layout" || type == "title"
+        val = response_data[f.id.to_s]
+        key = f.metadata&.dig("export_key").presence || f.label
+        data[key] = val if val.present?
+      end
+    end
+
+    files = @client.uploaded_files.available.to_a
+    success = true
+    errors = []
+
+    connections.each do |conn|
+      service = Crm::ConnectionManager.service_for(conn)
+      result = service.export_data(@client, data, files)
+      unless result[:success]
+        success = false
+        errors << "#{conn.provider.titleize}: #{result[:error]}"
+      end
+    end
+
+    if success
+      render json: { success: true }, status: :ok
+    else
+      render json: { error: errors.join(", ") }, status: :unprocessable_entity
     end
   end
 

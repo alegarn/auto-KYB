@@ -7,7 +7,7 @@
   import * as Sheet from "/components/ui/sheet";
 
   // Props & state
-  let { user } = $props();
+  let { user, crm_connections = [], available_providers = [] } = $props();
   let deleteConfirmation = $state("");
   let deletingAccount = $state(false);
   let billingLoading = $state(false);
@@ -52,12 +52,30 @@
     }
   });
 
-  // CRM Dummy State
-  let crmConnections = $state([
-    { provider: 'hubspot', name: 'HubSpot', connected: true, loading: false },
-    { provider: 'salesforce', name: 'Salesforce', connected: false, loading: false },
-    { provider: 'zoho', name: 'Zoho CRM', connected: false, loading: false }
-  ]);
+  // CRM State
+  const providerNames: Record<string, string> = {
+    hubspot: 'HubSpot',
+    salesforce: 'Salesforce',
+    zoho: 'Zoho CRM'
+  };
+
+  let crmLoadingStates = $state<Record<string, boolean>>({});
+
+  const crmConnections = $derived.by(() => {
+    const providers = available_providers.length > 0 ? available_providers : ['hubspot', 'salesforce', 'zoho'];
+    return providers.map((provider: string) => {
+      // Find matching connection from server props
+      const conn = crm_connections?.find((c: any) => c.provider === provider && c.status === 'active');
+      return {
+        id: conn?.id,
+        provider,
+        name: providerNames[provider] || provider,
+        connected: !!conn,
+        status: conn?.status,
+        loading: !!crmLoadingStates[provider]
+      };
+    });
+  });
 
 
   function submitAccountDeletion() {
@@ -114,27 +132,48 @@
     });
   }
 
-  // Dummy CRM connections functions
   function toggleCrmConnection(provider: string) {
-    const crm = crmConnections.find(c => c.provider === provider);
+    const crm = crmConnections.find((c: any) => c.provider === provider);
     if (!crm) return;
     
-    crm.loading = true;
-    setTimeout(() => {
-      crm.connected = !crm.connected;
-      crm.loading = false;
-    }, 1000);
+    if (crm.connected) {
+      if (confirm(`Disconnecting will remove authorization. ${crm.name} data will remain intact. Proceed?`)) {
+        crmLoadingStates[provider] = true;
+        router.delete(`/crm_connections/${crm.id}`, {
+          onFinish: () => { crmLoadingStates[provider] = false; }
+        });
+      }
+    } else {
+      crmLoadingStates[provider] = true;
+      // Use native browser navigation to prevent Inertia XHR headers from interfering with external OAuth state
+      window.location.href = `/crm_connections/auth/${provider}`;
+    }
   }
 
-  function testCrmConnection(provider: string) {
-    const crm = crmConnections.find(c => c.provider === provider);
-    if (!crm) return;
+  async function testCrmConnection(provider: string) {
+    const crm = crmConnections.find((c: any) => c.provider === provider);
+    if (!crm || !crm.id) return;
     
-    crm.loading = true;
-    setTimeout(() => {
-      crm.loading = false;
-      alert(`Test successful for ${crm.name}! Connection is working.`);
-    }, 1000);
+    crmLoadingStates[provider] = true;
+    try {
+      const response = await fetch(`/crm_connections/${crm.id}/test`, {
+        method: 'POST',
+        headers: { 
+          'X-CSRF-Token': csrfToken,
+          'Accept': 'application/json'
+        }
+      });
+      const result = await response.json();
+      if (response.ok) {
+        alert(`Test successful for ${crm.name}! Status: ${result.status || 'OK'}`);
+      } else {
+        alert(`Test failed for ${crm.name}: ${result.error || 'Unknown error'}`);
+      }
+    } catch (e: any) {
+      alert(`Test failed for ${crm.name}: ${e.message}`);
+    } finally {
+      crmLoadingStates[provider] = false;
+    }
   }
 </script>
 

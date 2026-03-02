@@ -17,16 +17,29 @@ Rails.application.routes.draw do
     member do
       get :confirm_delete
       post :duplicate
+      post :test_crm_mapping
     end
   end
 
   resources :clients do
     member do
       get :export
+      post :export_to_crm
     end
   end
 
   resources :crm_transfers, only: [:index]
+  
+  resources :crm_connections, only: [:create, :destroy] do
+    collection do
+      get "auth/:provider", to: "crm_connections#auth", as: :auth
+      get ":provider/callback", to: "crm_connections#callback", as: :callback,
+          constraints: { provider: /hubspot|salesforce|zoho/ }
+    end
+    member do
+      post :test
+    end
+  end
 
   resources :uploaded_files, only: [ :destroy ] do
     member do

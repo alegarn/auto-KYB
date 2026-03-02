@@ -156,15 +156,26 @@
     showCrmMappingModal = false;
   }
 
-  function sendTestCrmData() {
+  async function sendTestCrmData() {
     testingCrm = true;
-    setTimeout(() => {
+    try {
+      const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+      const response = await fetch(`/forms/${initial?.id}/test_crm_mapping`, {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrf }
+      });
+      if (response.ok) {
+        testCrmSuccess = true;
+        setTimeout(() => { closeCrmMapping(); }, 2000);
+      } else {
+        const body = await response.json();
+        alert(`Test export failed: ${body.error || 'Unknown error'}`);
+      }
+    } catch (e: any) {
+      alert(`Request failed: ${e.message}`);
+    } finally {
       testingCrm = false;
-      testCrmSuccess = true;
-      setTimeout(() => {
-        closeCrmMapping();
-      }, 2000);
-    }, 1500);
+    }
   }
 </script>
 

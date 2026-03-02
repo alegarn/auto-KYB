@@ -2,7 +2,7 @@
 
 ## Overview
 
-Quick KYB is a hybrid Rails + Vite/Svelte application. The backend is a Ruby on Rails app providing JSON APIs, background jobs, and traditional server-side views. The frontend uses Vite to build Svelte components, Storybook for UI development, and Vitest for frontend unit tests.
+Quick KYB is a hybrid Rails + Vite/Svelte application. The backend is a Ruby on Rails app providing background jobs, and a PostreSQL database. The frontend uses Vite and Inertia Rails to build and serve Svelte components. Storybook is used for UI development, RSpec for backend tests, and Vitest for frontend unit tests.
 
 ## Components
 

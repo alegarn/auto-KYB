@@ -3,7 +3,8 @@ class SettingsController < ApplicationController
   def index
     authorize :settings, :show?
     render inertia: "Settings/Index", props: {
-      user: current_user
+      user: current_user,
+      crm_connections: current_user.crm_connections.as_json(only: [:id, :provider, :status, :updated_at])
     }
   end
 

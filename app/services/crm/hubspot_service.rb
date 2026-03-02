@@ -1,39 +1,272 @@
+# frozen_string_literal: true
+
 module Crm
   class HubspotService < BaseService
+
+    # OAuth: build authorization URL
     def authorize_url
-      # Dummy implementation
-      "https://app.hubspot.com/oauth/authorize?client_id=dummy&redirect_uri=dummy&scope=dummy"
+      state = SecureRandom.hex(24)
+      oauth.authorize_url(state: state)
     end
 
+    # OAuth: exchange code for tokens and persist to connection
     def exchange_token(code)
-      # Dummy implementation
+      tokens = oauth.exchange_code(code)
+
       connection.update!(
-        access_token: "dummy_access_token",
-        refresh_token: "dummy_refresh_token",
-        expires_at: 1.hour.from_now,
-        status: "active"
+        access_token:  tokens[:access_token],
+        refresh_token: tokens[:refresh_token],
+        expires_at:    Time.current + tokens[:expires_in].to_i.seconds,
+        status:        "active",
+        scopes:        HubspotConfig::SCOPES
       )
     end
 
+    # OAuth: refresh access token
     def refresh_token!
-      # Dummy implementation
+      tokens = oauth.refresh_token(connection.refresh_token)
+
       connection.update!(
-        access_token: "new_dummy_access_token",
-        expires_at: 1.hour.from_now
+        access_token:  tokens[:access_token],
+        refresh_token: tokens[:refresh_token],
+        expires_at:    Time.current + tokens[:expires_in].to_i.seconds
       )
     end
 
+    # Export client data to HubSpot (contacts + companies + files)
     def export_data(client, data, files = [])
       ensure_valid_token!
-      # Dummy implementation
-      Rails.logger.info "Exporting data to HubSpot for client #{client.id}"
-      { success: true, external_id: "hubspot_#{client.id}" }
+
+      results = {}
+
+      # 1. Upsert company
+      company_result = upsert_company(client, data)
+      results[:company] = company_result
+
+      # 2. Upsert contact
+      contact_result = upsert_contact(client, data)
+      results[:contact] = contact_result
+
+      # 3. Associate contact -> company
+      if company_result[:id] && contact_result[:id]
+        associate_contact_to_company(contact_result[:id], company_result[:id])
+      end
+
+      # 4. Upload files (if any)
+      if files.any?
+        file_results = upload_files(files, contact_id: contact_result[:id])
+        results[:files] = file_results
+      end
+
+      { success: true, external_id: contact_result[:id], details: results }
+    rescue ::Hubspot::ApiError => e
+      Rails.logger.error("[HubSpot Export] #{e.message}")
+      { success: false, error: e.message }
     end
 
+    # Test that the connection works by fetching account info
     def test_connection
       ensure_valid_token!
-      # Dummy implementation
-      true
+      # Simple API call to verify token validity (HubSpot metadata endpoint is on v1)
+      response = hubspot_client.api_request(
+        method: "GET",
+        path: "/oauth/v1/access-tokens/#{connection.access_token}"
+      )
+      JSON.parse(response.body).key?("token")
+    rescue => e
+      Rails.logger.error("[HubSpot Test] #{e.message}")
+      false
     end
+
+    # --- Import (HubSpot -> Quick KYB) ---
+
+    # Fetch contacts from HubSpot and return mapped data
+    def fetch_contacts(limit: 100, after: nil)
+      ensure_valid_token!
+      Crm::Hubspot::DataFetcher.new(hubspot_client).fetch_contacts(limit: limit, after: after)
+    end
+
+    # Fetch companies from HubSpot and return mapped data
+    def fetch_companies(limit: 100, after: nil)
+      ensure_valid_token!
+      Crm::Hubspot::DataFetcher.new(hubspot_client).fetch_companies(limit: limit, after: after)
+    end
+
+    # Search contacts by email
+    def search_contact_by_email(email)
+      ensure_valid_token!
+      Crm::Hubspot::DataFetcher.new(hubspot_client).search_contact_by_email(email)
+    end
+
+    private
+
+    def oauth
+      @oauth ||= Crm::Hubspot::OAuth.new(connection: connection)
+    end
+
+    def hubspot_client
+      @hubspot_client ||= Crm::Hubspot::Client.new(connection)
+    end
+
+    def upsert_company(client, data)
+      mapper = Crm::Hubspot::CompanyMapper.new(client, data)
+      properties = mapper.to_hubspot_properties
+
+      ensure_properties("companies", properties)
+      formatted_props = properties.map { |k, v| { name: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }
+
+      # Search for existing company by domain or name
+      existing = search_company(client)
+
+      if existing
+        res = hubspot_client.api_request(
+          method: "PUT",
+          path: "/companies/v2/companies/#{existing}",
+          body: { properties: formatted_props }
+        )
+        if res.code.to_i < 300
+          { id: existing, action: :updated }
+        else
+          raise ::Hubspot::ApiError, "Error updating company: #{res.body}"
+        end
+      else
+        res = hubspot_client.api_request(
+          method: "POST",
+          path: "/companies/v2/companies",
+          body: { properties: formatted_props }
+        )
+        if res.code.to_i < 300
+          parsed = JSON.parse(res.body)
+          { id: parsed["companyId"], action: :created }
+        else
+          raise ::Hubspot::ApiError, "Error creating company: #{res.body}"
+        end
+      end
+    end
+
+    def upsert_contact(client, data)
+      mapper = Crm::Hubspot::ContactMapper.new(client, data)
+      properties = mapper.to_hubspot_properties
+
+      ensure_properties("contacts", properties)
+      formatted_props = properties.map { |k, v| { property: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }
+
+      if client.email.present?
+        # Update or check if exists using V1 path
+        res = hubspot_client.api_request(
+          method: "POST",
+          path: "/contacts/v1/contact/email/#{client.email}/profile",
+          body: { properties: formatted_props }
+        )
+
+        if res.code.to_i == 200 || res.code.to_i == 204
+          # Found and updated. We need to fetch vid.
+          get_res = hubspot_client.api_request(
+            method: "GET",
+            path: "/contacts/v1/contact/email/#{client.email}/profile"
+          )
+          vid = JSON.parse(get_res.body)["vid"] rescue nil
+          return { id: vid || client.email, action: :updated }
+        elsif res.code.to_i != 404
+          raise ::Hubspot::ApiError, "Error updating contact: #{res.body}"
+        end
+      end
+
+      # Create using V1 path
+      res = hubspot_client.api_request(
+        method: "POST",
+        path: "/contacts/v1/contact",
+        body: { properties: formatted_props }
+      )
+
+      if res.code.to_i < 300
+        parsed = JSON.parse(res.body)
+        { id: parsed["vid"] || parsed["id"], action: :created }
+      else
+        raise ::Hubspot::ApiError, "Error creating contact: #{res.body}"
+      end
+    end
+
+    def ensure_properties(object_type, properties_hash)
+      return if properties_hash.empty?
+
+      res = hubspot_client.api_request(method: "GET", path: "/properties/v1/#{object_type}/properties")
+      return unless res.code.to_i == 200
+
+      existing = JSON.parse(res.body).map { |p| p["name"] }
+
+      properties_hash.each do |k, v|
+        prop_name = k.to_s.downcase.gsub(/[^a-z0-9]/, "_")
+        next if existing.include?(prop_name)
+
+        group = object_type == "contacts" ? "contactinformation" : "companyinformation"
+        payload = {
+          name: prop_name,
+          label: k.to_s.titleize,
+          groupName: group,
+          type: "string",
+          fieldType: "text"
+        }
+        create_res = hubspot_client.api_request(
+          method: "POST",
+          path: "/properties/v1/#{object_type}/properties",
+          body: payload
+        )
+
+        if create_res.code.to_i >= 400
+          Rails.logger.info("[HubSpot Property] Could not create #{prop_name}: #{create_res.body}")
+        end
+      end
+    end
+
+    def search_company(client)
+      body = {
+        filterGroups: [ {
+          filters: [ {
+            propertyName: "name",
+            operator: "EQ",
+            value: client.company_name
+          } ]
+        } ],
+        limit: 1
+      }
+      response = hubspot_client.companies_search_api.do_search(body: body)
+      response.results.first&.id
+    end
+
+    def search_contact(client)
+      return nil if client.email.blank?
+
+      body = {
+        filterGroups: [ {
+          filters: [ {
+            propertyName: "email",
+            operator: "EQ",
+            value: client.email
+          } ]
+        } ],
+        limit: 1
+      }
+      response = hubspot_client.contacts_search_api.do_search(body: body)
+      response.results.first&.id
+    end
+
+    def associate_contact_to_company(contact_id, company_id)
+      hubspot_client.api_request(
+        method: "PUT",
+        path: "/crm/v3/objects/contacts/#{contact_id}/associations/companies/#{company_id}/1"
+      )
+    rescue => e
+      Rails.logger.warn("[HubSpot Association] #{e.message}")
+    end
+
+    def upload_files(files, contact_id: nil)
+      uploader = Crm::Hubspot::FileUploader.new(hubspot_client)
+      files.filter_map do |uploaded_file|
+        next unless uploaded_file.file.attached?
+        uploader.upload(uploaded_file, associate_to_contact: contact_id)
+      end
+    end
+
   end
 end

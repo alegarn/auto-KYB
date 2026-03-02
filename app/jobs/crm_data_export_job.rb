@@ -4,6 +4,12 @@ class CrmDataExportJob < ApplicationJob
   # Retry logic with exponential backoff (30s, 2min, 10min)
   retry_on StandardError, wait: :exponentially_longer, attempts: 3
 
+  # Discard on OAuth errors (non-retryable without user intervention)
+  discard_on Crm::Hubspot::OAuthError do |job, error|
+    transfer = CrmTransfer.find_by(id: job.arguments.first)
+    transfer&.update!(status: "failed", error_message: "OAuth error (non-retryable): #{error.message}")
+  end
+
   def perform(transfer_id)
     transfer = CrmTransfer.find(transfer_id)
     client = transfer.client
@@ -19,6 +25,9 @@ class CrmDataExportJob < ApplicationJob
         company: client.company_name
       }
       
+      # Save payload snapshot for idempotency and tracking
+      transfer.update!(payload_snapshot: data.slice(:name, :email, :company))
+
       # Prepare files (dummy implementation for now)
       files = client.uploaded_files.to_a
 
