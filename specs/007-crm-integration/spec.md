@@ -134,6 +134,59 @@ As a user, I want to test my CRM connection and preview field mappings when crea
 
 ---
 
+### User Story 7 - CRM Selection in Settings (Priority: P1)
+
+As a user, I want to choose which CRM providers I enable from the application settings (Zoho, Salesforce, HubSpot), so that only selected CRMs are available for imports/exports and automatic transfers.
+
+**Why this priority**: Users must control which CRM providers the application may interact with to avoid accidental exports and to limit visible options in form mapping and manual export flows.
+
+**Independent Test**: Can be tested by visiting CRM settings, toggling available CRM providers, and confirming the available options in form mapping and manual export UI update accordingly.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is logged in, **When** they open CRM settings, **Then** they can enable or disable Zoho, Salesforce, and HubSpot individually
+2. **Given** the user disables a CRM provider, **When** they view form mapping or manual export screens, **Then** the disabled provider is not listed as an export or mapping target
+3. **Given** the user enables a CRM provider, **When** they then connect that provider using OAuth, **Then** the provider becomes available for exports, imports and test mapping
+4. **Given** the user has multiple providers enabled, **When** they choose defaults in settings, **Then** default selection is pre-selected in manual export and mapping dialogs
+
+---
+
+### User Story 8 - Import Leads/Contacts from CRM (Priority: P2)
+
+As a user, I want to import chosen leads/contacts (CRM wording) from a connected CRM into the application as clients (including associated company data), so that I can onboard existing CRM records into the app and update their client/company profiles with portal/form data.
+
+**Why this priority**: Importing contacts/leads is essential for migrating existing customers and enabling a two-way workflow where CRM-origin data becomes a managed client record in the application.
+
+**Independent Test**: Can be tested by selecting a subset of contacts/leads in the UI, importing them, and verifying created client and company records in the application reflect CRM data.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user has at least one active CRM connection, **When** they open the "Import from CRM" flow, **Then** they can browse/search CRM leads/contacts and select which records to import
+2. **Given** the user selects a lead/contact to import, **When** the import completes, **Then** a client record (and associated company record if present) is created in the application with CRM-provided fields (name, company, email, phone, address)
+3. **Given** the user imports multiple records, **When** the import completes, **Then** the UI displays a summary of imported records and any partial failures with reasons
+4. **Given** the user later receives updated data in the CRM for an imported record, **When** they run a sync or re-import for that record, **Then** the application updates the client/company info while preserving any locally-collected form data unless the user opts to overwrite
+5. **Given** imported records include files/attachments, **When** the import is performed, **Then** files are associated with the created client/company where supported and any file-size/provider limits are surfaced as warnings or errors
+
+---
+
+### User Story 9 - Export Client to CRM as Contact/Lead (Priority: P2)
+
+As a user, I want to export a client from the application to a connected CRM as a contact or lead (CRM wording) including company data and recent form responses, so that CRM systems are kept up-to-date from the app.
+
+**Why this priority**: Allows integrating application-managed client lifecycle with the CRM sales/marketing workflows and supports both one-off manual exports and automated exports on form validation.
+
+**Independent Test**: Can be tested by selecting a client and exporting to a connected CRM, then verifying the created contact/lead and associated company record in the CRM.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user has at least one active CRM connection, **When** they open a client's page and click "Export to CRM", **Then** they can choose the target CRM(s) and whether to create a contact or a lead where the provider differentiates
+2. **Given** the user exports a client, **When** the export completes successfully, **Then** the created CRM record contains client fields (name, company, email, phone, address) and mapped form responses
+3. **Given** the client has an existing CRM identifier stored, **When** the user exports, **Then** the system updates the existing CRM record rather than creating duplicates (where matching rules exist)
+4. **Given** the exported payload includes files, **When** the CRM does not support the file type or size, **Then** the export records partial success and surfaces file-specific errors to the user
+5. **Given** the user exports to multiple CRMs, **When** some exports succeed and others fail, **Then** the UI displays per-CRM statuses and retry options for failed exports
+
+---
+
 ### Edge Cases
 
 - What happens when the user has no active CRM connections and a client validates their form? The form validation proceeds normally, but no data transfer occurs. The user is notified that no CRM connection is active.
