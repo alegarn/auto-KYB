@@ -37,32 +37,30 @@ module Crm
     def export_data(client, data, files = [])
       ensure_valid_token!
 
-      results = {}
-
-      # 1. Upsert company
-      company_result = upsert_company(client, data)
-      results[:company] = company_result
-
-      # 2. Upsert contact
-      contact_result = upsert_contact(client, data)
-      results[:contact] = contact_result
-
-      # 3. Associate contact -> company
-      if company_result[:id] && contact_result[:id]
-        associate_contact_to_company(contact_result[:id], company_result[:id])
+      link = client.crm_client_link
+      unless link&.external_contact_id
+        return { success: false, error: "Client not linked to CRM. Create or link a contact first." }
       end
 
-      # 4. Upload files (if any)
+      results = {}
+
+      # 1. Update existing contact (do NOT create implicitly)
+      contact_result = update_existing_contact(client, link.external_contact_id, data)
+      results[:contact] = contact_result
+
+      # 2. Upload files (if any)
       if files.any?
-        file_results = upload_files(files, contact_id: contact_result[:id])
+        file_results = upload_files(files, contact_id: link.external_contact_id)
         results[:files] = file_results
       end
 
-      { success: true, external_id: contact_result[:id], details: results }
+      { success: true, external_id: link.external_contact_id, details: results }
     rescue ::Hubspot::ApiError => e
       Rails.logger.error("[HubSpot Export] #{e.message}")
       { success: false, error: e.message }
     end
+
+
 
     # Test that the connection works by fetching account info
     def test_connection
@@ -92,13 +90,19 @@ module Crm
       Crm::Hubspot::DataFetcher.new(hubspot_client).fetch_companies(limit: limit, after: after)
     end
 
+    # Search contacts by query
+    def search_contacts(query)
+      ensure_valid_token!
+      Crm::Hubspot::DataFetcher.new(hubspot_client).search_contacts(query)
+    end
+
     # Search contacts by email
     def search_contact_by_email(email)
       ensure_valid_token!
       Crm::Hubspot::DataFetcher.new(hubspot_client).search_contact_by_email(email)
     end
 
-    private
+    # --- Import (HubSpot -> Quick KYB) ---
 
     def oauth
       @oauth ||= Crm::Hubspot::OAuth.new(connection: connection)
@@ -108,71 +112,12 @@ module Crm
       @hubspot_client ||= Crm::Hubspot::Client.new(connection)
     end
 
-    def upsert_company(client, data)
-      mapper = Crm::Hubspot::CompanyMapper.new(client, data)
+    def create_contact(client)
+      mapper = Crm::Hubspot::ContactMapper.new(client, {})
       properties = mapper.to_hubspot_properties
-
-      ensure_properties("companies", properties)
-      formatted_props = properties.map { |k, v| { name: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }
-
-      # Search for existing company by domain or name
-      existing = search_company(client)
-
-      if existing
-        res = hubspot_client.api_request(
-          method: "PUT",
-          path: "/companies/v2/companies/#{existing}",
-          body: { properties: formatted_props }
-        )
-        if res.code.to_i < 300
-          { id: existing, action: :updated }
-        else
-          raise ::Hubspot::ApiError, "Error updating company: #{res.body}"
-        end
-      else
-        res = hubspot_client.api_request(
-          method: "POST",
-          path: "/companies/v2/companies",
-          body: { properties: formatted_props }
-        )
-        if res.code.to_i < 300
-          parsed = JSON.parse(res.body)
-          { id: parsed["companyId"], action: :created }
-        else
-          raise ::Hubspot::ApiError, "Error creating company: #{res.body}"
-        end
-      end
-    end
-
-    def upsert_contact(client, data)
-      mapper = Crm::Hubspot::ContactMapper.new(client, data)
-      properties = mapper.to_hubspot_properties
-
       ensure_properties("contacts", properties)
       formatted_props = properties.map { |k, v| { property: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }
 
-      if client.email.present?
-        # Update or check if exists using V1 path
-        res = hubspot_client.api_request(
-          method: "POST",
-          path: "/contacts/v1/contact/email/#{client.email}/profile",
-          body: { properties: formatted_props }
-        )
-
-        if res.code.to_i == 200 || res.code.to_i == 204
-          # Found and updated. We need to fetch vid.
-          get_res = hubspot_client.api_request(
-            method: "GET",
-            path: "/contacts/v1/contact/email/#{client.email}/profile"
-          )
-          vid = JSON.parse(get_res.body)["vid"] rescue nil
-          return { id: vid || client.email, action: :updated }
-        elsif res.code.to_i != 404
-          raise ::Hubspot::ApiError, "Error updating contact: #{res.body}"
-        end
-      end
-
-      # Create using V1 path
       res = hubspot_client.api_request(
         method: "POST",
         path: "/contacts/v1/contact",
@@ -186,6 +131,26 @@ module Crm
         raise ::Hubspot::ApiError, "Error creating contact: #{res.body}"
       end
     end
+
+    def update_existing_contact(client, external_id, data)
+      mapper = Crm::Hubspot::ContactMapper.new(client, data)
+      properties = mapper.to_hubspot_properties
+      ensure_properties("contacts", properties)
+      formatted_props = properties.map { |k, v| { property: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }
+
+      res = hubspot_client.api_request(
+        method: "POST",
+        path: "/contacts/v1/contact/vid/#{external_id}/profile",
+        body: { properties: formatted_props }
+      )
+
+      if res.code.to_i == 200 || res.code.to_i == 204
+        { id: external_id, action: :updated }
+      else
+        raise ::Hubspot::ApiError, "Error updating contact: #{res.body}"
+      end
+    end
+
 
     def ensure_properties(object_type, properties_hash)
       return if properties_hash.empty?

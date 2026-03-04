@@ -59,13 +59,26 @@ module Crm
         response.results.first ? map_contact(response.results.first) : nil
       end
 
+      # Search contacts by generic query
+      def search_contacts(query)
+        body = {
+          query: query,
+          properties: CONTACT_PROPERTIES,
+          limit: 10
+        }
+        response = @client.contacts_search_api.do_search(body: body)
+        response.results.map { |r| map_contact(r) }
+      end
+
       private
 
       def map_contact(hubspot_contact)
         props = hubspot_contact.properties
         {
-          hubspot_id:   hubspot_contact.id,
+          external_contact_id: hubspot_contact.id,
           email:        props["email"],
+          first_name:   props["firstname"],
+          last_name:    props["lastname"],
           name:         [ props["firstname"], props["lastname"] ].compact.join(" "),
           phone:        props["phone"],
           company_name: props["company"],

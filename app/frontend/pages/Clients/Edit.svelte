@@ -5,6 +5,7 @@
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
   import Toast from '@/components/customs/Toast.svelte';
+  import CrmMatchBanner from '/components/CrmMatchBanner.svelte';
   import { client_path } from '@/routes';
   import { fetchCountriesData } from '/lib/countries';
 
@@ -15,6 +16,8 @@
     current_form_id = null,
     confirm_message = null,
     attempted_form_id = null,
+    has_crm_link = false,
+    has_active_crm_connection = false,
     confirm_replace_required = false } = $props();
 
   // modal and form state
@@ -73,15 +76,15 @@
     setTimeout(() => confirmDialog?.focus(), 0);
   }
 
-  // selected form the user may pick (local der$derived so we can bind and update)
-  let selectedForm = $derived(attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null));
+  // selected form the user may pick (local state so we can bind and update)
+  let selectedForm = $state(attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null));
 
   let countries = $state<Array<{ name: string; code: string; flag: string }>>([]);
   let countryOptions = $derived(
     (countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag }))
   );
-  // preserve server-sent initial value but do not mutate it on SSR; keep value available for client
-  let selectedCountry = $derived(client?.country || '');
+  // preserve server-sent initial value but allow user to change
+  let selectedCountry = $state(client?.country || '');
 
   let countriesLoading = $state(false);
   let countriesError = $state(null);
@@ -121,9 +124,9 @@
   )
 
   // currently linked form (if provided via client props)
-  const currentLinkedForm = $derived(() => {
+  const currentLinkedForm = $derived.by(() => {
     const linkedId = current_form_id || client?.client_form_id || client?.form_id || client?.form?.id;
-    return (forms && forms.length) ? forms.find((f) => String(f.id) === String(linkedId)) : null;
+    return (forms && forms.length) ? forms.find((f: any) => String(f.id) === String(linkedId)) : null;
   });
 
   const hasError = (field: string) => {
@@ -138,6 +141,10 @@
         <h1 class="text-2xl font-semibold">Edit client</h1>
         <p class="text-sm text-muted-foreground">{client?.email}</p>
       </header>
+
+      {#if has_active_crm_connection && !has_crm_link && client?.email}
+        <CrmMatchBanner clientId={client.id} clientEmail={client.email} />
+      {/if}
 
       {#if flashToast}
         <Toast message={flashToast.message ?? confirm_message ?? 'Confirmed'} type={flashToast.type ?? 'notice'} />
@@ -173,8 +180,8 @@
             <div class="mt-1">
               {#if client?.status === "validated"}
                 {#if currentLinkedForm}
-                  <span class="text-sm text-muted-foreground">{currentLinkedForm()?.name} <span class="ml-2 text-xs px-2 py-0.5 rounded bg-green-100 text-green-800">validated</span></span>
-                  <input type="hidden" name="client_form[form_id]" value={currentLinkedForm()?.id ?? ''} />
+                  <span class="text-sm text-muted-foreground">{currentLinkedForm?.name} <span class="ml-2 text-xs px-2 py-0.5 rounded bg-green-100 text-green-800">validated</span></span>
+                  <input type="hidden" name="client_form[form_id]" value={currentLinkedForm?.id ?? ''} />
                 {:else}
                   <span class="text-sm text-muted-foreground"><em>None</em></span>
                 {/if}

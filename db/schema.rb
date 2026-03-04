@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_28_040703) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_04_032821) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -75,6 +75,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_28_040703) do
     t.index ["company_id"], name: "index_clients_on_company_id"
     t.index ["country"], name: "index_clients_on_country"
     t.index ["user_id"], name: "index_clients_on_user_id"
+  end
+
+  create_table "crm_client_links", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "client_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "crm_connection_id", null: false
+    t.string "external_company_id"
+    t.string "external_contact_id"
+    t.datetime "updated_at", null: false
+    t.index ["client_id"], name: "index_crm_client_links_on_client_id"
+    t.index ["crm_connection_id"], name: "index_crm_client_links_on_crm_connection_id"
   end
 
   create_table "crm_connections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -200,6 +211,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_28_040703) do
   add_foreign_key "client_forms", "clients"
   add_foreign_key "client_forms", "forms"
   add_foreign_key "clients", "users"
+  add_foreign_key "crm_client_links", "clients"
+  add_foreign_key "crm_client_links", "crm_connections"
   add_foreign_key "crm_connections", "users"
   add_foreign_key "crm_transfers", "clients"
   add_foreign_key "crm_transfers", "crm_connections"

@@ -4,6 +4,7 @@
   import Button from '/components/ui/button/button.svelte';
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
+  import CrmSyncWidget from '@/components/CrmSyncWidget.svelte';
   import { fetchCountriesData } from '/lib/countries';
 
   let { user, errors = {}, forms = [] } = $props();
@@ -13,6 +14,28 @@
   let selectedCountry = $state('');
   let countriesLoading = $state(false);
   let countriesError = $state(null);
+
+  let crmSyncData = $state({ strategy: 'skip', external_contact_id: null, prefillData: null });
+  let prefilled = $state(false);
+
+  function handleCrmSync(data: any) {
+    crmSyncData = data;
+    if (data.prefillData && !prefilled) {
+      // Auto-prefill the page inputs. The page has DOM inputs, but some don't have bind:value. 
+      // If the app uses standard form element names like client[name], we need to set them.
+      // Easiest is to set DOM values if available, or update the local state that binds to inputs.
+      const nameInput = document.querySelector<HTMLInputElement>('input[name="client[name]"]');
+      if (nameInput && data.prefillData.name) {
+        nameInput.value = data.prefillData.name;
+      }
+      const emailInput = document.querySelector<HTMLInputElement>('input[name="client[email]"]');
+      if (emailInput && data.prefillData.email) emailInput.value = data.prefillData.email;
+      const companyInput = document.querySelector<HTMLInputElement>('input[name="client[company_name]"]');
+      if (companyInput && data.prefillData.company_name) companyInput.value = data.prefillData.company_name;
+      
+      prefilled = true;
+    }
+  }
 
   async function fetchCountries() {
     countriesLoading = true;
@@ -69,6 +92,12 @@
 
   <InertiaForm method="post" action="/clients">
     <div class="space-y-4 max-w-2xl">
+      <CrmSyncWidget onSyncDataChanged={handleCrmSync} />
+      <input type="hidden" name="crm[strategy]" value={crmSyncData.strategy} />
+      {#if crmSyncData.external_contact_id}
+        <input type="hidden" name="crm[external_contact_id]" value={crmSyncData.external_contact_id} />
+      {/if}
+
       <div>
         <Label for="client-form" class="block text-sm font-medium">Form to link</Label>
         <select
