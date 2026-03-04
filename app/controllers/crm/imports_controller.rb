@@ -1,8 +1,7 @@
 class Crm::ImportsController < ApplicationController
 
-  before_action :authorize_subscription
-
   def index
+    authorize :subscription, :index?
     query = params[:q]
 
     if query.blank? || !current_user.crm_connections.active.exists?
@@ -20,5 +19,4 @@ class Crm::ImportsController < ApplicationController
     Rails.logger.error("CRM Search Failed: #{e.message}")
     render json: { error: "Failed to search CRM" }, status: :unprocessable_entity
   end
-
 end
