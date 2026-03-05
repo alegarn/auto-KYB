@@ -392,3 +392,70 @@ test('renders Back to clients and Back to dashboard buttons', () => {
   expect(withinSection.getByText('Back to clients')).toBeInTheDocument();
   expect(withinSection.getByText('Back to dashboard')).toBeInTheDocument();
 });
+
+test('renders and interactions with uploaded files', async () => {
+  const client = { id: '1', name: 'Acme Corp', company_name: 'Acme Inc.', status: 'active' };
+  const uploaded_files = [
+    {
+      id: 'file-123',
+      filename: 'identity_doc.pdf',
+      byte_size: 1024 * 500, // 500 KB
+      content_type: 'application/pdf',
+      uploaded_at: new Date().toISOString()
+    }
+  ];
+
+  const { container } = render(ShowClient, {
+    props: {
+      user: { email: 'test@example.com' },
+      client,
+      uploaded_files,
+      client_form: { id: '42', status: 'validated' }
+    }
+  });
+
+  const mainSection = container.querySelector('section');
+  const withinSection = within(mainSection!);
+
+  expect(withinSection.getByText('identity_doc.pdf')).toBeInTheDocument();
+  expect(withinSection.getByText(/500.0 KB/)).toBeInTheDocument();
+  
+  // Verify download link is enabled when form is validated
+  const downloadLink = withinSection.getByLabelText('Download identity_doc.pdf');
+  expect(downloadLink).toHaveAttribute('href', expect.stringContaining('/uploaded_files/file-123/download'));
+  expect(downloadLink).not.toBeDisabled();
+
+  // Verify delete button opens modal
+  const deleteBtn = withinSection.getByLabelText('Delete identity_doc.pdf');
+  await userEvent.click(deleteBtn);
+  
+  // Note: Using document-wide query for the modal content as it might be rendered in a portal
+  expect(screen.getByText('Delete file')).toBeInTheDocument();
+  expect(screen.getByText(/Are you sure you want to delete identity_doc.pdf/)).toBeInTheDocument();
+});
+
+test('opens CRM export modal when clicking Export Form Answers to CRM', async () => {
+  const client = { id: '1', name: 'Acme Corp', company_name: 'Acme Inc.', status: 'active' };
+  const client_form = { id: '42', status: 'validated' };
+  const crm_connections = [{ provider: 'hubspot' }, { provider: 'salesforce' }];
+
+  const { container } = render(ShowClient, {
+    props: {
+      user: { email: 'test@example.com' },
+      client,
+      client_form,
+      crm_connections
+    }
+  });
+
+  const mainSection = container.querySelector('section');
+  const withinSection = within(mainSection!);
+
+  const crmExportBtn = withinSection.getByText('Export Form Answers to CRM');
+  await userEvent.click(crmExportBtn);
+
+  // Check if modal title appears
+  expect(screen.getByText('Export Form Answers to CRM', { selector: 'h2' })).toBeInTheDocument();
+  expect(screen.getByText('hubspot')).toBeInTheDocument();
+  expect(screen.getByText('salesforce')).toBeInTheDocument();
+});

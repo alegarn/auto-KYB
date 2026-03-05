@@ -180,7 +180,6 @@
         {#if client}
           <Button href={edit_client_path(client['id'])} variant="secondary">Edit</Button>
           <Button onclick={openConfirm} variant="destructive">Delete</Button>
-          <Button variant="outline" onclick={openCrmExport}>Export to CRM</Button>
         {/if}
       </div>
     </header>
@@ -398,6 +397,9 @@
             >
               Form Responses (CSV)
             </a>
+            <Button variant="outline" size="sm" onclick={openCrmExport} class="h-9">
+              Export Form Answers to CRM
+            </Button>
           {/if}
         </div>
         
@@ -435,7 +437,7 @@
     confirmDisabled={crmExporting || selectedCrms.length === 0}
   >
     {#snippet header()}
-      <h2 class="text-lg font-semibold">Export to CRM</h2>
+      <h2 class="text-lg font-semibold">Export Form Answers to CRM</h2>
       <p class="text-sm text-muted-foreground">Select the CRMs you want to export this client's data to.</p>
     {/snippet}
 
