@@ -19,8 +19,10 @@ import { router } from '@inertiajs/svelte';
 
 // Mock the routes used by the component
 vi.mock('@/routes', () => ({
-  clients_path: vi.fn(() => '/clients'),
   dashboard_path: vi.fn(() => '/dashboard'),
+  clients_path: vi.fn(() => '/clients'),
+  settings_path: vi.fn(() => '/settings'),
+  quickstart_path: vi.fn(() => '/quickstart'),
   edit_client_path: vi.fn((id: string) => `/clients/${id}/edit`),
   client_path: vi.fn((id: string) => `/clients/${id}`),
   client_forms_path: vi.fn(() => '/client_forms'),
@@ -95,7 +97,7 @@ test('does not show export button when client_form is null', () => {
   const withinSection = within(mainSection!);
 
   // The export button should not be in the document when client_form is null
-  const exportButton = withinSection.queryByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.queryByText('Form Responses (CSV)');
   expect(exportButton).not.toBeInTheDocument();
 });
 
@@ -124,7 +126,7 @@ test('shows export button when client_form exists', () => {
   const withinSection = within(mainSection!);
 
   // The export button should be in the document when client_form exists
-  const exportButton = withinSection.getByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Form Responses (CSV)');
   expect(exportButton).toBeInTheDocument();
 });
 
@@ -153,10 +155,10 @@ test('export button has correct href with client_form.id', () => {
   const withinSection = within(mainSection!);
 
   // Find the export button by its text
-  const exportButton = withinSection.getByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Form Responses (CSV)');
   
   // Verify the href attribute contains the client_form.id
-  expect(exportButton).toHaveAttribute('href', '/client_forms/42/export_responses.csv');
+  expect(exportButton).toHaveAttribute('href', '/client_forms/42/export_responses');
 });
 
 test('export button has target="_blank" and rel="noopener" attributes', () => {
@@ -184,7 +186,7 @@ test('export button has target="_blank" and rel="noopener" attributes', () => {
   const withinSection = within(mainSection!);
 
   // Find the export button by its text
-  const exportButton = withinSection.getByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Form Responses (CSV)');
   
   // Verify the target and rel attributes
   expect(exportButton).toHaveAttribute('target', '_blank');
@@ -216,10 +218,10 @@ test('export button has correct CSS classes and aria-label', () => {
   const withinSection = within(mainSection!);
 
   // Find the export button by its text
-  const exportButton = withinSection.getByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Form Responses (CSV)');
   
   // Verify the CSS classes
-  expect(exportButton).toHaveClass('inline-flex', 'items-center', 'rounded-md', 'px-4', 'py-2', 'text-sm', 'font-semibold', 'bg-background', 'border', 'shadow-xs');
+  expect(exportButton).toHaveClass('inline-flex', 'items-center', 'rounded-md', 'px-4', 'py-2', 'text-sm', 'font-medium', 'bg-secondary', 'text-secondary-foreground', 'hover:bg-secondary/80', 'transition-colors');
   
   // Verify the aria-label
   expect(exportButton).toHaveAttribute('aria-label', 'Export form responses as CSV');
@@ -302,7 +304,7 @@ test('shows client_form details when client_form exists', () => {
   const mainSection = container.querySelector('section');
   const withinSection = within(mainSection!);
 
-  expect(withinSection.getByText('Has a subspace')).toBeInTheDocument();
+  expect(withinSection.getByText('Active Form')).toBeInTheDocument();
   expect(withinSection.getByText('Customer Onboarding')).toBeInTheDocument();
   expect(withinSection.getByText('validated')).toBeInTheDocument();
 });
@@ -365,7 +367,7 @@ test('renders Export (CSV) button for client', () => {
   const mainSection = container.querySelector('section');
   const withinSection = within(mainSection!);
 
-  expect(withinSection.getByText('Export (CSV)')).toBeInTheDocument();
+  expect(withinSection.getByText('Client Profile (CSV)')).toBeInTheDocument();
 });
 
 test('renders Back to clients and Back to dashboard buttons', () => {
