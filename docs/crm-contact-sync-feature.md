@@ -22,7 +22,9 @@ To avoid bloating the core `Client` table and to support a multi-CRM future, CRM
 * **Behavior:** Rails strictly looks for this associated record before interacting with the CRM.
 
 ### B. Integration Services (`HubspotService`)
-The CRM service classes have been refactored to expose explicit methods:
+The CRM service classes have been refactored to use a modular mapping architecture:
+* **Multi-CRM Modularity**: Mapping logic is decoupled from base services. Specific CRM logic resides in `Crm::[Provider]::FieldMapper` (e.g., [app/services/crm/hubspot/field_mapper.rb](app/services/crm/hubspot/field_mapper.rb)).
+* **Base Abstraction**: `Crm::FieldMapper` provides shared utilities (like name splitting) while delegating vendor-specific field translations to specialized mappers.
 * `create_contact(client)`: Directly creates a new contact in the CRM based on the Quick KYB client.
 * `link_existing_contact(client, external_id)`: Saves an external CRM ID to the local database mapping.
 * `update_existing_contact(external_id, data)`: Pushes new form data to an already established CRM contact.

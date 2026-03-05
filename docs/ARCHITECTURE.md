@@ -6,7 +6,8 @@ Quick KYB is a hybrid Rails + Vite/Svelte application. The backend is a Ruby on 
 
 ## Components
 
-- **Backend (Rails)**: code under `app/` (controllers, models, services, jobs, mailers, serializers). Uses Puma as the app server and typical Rails middleware. Database configuration lives in `config/database.yml`.
+- **Backend (Rails)**: code under `app/` (controllers, models, services, jobs, mailers, serializers).
+  - **CRM Integration Subsystem**: Modular provider mapping layers (`app/services/crm/[provider]/`). New CRMs implement a `FieldMapper` inheriting from `Crm::FieldMapper`.
 - **Frontend (Vite + Svelte)**: source under `src/` and `app/frontend/` with Storybook stories in `stories/`. Built with `vite.config.ts` and integrated into Rails via Vite plugin/config in `config/vite.json`.
 - **Assets & Public**: static assets in `public/` and compiled frontend assets in `app/assets` and `public/vite-ssr` when SSR is used.
 - **Background Workers**: jobs live in `app/jobs/` and queue configuration in `config/queue.yml` (Sidekiq or ActiveJob adapter configured in environment files).
