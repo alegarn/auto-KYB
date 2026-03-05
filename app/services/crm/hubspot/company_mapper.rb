@@ -12,7 +12,7 @@ module Crm
       def to_hubspot_properties
         # Companies have slightly different property names in HubSpot than Contacts
         # but for simplicity we reuse the FieldMapper logic and adjust if needed.
-        props = Crm::FieldMapper.map_to_hubspot(@client, @data)
+        props = Crm::Hubspot::FieldMapper.map_to_hubspot(@client, @data)
         
         # Adjust property name differences for companies if any (HubSpot Company properties use 'name' instead of 'firstname'/'lastname')
         props[:name] = @client.company_name if @client.company_name.present?
@@ -26,7 +26,7 @@ module Crm
         known_keys = %w[company_id kyc_status]
         @data.each do |k, v|
           next if known_keys.include?(k.to_s)
-          next if Crm::FieldMapper::HUBSPOT_CONTACT_MAP.keys.include?(k.to_sym)
+          next if Crm::Hubspot::FieldMapper::HUBSPOT_CONTACT_MAP.keys.include?(k.to_sym)
           props[k.to_sym] = v if v.present?
         end
 

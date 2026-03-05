@@ -14,7 +14,7 @@ module Crm
       end
 
       def to_hubspot_properties
-        Crm::FieldMapper.map_to_hubspot(@client, @data).merge(extract_custom_properties).compact
+        Crm::Hubspot::FieldMapper.map_to_hubspot(@client, @data).merge(extract_custom_properties).compact
       end
 
       private
@@ -30,16 +30,10 @@ module Crm
         known_keys = %w[kyb_status kyc_status risk_score]
         @data.each do |k, v|
           next if known_keys.include?(k.to_s)
-          # Skip standard fields already handled by Crm::FieldMapper
-          next if Crm::FieldMapper::HUBSPOT_CONTACT_MAP.keys.include?(k.to_sym)
+          # Skip standard fields already handled by Crm::Hubspot::FieldMapper
+          next if Crm::Hubspot::FieldMapper::HUBSPOT_CONTACT_MAP.keys.include?(k.to_sym)
           custom[k.to_sym] = v if v.present?
         end
-        custom
-      end
-          next if known_keys.include?(k.to_s)
-          custom[k.to_sym] = v if v.present?
-        end
-
         custom
       end
 
