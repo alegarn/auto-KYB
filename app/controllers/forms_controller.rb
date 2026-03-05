@@ -46,7 +46,8 @@ class FormsController < ApplicationController
     form = current_user.forms.find(params[:id])
 
     render inertia: "forms/edit", props: {
-      form: FormDetailSerializer.new(form).as_json
+      form: FormDetailSerializer.new(form).as_json,
+      crmProperties: InertiaRails.defer { crm_properties }
     }
   end
 
@@ -62,56 +63,64 @@ class FormsController < ApplicationController
   end
 
   def test_crm_mapping
-    form = current_user.forms.find(params[:id])
+  form = current_user.forms.find(params[:id])
+  form_fields = params[:fields] || form.structure&.dig("fields") || []
 
-    # Dummy data from form fields
+  connections = Crm::ConnectionManager.active_connections_for(current_user)
+  if connections.empty?
+    render json: { error: "No active CRM connections found." }, status: :unprocessable_entity
+    return
+  end
+
+  # Dummy client
+  dummy_client = Data.define(:name, :email, :company_name, :phone, :address, :country, :company_id).new(
+    name: "Test Client",
+    email: "test_crm_#{SecureRandom.hex(4)}@example.com",
+    company_name: "Test Company #{SecureRandom.hex(2)}",
+    phone: "+33123456789",
+    address: "123 Test Street",
+    country: "FR",
+    company_id: "TC-#{SecureRandom.hex(4)}"
+  )
+
+  success = true
+  errors = []
+
+  connections.each do |conn|
+    service = Crm::ConnectionManager.service_for(conn)
+
+    # Dummy data from form fields mapped dynamically per CRM
     dummy_data = {}
-    (form.structure&.dig('fields') || []).each do |f|
-      type = f['field_type'].to_s
-      next if type == 'layout' || type == 'title' || type.start_with?('lay_') || type.start_with?('section')
-      key = f.dig('metadata', 'export_key').presence || f['label']
-      dummy_data[key] = type == 'number' ? rand(1..100) : "Test #{f['label']}"
+    form_fields.each do |f|
+      f = f.with_indifferent_access if f.respond_to?(:with_indifferent_access)
+      type = f["field_type"].to_s
+      next if [ "layout", "title" ].include?(type) || type.start_with?("lay_", "section")
+
+      provider_mapping = f.dig("metadata", "crm_mapping", conn.provider)
+      key = provider_mapping&.dig("property_name").presence ||
+            f.dig("metadata", "export_key").presence ||
+            f["label"]
+
+      dummy_data[key] = type == "number" ? rand(1..100) : "Test #{f['label']}"
     end
 
-    # Dummy client
-    dummy_client = OpenStruct.new(
-      name: "Test Client",
-      email: "test_crm_#{SecureRandom.hex(4)}@example.com",
-      company_name: "Test Company #{SecureRandom.hex(2)}",
-      phone: "+33123456789",
-      address: "123 Test Street",
-      country: "FR",
-      company_id: "TC-#{SecureRandom.hex(4)}"
-    )
-
-    connections = Crm::ConnectionManager.active_connections_for(current_user)
-    if connections.empty?
-      render json: { error: "No active CRM connections found." }, status: :unprocessable_entity
-      return
-    end
-
-    success = true
-    errors = []
-
-    connections.each do |conn|
-      service = Crm::ConnectionManager.service_for(conn)
-      result = service.export_data(dummy_client, dummy_data, [])
-      unless result[:success]
-        success = false
-        errors << "#{conn.provider.titleize}: #{result[:error]}"
-      end
-    end
-
-    if success
-      render json: { success: true }, status: :ok
-    else
-      render json: { error: errors.join(', ') }, status: :unprocessable_entity
+    result = service.export_data(dummy_client, dummy_data, [])
+    unless result[:success]
+      success = false
+      errors << "#{conn.provider.titleize}: #{result[:error]}"
     end
   end
 
-  def duplicate
+  if success
+    render json: { success: true }, status: :ok
+  else
+    render json: { error: errors.join(", ") }, status: :unprocessable_entity
+  end
+end
+
+def duplicate
     form = current_user.forms.find(params[:id])
-    new_form = FormService.duplicate_form(current_user, form)
+    FormService.duplicate_form(current_user, form)
 
     respond_to do |format|
       format.html do
@@ -129,20 +138,46 @@ class FormsController < ApplicationController
 
   def update
     form = current_user.forms.find(params[:id])
-    FormService.update_form(current_user, form, form_params.to_h)
+    
+    # Store the parameters locally so we can mutate them
+    current_params = form_params.to_h
+
+    # Check for requested custom CRM properties
+    custom_mappings = []
+    (current_params.dig(:structure, :fields) || current_params.dig("structure", "fields") || []).each do |f|
+      crm_mapping = (f[:metadata] || f["metadata"])&.dig("crm_mapping") || {}
+      crm_mapping.each do |provider, mapping|
+        if mapping["type"] == "custom"
+          # Generate a safe property name if blank
+          prop_name = mapping["property_name"].presence || (f["label"] || f[:label]).to_s.downcase.gsub(/[^a-z0-9_]/, "_")
+          # Update the form definition to set the implicit property name
+          mapping["property_name"] = prop_name
+          custom_mappings << { provider: provider, label: (f["label"] || f[:label]), property_name: prop_name }
+        end
+      end
+    end
+
+    # Call update_form exactly once with the potentially mutated parameters
+    FormService.update_form(current_user, form, current_params)
+
+    if custom_mappings.any?
+      CrmPropertyCreationJob.perform_later(current_user.id, custom_mappings)
+    end
+
     respond_to do |format|
       format.json { render json: FormDetailSerializer.new(form).as_json, status: :ok }
       format.html do
         redirect_to edit_form_path(form), flash: {
           inertia: {
-            toast: {
-              message: "Form edited",
-              type: "notice"
-            }
+          toast: {
+            message: "Form edited",
+            type: "notice"
           }
-        }, status: :see_other
-      end
+        }
+      }, status: :see_other
     end
+  end
+
   rescue FormService::DataLossWarning
     redirect_to edit_form_path(form), flash: {
       inertia: {
@@ -183,6 +218,22 @@ class FormsController < ApplicationController
               .where(form_id: form_ids)
               .distinct
               .pluck(:form_id)
+  end
+
+  def crm_properties
+    connections = Crm::ConnectionManager.active_connections_for(current_user)
+    properties = {}
+
+    if connections.any? { |c| c.provider == "hubspot" }
+      begin
+        properties[:hubspot] = Crm::Hubspot::PropertiesService.new(current_user).list_properties
+      rescue StandardError => e
+        Rails.logger.error("[FormsController#crm_properties] #{e.message}")
+        properties[:hubspot] = []
+      end
+    end
+
+    properties
   end
 
   def form_params

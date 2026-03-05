@@ -11,31 +11,36 @@
   import { form_path } from '@/routes';
   import Toast from "/components/customs/Toast.svelte"
   import Modal from '@/components/ui/modal.svelte';
+  import CrmMappingModal from '@/components/customs/CrmMappingModal.svelte';
 
-  let { form: initial, errors: serverErrors, error: serverError } = $props()
+  let { form: initial, errors: serverErrors, error: serverError, crmProperties } = $props()
 
-  let name = $derived(initial?.name || "")
-  let fields = $derived<FormField[]>(
-    (initial?.form_fields || []).map((f: any, i: number) => ({
+  let name = $state(initial?.name || "")
+  let fields = $state<FormField[]>([])
+  let settings = $state<FormSettings>({})
+  let clientError = $state("")
+  let submitting = $state(false)
+  let showMappingWarning = $state(false)
+  let mappingValid = $state(true)
+
+  // Sync state with props
+  $effect(() => {
+    name = initial?.name || "";
+    fields = (initial?.form_fields || []).map((f: any, i: number) => ({
       id: f.id,
       label: f.label,
       field_type: f.field_type,
       required: !!f.required,
       position: f.position || i + 1,
       metadata: f.metadata || {},
-    }))
-  )
-  let settings = $derived<FormSettings>(initial?.structure?.settings || {})
-  let clientError = $state("")
-  let submitting = $state(false)
-  let showMappingWarning = $state(false)
-  let mappingValid = $state(true)
+    }));
+    settings = initial?.structure?.settings || {};
+  });
 
   // preview state
   let preview = $state(false)
   let results = $state<Record<string, any>>({})
   let outputFormat = $state('json')
-  const formSettings = $derived<FormSettings>(settings || {})
   // @ts-ignore: Property 'toast' does not exist on type 'FlashData'
   const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null)
   
@@ -160,9 +165,25 @@
     testingCrm = true;
     try {
       const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+      
+      const payload = {
+        fields: fields.map((f, i) => ({
+          ...(f.id ? { id: f.id } : {}),
+          label: f.label,
+          field_type: f.field_type,
+          required: f.required,
+          position: i + 1,
+          metadata: f.metadata || {},
+        }))
+      };
+      
       const response = await fetch(`/forms/${initial?.id}/test_crm_mapping`, {
         method: 'POST',
-        headers: { 'X-CSRF-Token': csrf }
+        headers: { 
+          'X-CSRF-Token': csrf,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
       if (response.ok) {
         testCrmSuccess = true;
@@ -183,7 +204,6 @@
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-semibold">Edit Form</h1>
         <div class="flex gap-2">
-          <Button type="button" variant="outline" onclick={openCrmMapping}>Test CRM Mapping</Button>
           <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
           <Button type="button" onclick={handleSubmit} disabled={submitting}>
             {submitting ? 'Saving...' : 'Save Changes'}
@@ -224,22 +244,25 @@
         <Input id="form-name" bind:value={name} placeholder="Enter form name" />
       </div>
 
-      <div class="mb-4 flex items-center gap-2">
-        <button type="button" class="px-3 py-1 rounded" class:font-semibold={!preview} onclick={() => { preview = false; results = {} }}>
-          Edit
-        </button>
-        <button type="button" class="px-3 py-1 rounded" class:font-semibold={preview} onclick={() => { preview = true; results = {} }}>
-          Preview
-        </button>
+      <div class="mb-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <button type="button" class="px-3 py-1 rounded" class:font-semibold={!preview} onclick={() => { preview = false; results = {} }}>
+            Edit
+          </button>
+          <button type="button" class="px-3 py-1 rounded" class:font-semibold={preview} onclick={() => { preview = true; results = {} }}>
+            Preview
+          </button>
+        </div>
+        <Button type="button" variant="outline" size="sm" onclick={openCrmMapping}>🔌 CRM Sync Settings</Button>
       </div>
 
       {#if preview}
         <div
           class="rounded-lg border shadow-sm overflow-hidden mb-4 w-full"
-          style:background-color={formSettings.form_background_color || '#ffffff'}
+          style:background-color={settings.form_background_color || '#ffffff'}
         >
-          {#if formSettings.header_background_color}
-            <div class="px-6 py-4" style:background-color={formSettings.header_background_color}>
+          {#if settings.header_background_color}
+            <div class="px-6 py-4" style:background-color={settings.header_background_color}>
               <h2 class="text-lg font-semibold">{name}</h2>
             </div>
           {/if}
@@ -277,7 +300,7 @@
             <button
               type="submit"
               class="mt-4 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
-              style:background-color={formSettings.primary_color || '#2563eb'}
+              style:background-color={settings.primary_color || '#2563eb'}
             >
               Submit Preview
             </button>
@@ -315,42 +338,18 @@
         {/if}
       {/if}
 
-      <Modal
-        open={showCrmMappingModal}
-        onClose={closeCrmMapping}
-        onConfirm={sendTestCrmData}
-        confirmText={testingCrm ? "Sending..." : "Send Test Data"}
-        confirmDisabled={testingCrm}
-      >
-        {#snippet header()}
-          <h2 class="text-lg font-semibold">Test CRM Mapping</h2>
-          <p class="text-sm text-muted-foreground">Preview how your form fields map to CRM fields and send test data.</p>
-        {/snippet}
-
-        <div class="space-y-4 py-2">
-          {#if testCrmSuccess}
-            <div class="p-3 bg-emerald-50 text-emerald-700 rounded-md text-sm font-medium">
-              Test data successfully sent to connected CRMs!
-            </div>
-          {:else}
-            <div class="space-y-3">
-              <h3 class="text-sm font-medium">Field Mapping Preview</h3>
-              <div class="border rounded-md divide-y">
-                {#each fields.filter(f => !isLayoutField(f.field_type)) as field}
-                  <div class="flex items-center justify-between p-3 text-sm">
-                    <div class="font-medium">{field.label || 'Unnamed Field'}</div>
-                    <div class="text-muted-foreground flex items-center gap-2">
-                      <span>&rarr;</span>
-                      <span class="bg-muted px-2 py-1 rounded">{field.metadata?.export_key || field.label || 'unmapped'}</span>
-                    </div>
-                  </div>
-                {/each}
-              </div>
-              <p class="text-xs text-muted-foreground mt-2">
-                Click "Send Test Data" to create a test record in your connected CRMs using placeholder values.
-              </p>
-            </div>
-          {/if}
-        </div>
-      </Modal>
+      <CrmMappingModal
+        bind:open={showCrmMappingModal}
+        form={initial}
+        {crmProperties}
+        {fields}
+        onsave={({ fields: updatedFields }: { fields: FormField[] }) => {
+          fields = updatedFields;
+          closeCrmMapping();
+          handleSubmit();
+        }}
+        ontestcrm={sendTestCrmData}
+        {testingCrm}
+        {testCrmSuccess}
+      />
 </section>
