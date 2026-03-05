@@ -3,7 +3,7 @@ class ClientsController < ApplicationController
   FILTER_ALL = "all"
 
   before_action :authorize_subscription
-  before_action :set_client, only: %i[show edit update destroy export export_to_crm]
+  before_action :set_client, only: %i[show edit update destroy export export_to_crm crm_match_suggestions crm_contact_details link_crm_contact create_crm_contact]
 
   def index
     scope = Client.by_user(current_user.id).order(created_at: :desc)
@@ -34,7 +34,7 @@ class ClientsController < ApplicationController
       forms: forms_for_select,
       file_retention: FileRetentionPolicy.as_json,
       uploaded_files: UploadedFileSerializer.collection(@client.uploaded_files.available),
-      crm_connections: current_user.crm_connections.where(status: 'active').as_json(only: [:id, :provider])
+      crm_connections: current_user.crm_connections.where(status: "active").as_json(only: [ :id, :provider ])
     )
   end
 
@@ -112,6 +112,8 @@ class ClientsController < ApplicationController
     client = current_user.clients.new(client_params)
 
     if client.save
+      CrmSyncService.call(client, crm_sync_params[:strategy], external_contact_id: crm_sync_params[:external_contact_id])
+
       form_id = client_form_params[:form_id]
 
       if form_id.present?
@@ -146,7 +148,9 @@ class ClientsController < ApplicationController
     render inertia: "Clients/Edit", props: {
       client: ClientSerializer.new(@client).as_json,
       forms: forms_for_select,
-      current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id
+      current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id,
+      has_crm_link: !!@client.crm_client_link,
+      has_active_crm_connection: current_user.crm_connections.active.exists?
     }
   end
 
@@ -199,6 +203,96 @@ class ClientsController < ApplicationController
     redirect_to clients_path, status: :see_other
   end
 
+
+
+
+  def crm_match_suggestions
+    connection = current_user.crm_connections.active.first
+    if connection.nil? || @client.email.blank? || @client.crm_client_link.present?
+      render json: { match: nil }
+      return
+    end
+
+    service = Crm::ConnectionManager.service_for(connection)
+    contact = service.search_contact_by_email(@client.email)
+
+    render json: { match: contact }
+  rescue => e
+    Rails.logger.error("CRM Match Failed: #{e.message}")
+    render json: { match: nil }
+  end
+
+  def crm_contact_details
+    external_id = params[:external_contact_id] || @client.crm_client_link&.external_contact_id
+    
+    unless external_id
+      render json: { error: "No external contact ID provided" }, status: :bad_request
+      return
+    end
+
+    connection = current_user.crm_connections.active.first
+    unless connection
+      render json: { error: "No active CRM connection" }, status: :not_found
+      return
+    end
+
+    service = Crm::ConnectionManager.service_for(connection)
+    contact = service.fetch_contact(external_id)
+
+    if contact
+      render json: contact
+    else
+      render json: { error: "Contact not found in CRM" }, status: :not_found
+    end
+  rescue => e
+    Rails.logger.error("CRM Details Failed: #{e.message}")
+    render json: { error: e.message }, status: :internal_server_error
+  end
+
+  def link_crm_contact
+    connection = current_user.crm_connections.active.first
+    unless connection
+      render json: { success: false, error: "No CRM connection" }, status: :unprocessable_entity
+      return
+    end
+
+    external_id = params[:external_contact_id]
+
+    if external_id.present?
+      CrmClientLink.find_or_create_by!(
+        client: @client,
+        crm_connection: connection
+      ) do |link|
+        link.external_contact_id = external_id
+      end
+    end
+
+    # Fetch and update client attributes from CRM if available
+    begin
+      service = Crm::ConnectionManager.service_for(connection)
+      contact = service.fetch_contact(external_id)
+      if contact
+        @client.update!(
+          name: contact[:name].presence || @client.name,
+          email: contact[:email].presence || @client.email,
+          phone: contact[:phone].presence || @client.phone,
+          company_name: contact[:company_name].presence || @client.company_name,
+          country: contact[:country].presence || @client.country,
+          address: (@client.address || {}).merge(contact[:address] || {})
+        )
+      end
+    rescue => e
+      Rails.logger.error("Failed to update client from CRM during link: #{e.message}")
+    end
+
+    redirect_to edit_client_path(@client), notice: "Client linked to CRM and updated successfully."
+  end
+
+  def create_crm_contact
+    CrmSyncService.call(@client, "create")
+    redirect_to edit_client_path(@client), notice: "Client created in CRM successfully."
+  end
+
   private
 
   def authorize_subscription
@@ -207,6 +301,10 @@ class ClientsController < ApplicationController
 
   def client_params
     params.require(:client).permit(:name, :company_name, :company_id, :email, :phone, :country, address: %i[street city country postal_code])
+  end
+
+  def crm_sync_params
+    params.fetch(:crm, {}).permit(:strategy, :external_contact_id)
   end
 
   def client_form_params
@@ -238,5 +336,4 @@ class ClientsController < ApplicationController
 
     render inertia: view, props: props, status: :unprocessable_entity
   end
-
 end

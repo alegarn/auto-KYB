@@ -1,6 +1,8 @@
 class CrmConnection < ApplicationRecord
+
   belongs_to :user
   has_many :crm_transfers, dependent: :destroy
+  has_many :crm_client_links, dependent: :destroy
 
   PROVIDERS = %w[hubspot salesforce zoho].freeze
 
@@ -24,4 +26,5 @@ class CrmConnection < ApplicationRecord
   def token_expires_soon?(buffer: 5.minutes)
     expires_at.present? && expires_at < (Time.current + buffer)
   end
+
 end

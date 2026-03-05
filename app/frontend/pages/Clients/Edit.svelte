@@ -5,6 +5,7 @@
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
   import Toast from '@/components/customs/Toast.svelte';
+  import CrmMatchBanner from '/components/CrmMatchBanner.svelte';
   import { client_path } from '@/routes';
   import { fetchCountriesData } from '/lib/countries';
 
@@ -15,6 +16,8 @@
     current_form_id = null,
     confirm_message = null,
     attempted_form_id = null,
+    has_crm_link = false,
+    has_active_crm_connection = false,
     confirm_replace_required = false } = $props();
 
   // modal and form state
@@ -73,14 +76,14 @@
     setTimeout(() => confirmDialog?.focus(), 0);
   }
 
-  // selected form the user may pick (local der$derived so we can bind and update)
+  // selected form the user may pick (local state so we can bind and update)
   let selectedForm = $derived(attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null));
 
   let countries = $state<Array<{ name: string; code: string; flag: string }>>([]);
   let countryOptions = $derived(
     (countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag }))
   );
-  // preserve server-sent initial value but do not mutate it on SSR; keep value available for client
+  // preserve server-sent initial value but allow user to change
   let selectedCountry = $derived(client?.country || '');
 
   let countriesLoading = $state(false);
@@ -107,6 +110,46 @@
     fetchCountries();
   });
 
+  async function fetchCrmDetails() {
+    try {
+      const resp = await fetch(`/clients/${client?.id}/crm_contact_details`);
+      if (resp.ok) {
+        const crmData = await resp.json();
+        if (crmData) {
+          // Fill empty fields
+          const nameInput = document.querySelector<HTMLInputElement>('input[name="client[name]"]');
+          if (nameInput && !nameInput.value && crmData.name) nameInput.value = crmData.name;
+
+          const emailInput = document.querySelector<HTMLInputElement>('input[name="client[email]"]');
+          if (emailInput && !emailInput.value && crmData.email) emailInput.value = crmData.email;
+
+          const companyInput = document.querySelector<HTMLInputElement>('input[name="client[company_name]"]');
+          if (companyInput && !companyInput.value && crmData.company_name) companyInput.value = crmData.company_name;
+
+          const phoneInput = document.querySelector<HTMLInputElement>('input[name="client[phone]"]');
+          if (phoneInput && !phoneInput.value && crmData.phone) phoneInput.value = crmData.phone;
+
+          if (!selectedCountry && crmData.country) {
+            selectedCountry = crmData.country;
+          }
+
+          if (crmData.address) {
+            const streetInput = document.querySelector<HTMLInputElement>('input[name="client[address][street]"]');
+            if (streetInput && !streetInput.value && crmData.address.street) streetInput.value = crmData.address.street;
+
+            const cityInput = document.querySelector<HTMLInputElement>('input[name="client[address][city]"]');
+            if (cityInput && !cityInput.value && crmData.address.city) cityInput.value = crmData.address.city;
+
+            const postalInput = document.querySelector<HTMLInputElement>('input[name="client[address][postal_code]"]');
+            if (postalInput && !postalInput.value && crmData.address.postal_code) postalInput.value = crmData.address.postal_code;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch CRM details', err);
+    }
+  }
+
   // form submission state
   let confirmedReplace = $state(false);
 
@@ -121,9 +164,9 @@
   )
 
   // currently linked form (if provided via client props)
-  const currentLinkedForm = $derived(() => {
+  const currentLinkedForm = $derived.by(() => {
     const linkedId = current_form_id || client?.client_form_id || client?.form_id || client?.form?.id;
-    return (forms && forms.length) ? forms.find((f) => String(f.id) === String(linkedId)) : null;
+    return (forms && forms.length) ? forms.find((f: any) => String(f.id) === String(linkedId)) : null;
   });
 
   const hasError = (field: string) => {
@@ -138,6 +181,20 @@
         <h1 class="text-2xl font-semibold">Edit client</h1>
         <p class="text-sm text-muted-foreground">{client?.email}</p>
       </header>
+
+      {#if has_active_crm_connection && !has_crm_link && client?.email}
+        <CrmMatchBanner clientId={client.id} clientEmail={client.email} />
+      {/if}
+
+      {#if has_active_crm_connection && has_crm_link}
+        <div class="mb-4 p-4 border rounded bg-muted/20 flex justify-between items-center">
+          <div class="text-sm">
+            <span class="font-medium text-blue-600">CRM Link Active</span>
+            <p class="text-muted-foreground italic">You can fill missing fields with data from your CRM.</p>
+          </div>
+          <Button variant="outline" size="sm" onclick={fetchCrmDetails}>Complete with CRM data</Button>
+        </div>
+      {/if}
 
       {#if flashToast}
         <Toast message={flashToast.message ?? confirm_message ?? 'Confirmed'} type={flashToast.type ?? 'notice'} />
@@ -173,8 +230,8 @@
             <div class="mt-1">
               {#if client?.status === "validated"}
                 {#if currentLinkedForm}
-                  <span class="text-sm text-muted-foreground">{currentLinkedForm()?.name} <span class="ml-2 text-xs px-2 py-0.5 rounded bg-green-100 text-green-800">validated</span></span>
-                  <input type="hidden" name="client_form[form_id]" value={currentLinkedForm()?.id ?? ''} />
+                  <span class="text-sm text-muted-foreground">{currentLinkedForm?.name} <span class="ml-2 text-xs px-2 py-0.5 rounded bg-green-100 text-green-800">validated</span></span>
+                  <input type="hidden" name="client_form[form_id]" value={currentLinkedForm?.id ?? ''} />
                 {:else}
                   <span class="text-sm text-muted-foreground"><em>None</em></span>
                 {/if}

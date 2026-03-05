@@ -25,10 +25,18 @@ Rails.application.routes.draw do
     member do
       get :export
       post :export_to_crm
+      get :crm_match_suggestions
+      get :crm_contact_details
+      post :link_crm_contact
+      post :create_crm_contact
     end
   end
 
   resources :crm_transfers, only: [:index]
+  
+  namespace :crm do
+    resources :imports, only: [:index]
+  end
   
   resources :crm_connections, only: [:create, :destroy] do
     collection do
