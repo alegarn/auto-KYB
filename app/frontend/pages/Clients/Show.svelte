@@ -378,30 +378,49 @@
       {/if}
 
       <!-- Data Exports & Actions -->
-      <div class="flex flex-col gap-4 pt-4 border-t">
-        <div class="flex flex-wrap items-center gap-3">
-          <span class="text-sm font-medium text-muted-foreground mr-2">Export Data:</span>
-          <a href={export_client_path(client['id'], { format: "json" })} target="_blank" rel="noopener" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors" aria-label="Export client as JSON">
-            Client Profile (JSON)
-          </a>
-          <a href={export_client_path(client['id'], { format: "csv" })} target="_blank" rel="noopener" class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors" aria-label="Export client as CSV">
-            Client Profile (CSV)
-          </a>
+      <div class="pt-8 mt-4 border-t">
+        <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+          <Download class="size-5 text-muted-foreground" />
+          Data inventory & exports
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Client Profile Exports -->
+          <div class="p-4 rounded-xl border bg-muted/30">
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Client profile</h3>
+            <div class="flex flex-wrap gap-2">
+              <a href={export_client_path(client['id'], { format: "json" })} target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium bg-background border shadow-sm hover:bg-muted transition-colors" aria-label="Export client as JSON">
+                <FileText class="size-4" /> JSON
+              </a>
+              <a href={export_client_path(client['id'], { format: "csv" })} target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium bg-background border shadow-sm hover:bg-muted transition-colors" aria-label="Export client as CSV">
+                <FileText class="size-4" /> CSV
+              </a>
+            </div>
+          </div>
+
+          <!-- Form Response Exports -->
           {#if client_form && client_form.status === 'validated'}
-            <a
-              href={export_responses_client_form_path(client_form.id, { format: "csv" })}
-              target="_blank"
-              rel="noopener"
-              class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-              aria-label="Export form responses as CSV"
-            >
-              Form Responses (CSV)
-            </a>
-            <Button variant="outline" size="sm" onclick={openCrmExport} class="h-9">
-              Export Form Answers to CRM
-            </Button>
+            <div class="p-4 rounded-xl border bg-muted/30">
+              <h3 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Form responses</h3>
+              <div class="flex flex-wrap gap-2">
+                <a
+                  href={export_responses_client_form_path(client_form.id, { format: "csv" })}
+                  target="_blank"
+                  rel="noopener"
+                  class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium bg-background border shadow-sm hover:bg-muted transition-colors"
+                  aria-label="Export form responses as CSV"
+                >
+                  <Download class="size-4" /> Download CSV
+                </a>
+                <Button variant="outline" onclick={openCrmExport} class="gap-2 shadow-sm">
+                  <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Export to CRM
+                </Button>
+              </div>
+            </div>
           {/if}
         </div>
+      </div>
         
         <Modal
           open={showConfirm}
@@ -409,19 +428,17 @@
           onConfirm={confirmDelete}
         >
           {#snippet header()}
-            <h2 class="text-lg font-semibold">Delete client</h2>
+            <h2 class="text-lg font-semibold border-none">Delete client</h2>
             <p class="text-sm text-muted-foreground">This will permanently delete the client. This action cannot be undone.</p>
           {/snippet}
 
           <p class="text-sm text-muted-foreground">Are you sure you want to delete this client?</p>
         </Modal>
-      </div>
     {:else}
       <div class="flex flex-col items-center justify-center p-12 text-center border rounded-xl bg-card">
         <p class="text-lg font-medium text-muted-foreground">Client not found.</p>
       </div>
     {/if}
-
     <!-- Footer Navigation -->
     <div class="flex gap-3 pt-6">
       <Button href={clients_path()} variant="outline">Back to clients</Button>

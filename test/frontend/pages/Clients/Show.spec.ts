@@ -126,7 +126,7 @@ test('shows export button when client_form exists', () => {
   const withinSection = within(mainSection!);
 
   // The export button should be in the document when client_form exists
-  const exportButton = withinSection.getByText('Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Download CSV');
   expect(exportButton).toBeInTheDocument();
 });
 
@@ -155,7 +155,7 @@ test('export button has correct href with client_form.id', () => {
   const withinSection = within(mainSection!);
 
   // Find the export button by its text
-  const exportButton = withinSection.getByText('Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Download CSV');
   
   // Verify the href attribute contains the client_form.id
   expect(exportButton).toHaveAttribute('href', '/client_forms/42/export_responses');
@@ -186,7 +186,7 @@ test('export button has target="_blank" and rel="noopener" attributes', () => {
   const withinSection = within(mainSection!);
 
   // Find the export button by its text
-  const exportButton = withinSection.getByText('Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Download CSV');
   
   // Verify the target and rel attributes
   expect(exportButton).toHaveAttribute('target', '_blank');
@@ -218,10 +218,10 @@ test('export button has correct CSS classes and aria-label', () => {
   const withinSection = within(mainSection!);
 
   // Find the export button by its text
-  const exportButton = withinSection.getByText('Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Download CSV');
   
   // Verify the CSS classes
-  expect(exportButton).toHaveClass('inline-flex', 'items-center', 'rounded-md', 'px-4', 'py-2', 'text-sm', 'font-medium', 'bg-secondary', 'text-secondary-foreground', 'hover:bg-secondary/80', 'transition-colors');
+  expect(exportButton).toHaveClass('inline-flex', 'items-center', 'rounded-md', 'px-4', 'py-2', 'text-sm', 'font-medium');
   
   // Verify the aria-label
   expect(exportButton).toHaveAttribute('aria-label', 'Export form responses as CSV');
@@ -367,7 +367,8 @@ test('renders Export (CSV) button for client', () => {
   const mainSection = container.querySelector('section');
   const withinSection = within(mainSection!);
 
-  expect(withinSection.getByText('Client Profile (CSV)')).toBeInTheDocument();
+  expect(withinSection.getByText('CSV')).toBeInTheDocument();
+  expect(withinSection.getByText('JSON')).toBeInTheDocument();
 });
 
 test('renders Back to clients and Back to dashboard buttons', () => {
@@ -451,7 +452,7 @@ test('opens CRM export modal when clicking Export Form Answers to CRM', async ()
   const mainSection = container.querySelector('section');
   const withinSection = within(mainSection!);
 
-  const crmExportBtn = withinSection.getByText('Export Form Answers to CRM');
+  const crmExportBtn = withinSection.getByText('Export to CRM');
   await userEvent.click(crmExportBtn);
 
   // Check if modal title appears
