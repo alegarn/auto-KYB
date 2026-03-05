@@ -19,21 +19,40 @@
   let prefilled = $state(false);
 
   function handleCrmSync(data: any) {
+    if (!data.prefillData) {
+      crmSyncData = { ...data, strategy: data.strategy };
+      return;
+    }
+
+    // Always update the base data
     crmSyncData = data;
-    if (data.prefillData && !prefilled) {
-      // Auto-prefill the page inputs. The page has DOM inputs, but some don't have bind:value. 
-      // If the app uses standard form element names like client[name], we need to set them.
-      // Easiest is to set DOM values if available, or update the local state that binds to inputs.
-      const nameInput = document.querySelector<HTMLInputElement>('input[name="client[name]"]');
-      if (nameInput && data.prefillData.name) {
-        nameInput.value = data.prefillData.name;
-      }
-      const emailInput = document.querySelector<HTMLInputElement>('input[name="client[email]"]');
-      if (emailInput && data.prefillData.email) emailInput.value = data.prefillData.email;
-      const companyInput = document.querySelector<HTMLInputElement>('input[name="client[company_name]"]');
-      if (companyInput && data.prefillData.company_name) companyInput.value = data.prefillData.company_name;
-      
-      prefilled = true;
+
+    // Prefill logic
+    const nameInput = document.querySelector<HTMLInputElement>('input[name="client[name]"]');
+    if (nameInput && data.prefillData.name) nameInput.value = data.prefillData.name;
+    
+    const emailInput = document.querySelector<HTMLInputElement>('input[name="client[email]"]');
+    if (emailInput && data.prefillData.email) emailInput.value = data.prefillData.email;
+    
+    const companyInput = document.querySelector<HTMLInputElement>('input[name="client[company_name]"]');
+    if (companyInput && data.prefillData.company_name) companyInput.value = data.prefillData.company_name;
+
+    const phoneInput = document.querySelector<HTMLInputElement>('input[name="client[phone]"]');
+    if (phoneInput && data.prefillData.phone) phoneInput.value = data.prefillData.phone;
+
+    if (data.prefillData.country) {
+      selectedCountry = data.prefillData.country;
+    }
+
+    if (data.prefillData.address) {
+      const streetInput = document.querySelector<HTMLInputElement>('input[name="client[address][street]"]');
+      if (streetInput && data.prefillData.address.street) streetInput.value = data.prefillData.address.street;
+
+      const cityInput = document.querySelector<HTMLInputElement>('input[name="client[address][city]"]');
+      if (cityInput && data.prefillData.address.city) cityInput.value = data.prefillData.address.city;
+
+      const postalInput = document.querySelector<HTMLInputElement>('input[name="client[address][postal_code]"]');
+      if (postalInput && data.prefillData.address.postal_code) postalInput.value = data.prefillData.address.postal_code;
     }
   }
 

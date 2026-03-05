@@ -26,6 +26,7 @@ Rails.application.routes.draw do
       get :export
       post :export_to_crm
       get :crm_match_suggestions
+      get :crm_contact_details
       post :link_crm_contact
       post :create_crm_contact
     end

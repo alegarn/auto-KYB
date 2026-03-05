@@ -77,14 +77,14 @@
   }
 
   // selected form the user may pick (local state so we can bind and update)
-  let selectedForm = $state(attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null));
+  let selectedForm = $derived(attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null));
 
   let countries = $state<Array<{ name: string; code: string; flag: string }>>([]);
   let countryOptions = $derived(
     (countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag }))
   );
   // preserve server-sent initial value but allow user to change
-  let selectedCountry = $state(client?.country || '');
+  let selectedCountry = $derived(client?.country || '');
 
   let countriesLoading = $state(false);
   let countriesError = $state(null);
@@ -109,6 +109,46 @@
   onMount(() => {
     fetchCountries();
   });
+
+  async function fetchCrmDetails() {
+    try {
+      const resp = await fetch(`/clients/${client?.id}/crm_contact_details`);
+      if (resp.ok) {
+        const crmData = await resp.json();
+        if (crmData) {
+          // Fill empty fields
+          const nameInput = document.querySelector<HTMLInputElement>('input[name="client[name]"]');
+          if (nameInput && !nameInput.value && crmData.name) nameInput.value = crmData.name;
+
+          const emailInput = document.querySelector<HTMLInputElement>('input[name="client[email]"]');
+          if (emailInput && !emailInput.value && crmData.email) emailInput.value = crmData.email;
+
+          const companyInput = document.querySelector<HTMLInputElement>('input[name="client[company_name]"]');
+          if (companyInput && !companyInput.value && crmData.company_name) companyInput.value = crmData.company_name;
+
+          const phoneInput = document.querySelector<HTMLInputElement>('input[name="client[phone]"]');
+          if (phoneInput && !phoneInput.value && crmData.phone) phoneInput.value = crmData.phone;
+
+          if (!selectedCountry && crmData.country) {
+            selectedCountry = crmData.country;
+          }
+
+          if (crmData.address) {
+            const streetInput = document.querySelector<HTMLInputElement>('input[name="client[address][street]"]');
+            if (streetInput && !streetInput.value && crmData.address.street) streetInput.value = crmData.address.street;
+
+            const cityInput = document.querySelector<HTMLInputElement>('input[name="client[address][city]"]');
+            if (cityInput && !cityInput.value && crmData.address.city) cityInput.value = crmData.address.city;
+
+            const postalInput = document.querySelector<HTMLInputElement>('input[name="client[address][postal_code]"]');
+            if (postalInput && !postalInput.value && crmData.address.postal_code) postalInput.value = crmData.address.postal_code;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch CRM details', err);
+    }
+  }
 
   // form submission state
   let confirmedReplace = $state(false);
@@ -144,6 +184,16 @@
 
       {#if has_active_crm_connection && !has_crm_link && client?.email}
         <CrmMatchBanner clientId={client.id} clientEmail={client.email} />
+      {/if}
+
+      {#if has_active_crm_connection && has_crm_link}
+        <div class="mb-4 p-4 border rounded bg-muted/20 flex justify-between items-center">
+          <div class="text-sm">
+            <span class="font-medium text-blue-600">CRM Link Active</span>
+            <p class="text-muted-foreground italic">You can fill missing fields with data from your CRM.</p>
+          </div>
+          <Button variant="outline" size="sm" onclick={fetchCrmDetails}>Complete with CRM data</Button>
+        </div>
       {/if}
 
       {#if flashToast}

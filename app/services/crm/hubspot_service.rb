@@ -102,6 +102,11 @@ module Crm
       Crm::Hubspot::DataFetcher.new(hubspot_client).search_contact_by_email(email)
     end
 
+    def fetch_contact(external_id)
+      ensure_valid_token!
+      Crm::Hubspot::DataFetcher.new(hubspot_client).fetch_contact(external_id)
+    end
+
     # --- Import (HubSpot -> Quick KYB) ---
 
     def oauth

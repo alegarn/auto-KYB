@@ -36,6 +36,13 @@ module Crm
       raise NotImplementedError, "#{self.class} must implement #test_connection"
     end
 
+    # Fetches a contact by external ID
+    # @param external_id [String] The CRM's external ID
+    # @return [Hash] The mapped contact data
+    def fetch_contact(external_id)
+      raise NotImplementedError, "#{self.class} must implement #fetch_contact"
+    end
+
     protected
 
     def ensure_valid_token!
