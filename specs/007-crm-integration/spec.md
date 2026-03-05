@@ -187,6 +187,24 @@ As a user, I want to export a client from the application to a connected CRM as 
 
 ---
 
+### User Story 10 - Form-Level CRM Field Mapping Configuration (Priority: P1)
+
+As a user, I want to configure how form fields map to CRM properties directly within the form builder, so that I have clear, contextual control over where collected data is exported.
+
+**Why this priority**: Users need explicit control over how dynamic form data corresponds to CRM records. Auto-mapping might miss edge cases, and giving users the choice to use existing CRM default properties or dynamically create new custom properties in the CRM guarantees accurate data representation.
+
+**Independent Test**: Can be tested mathematically in a mock environment by interacting with the Form Builder's "CRM Mapping" tab, selecting "Create Custom Property" vs an "Existing Property", and verifying the payload structures generated upon form submission.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is editing a form, **When** they open the CRM Mapping settings, **Then** they see a table matching Form Fields to corresponding CRM Properties for the selected CRM
+2. **Given** the user adds a new form field, **When** they view the mapping settings, **Then** the system automatically auto-suggests a corresponding CRM property using fuzzy matching
+3. **Given** a form field does not match any existing standard CRM property, **When** the mapper loads, **Then** the field defaults to the "Create as Custom Property" action
+4. **Given** the user configures a field to "Create as Custom Property", **When** the form mapping is saved (or form submitted), **Then** the application asynchronously creates that custom property in the CRM via API
+5. **Given** the user wants to map standard app fields (e.g. client name, company email), **When** they check the standard mappings section in global settings, **Then** they see the hardcoded mappings which represent where core entities route to their CRM
+
+---
+
 ### Edge Cases
 
 - What happens when the user has no active CRM connections and a client validates their form? The form validation proceeds normally, but no data transfer occurs. The user is notified that no CRM connection is active.
@@ -254,6 +272,11 @@ As a user, I want to export a client from the application to a connected CRM as 
 - **FR-038**: System MUST include test file uploads when verifying CRM data transfer for forms with file fields
 - **FR-039**: System MUST allow users to select which CRM(s) to test when multiple connections are active
 - **FR-040**: System MUST provide links to view test records in CRM after successful test data transfer
+- **FR-041**: System MUST allow users to explicitly configure CRM field mappings for custom form fields within the form builder interface
+- **FR-042**: System MUST automatically suggest corresponding CRM properties using fuzzy matching algorithms against form field names
+- **FR-043**: System MUST fall back to a "Create as Custom Property" configuration by default when no matching CRM standard property is found
+- **FR-044**: System MUST automatically create custom properties in the respective CRMs via their APIs when a payload with "custom property" mappings is dispatched
+- **FR-045**: System MUST provide a read-only list in global settings displaying where core application fields (name, company, email) are mapped by default
 
 ### Key Entities
 
