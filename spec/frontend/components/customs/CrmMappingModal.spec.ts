@@ -34,9 +34,15 @@ describe('CrmMappingModal', () => {
     const user = userEvent.setup();
     render(CrmMappingModal, { props: { ...defaultProps, onsave: vi.fn() } });
     
-    const selects = screen.getAllByRole('combobox');
-    // Map 'Is Active' (boolean) to HubSpot 'Age' (number)
-    await user.selectOptions(selects[1], 'contact:age');
+    // With bits-ui Select, we interact with the triggers
+    const triggers = screen.getAllByRole('combobox');
+    
+    // Open 'Is Active' select (second one)
+    await user.click(triggers[1]);
+    
+    // Find the 'Age' option in the popover and click it
+    const ageOption = screen.getByText('Age');
+    await user.click(ageOption);
 
     expect(screen.getByText(/Type mismatch: boolean vs number/i)).toBeInTheDocument();
   });
@@ -45,9 +51,14 @@ describe('CrmMappingModal', () => {
     const user = userEvent.setup();
     render(CrmMappingModal, { props: { ...defaultProps, onsave: vi.fn() } });
     
-    const selects = screen.getAllByRole('combobox');
-    // Map 'Company Name' (text) to HubSpot 'Company' (string)
-    await user.selectOptions(selects[0], 'contact:company');
+    const triggers = screen.getAllByRole('combobox');
+    
+    // Open 'Company Name' select
+    await user.click(triggers[0]);
+    
+    // Find the 'Company' option
+    const companyOption = screen.getByText('Company');
+    await user.click(companyOption);
 
     expect(screen.queryByText(/Type mismatch/i)).not.toBeInTheDocument();
   });
@@ -63,8 +74,11 @@ describe('CrmMappingModal', () => {
       }
     });
 
-    const selects = screen.getAllByRole('combobox');
-    await user.selectOptions(selects[0], 'contact:company');
+    const triggers = screen.getAllByRole('combobox');
+    await user.click(triggers[0]);
+    
+    const companyOption = screen.getByText('Company');
+    await user.click(companyOption);
 
     const saveButton = screen.getByRole('button', { name: /save mapping/i });
     await user.click(saveButton);
