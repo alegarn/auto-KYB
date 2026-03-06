@@ -147,21 +147,26 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
   const newMappings: Record<string, Record<string, any>> = {};
 
   fields.forEach(field => {
-    const fieldId = field.id;
-    const fieldLabel = (field.label || field.id || '').toLowerCase();
+    const rawFieldId = field?.id;
+    // Skip fields without a stable string id (e.g., section dividers)
+    if (!rawFieldId || typeof rawFieldId !== 'string') return;
+
+    const fieldId = rawFieldId;
+    const fieldLabel = String(field.label || fieldId || '').toLowerCase();
     newMappings[fieldId] = {};
 
     Object.entries(crmProperties).forEach(([provider, properties]) => {
       // Loop through object types (contact, company)
       for (const objType of ['contact', 'company']) {
         const props = properties[objType] || [];
-        
+
         // Find a matching property by name or label, and check type compatibility
         const match = props.find((p: any) => {
-          const propName = (p.name || '').toLowerCase();
-          const propLabel = (p.label || '').toLowerCase();
-          
-          if (propName === fieldLabel || propLabel === fieldLabel || propName === fieldId.toLowerCase()) {
+          const propName = String(p.name || '').toLowerCase();
+          const propLabel = String(p.label || '').toLowerCase();
+          const fieldIdLower = String(fieldId).toLowerCase();
+
+          if (propName === fieldLabel || propLabel === fieldLabel || propName === fieldIdLower) {
             return areTypesCompatible(field.field_type, p.type);
           }
           return false;
