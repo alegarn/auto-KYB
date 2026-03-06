@@ -253,13 +253,13 @@
                                   
                                   <optgroup label="Existing Contact Properties">
                                     {#each (properties.contact || []) as prop}
-                                      <option value={`contact:${prop.name}`}>{prop.label || prop.name} ({prop.type})</option>
+                                      <option value={`contact:${prop.name}`}>Contact: {prop.label || prop.name} ({prop.type})</option>
                                     {/each}
                                   </optgroup>
 
                                   <optgroup label="Existing Company Properties">
                                     {#each (properties.company || []) as prop}
-                                      <option value={`company:${prop.name}`}>{prop.label || prop.name} ({prop.type})</option>
+                                      <option value={`company:${prop.name}`}>Company: {prop.label || prop.name} ({prop.type})</option>
                                     {/each}
                                   </optgroup>
                                 </select>
