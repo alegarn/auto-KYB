@@ -1,5 +1,8 @@
 <script lang="ts">
   import { areTypesCompatible, getFieldDataType, analyzeMappings, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
+  import { Select } from "bits-ui";
+  import { ChevronsUpDown, Search } from "@lucide/svelte";
+  import { cn } from "../../lib/utils";
 
   // Props
   let { 
@@ -16,6 +19,7 @@
   // Local state for mapping
   // maps field.id -> { provider: { type: 'existing' | 'custom', property_name: string } }
   let mappings = $state<Record<string, Record<string, any>>>({});
+  let fieldSearch = $state<Record<string, string>>({});
 
   // Initialize mappings from fields metadata if it exists
   $effect(() => {
@@ -28,9 +32,22 @@
     }
   });
 
+  function getFilteredProperties(providerProperties: any[], search: string) {
+    if (!search) return providerProperties;
+    const s = search.toLowerCase();
+    return providerProperties.filter(p => 
+      (p.label || '').toLowerCase().includes(s) || 
+      (p.name || '').toLowerCase().includes(s)
+    );
+  }
+
   function handleSave() {
-    // Construct updated fields array with new metadata
-    const updatedFields = fields.map(field => {
+    onsave?.({ fields: getUpdatedFields() });
+    open = false;
+  }
+
+  function getUpdatedFields() {
+    return fields.map(field => {
       const fieldMapping = mappings[field.id];
       if (!fieldMapping || Object.keys(fieldMapping).length === 0) {
         return field;
@@ -43,9 +60,10 @@
         }
       };
     });
+  }
 
-    onsave?.({ fields: updatedFields });
-    open = false;
+  function handleTest() {
+    ontestcrm?.(getUpdatedFields());
   }
 
   function close() {
@@ -96,7 +114,7 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
+  <div data-testid="crm-mapping-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl flex flex-col max-h-[90vh]">
       <!-- Header -->
       <div class="px-6 py-4 border-b flex justify-between items-center">
@@ -104,6 +122,7 @@
         <div class="flex gap-4 items-center">
           <button 
             type="button" 
+            data-testid="auto-map-fields"
             class="text-sm px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded border border-indigo-200" 
             onclick={async () => {
               const { autoMapFields } = await import('../../lib/crm-utils');
@@ -140,7 +159,7 @@
           </div>
         {:else}
           {#each Object.entries(crmProperties) as [provider, properties]}
-            <div class="mb-8">
+            <div class="mb-8" data-provider={provider}>
               <h3 class="text-lg font-medium mb-4 capitalize">{provider} Integration</h3>
               
               <!-- CRM Export Summary Banner -->
@@ -234,30 +253,86 @@
                               {@const isCompatible = !selectedProp || areTypesCompatible(field.field_type, selectedProp.type)}
 
                               <div class="space-y-1">
-                                <select 
-                                  class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border {isCompatible ? '' : 'border-red-300 ring-1 ring-red-300'}"
-                                  value={currentValue}
-                                  onchange={(e) => updateMapping(field.id, provider, e.currentTarget.value)}
+                                <Select.Root 
+                                  type="single"
+                                  bind:value={() => currentValue, (v) => updateMapping(field.id, provider, v)}
+                                  onOpenChange={(isOpen) => { if (!isOpen) fieldSearch[`${field.id}-${provider}`] = ''; }}
                                 >
-                                  <option value="">-- Do not map --</option>
-                                  <option value="__custom_contact__" class="font-semibold text-blue-600">+ Create as Custom Contact Property</option>
-                                  <option value="__custom_company__" class="font-semibold text-blue-600">+ Create as Custom Company Property</option>
-                                  
-                                  <optgroup label="Existing Contact Properties">
-                                    {#each (properties.contact || []) as prop}
-                                      <option value={`contact:${prop.name}`}>{prop.label || prop.name} ({prop.type})</option>
-                                    {/each}
-                                  </optgroup>
+                                  <Select.Trigger
+                                    class={cn(
+                                      "flex h-9 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500",
+                                      !isCompatible && "border-red-300 ring-1 ring-red-300"
+                                    )}
+                                    data-testid={`crm-mapping-select-${field.id}-${provider}`}
+                                  >
+                                    {#if currentValue === "__custom_contact__"}
+                                      + Create as Custom Contact Property
+                                    {:else}
+                                      {selectedProp ? `${selectedProp.label || selectedProp.name} (${selectedProp.type})` : "-- Do not map --"}
+                                    {/if}
+                                    <ChevronsUpDown class="h-4 w-4 opacity-50" />
+                                  </Select.Trigger>
+                                  <Select.Content 
+                                    class="z-50 min-w-[8rem] overflow-hidden rounded-md border bg-white p-1 text-gray-950 shadow-md animate-in fade-in-80"
+                                    data-slot="select-content"
+                                  >
+                                    <div class="flex items-center border-b px-3 mb-1 bg-white sticky top-0 z-10">
+                                      <Search class="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                      <input 
+                                        class="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                        placeholder={`Filter ${provider} properties...`}
+                                        value={fieldSearch[`${field.id}-${provider}`] || ''}
+                                        oninput={(e) => fieldSearch[`${field.id}-${provider}`] = e.currentTarget.value}
+                                        onkeydown={(e) => {
+                                          if (e.key === 'Space') e.stopPropagation();
+                                        }}
+                                      />
+                                    </div>
+                                    <div class="max-h-60 overflow-y-auto">
+                                      <Select.Item
+                                        value=""
+                                        class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                        data-slot="select-item"
+                                      >
+                                        -- Do not map --
+                                      </Select.Item>
+                                      <Select.Item
+                                        value="__custom_contact__"
+                                        class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm font-semibold text-blue-600 outline-none focus:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                        data-slot="select-item"
+                                      >
+                                        + Create as Custom Contact Property
+                                      </Select.Item>
+                                      
+                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Contact Properties</div>
+                                      {#each getFilteredProperties(properties.contact || [], fieldSearch[`${field.id}-${provider}`]) as prop}
+                                        <Select.Item
+                                          value={`contact:${prop.name}`}
+                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100"
+                                          data-slot="select-item"
+                                        >
+                                          <span class="flex-1 truncate">{prop.label || prop.name}</span>
+                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type.toLowerCase()}</span>
+                                        </Select.Item>
+                                      {/each}
 
-                                  <optgroup label="Existing Company Properties">
-                                    {#each (properties.company || []) as prop}
-                                      <option value={`company:${prop.name}`}>{prop.label || prop.name} ({prop.type})</option>
-                                    {/each}
-                                  </optgroup>
-                                </select>
+                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Company Properties</div>
+                                      {#each getFilteredProperties(properties.company || [], fieldSearch[`${field.id}-${provider}`]) as prop}
+                                        <Select.Item
+                                          value={`company:${prop.name}`}
+                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100"
+                                          data-slot="select-item"
+                                        >
+                                          <span class="flex-1 truncate">{prop.label || prop.name}</span>
+                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type.toLowerCase()}</span>
+                                        </Select.Item>
+                                      {/each}
+                                    </div>
+                                  </Select.Content>
+                                </Select.Root>
                                 
                                 {#if !isCompatible}
-                                  <p class="text-[10px] text-red-600 font-medium">
+                                  <p data-testid={`type-mismatch-${field.id}-${provider}`} class="text-[10px] text-red-600 font-medium">
                                     Type mismatch: {getFieldDataType(field.field_type)} vs {selectedProp.type}. This might lead to data issues.
                                   </p>
                                 {/if}
@@ -284,7 +359,7 @@
         {/if}
         
         <button 
-          onclick={ontestcrm}
+          onclick={handleTest}
           class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
           disabled={testingCrm || Object.keys(crmProperties).length === 0}
         >
