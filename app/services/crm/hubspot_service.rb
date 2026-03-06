@@ -34,7 +34,7 @@ module Crm
     end
 
     # Export client data to HubSpot (contacts + companies + files)
-    def export_data(client, data, files = [])
+    def export_data(client, data, files = [], company_data: {})
       ensure_valid_token!
 
       link = client.respond_to?(:crm_client_link) ? client.crm_client_link : nil
@@ -52,7 +52,31 @@ module Crm
       end
       results[:contact] = contact_result
 
-      # 2. Upload files (if any)
+      # 2. Create/update company if company_data is present
+      if company_data.present?
+        company_id = link&.respond_to?(:external_company_id) ? link&.external_company_id : nil
+
+        if company_id.blank?
+          # Try to find existing company by name before creating a duplicate
+          company_id = search_company(client) if client.company_name.present?
+        end
+
+        if company_id.present?
+          company_result = update_existing_company(company_id, company_data)
+        else
+          company_result = create_company(client, company_data)
+          company_id = company_result[:id]
+        end
+        results[:company] = company_result
+
+        # 3. Associate contact <-> company
+        if external_id.present? && company_id.present?
+          associate_contact_to_company(external_id, company_id)
+          results[:association] = { contact_id: external_id, company_id: company_id, action: :linked }
+        end
+      end
+
+      # 4. Upload files (if any)
       if files.any?
         file_results = upload_files(files, contact_id: external_id)
         results[:files] = file_results
@@ -157,6 +181,44 @@ module Crm
         { id: external_id, action: :updated }
       else
         raise "Error updating contact (HTTP #{res.code}): #{res.body}"
+      end
+    end
+
+    def create_company(client, company_data = {})
+      mapper = Crm::Hubspot::CompanyMapper.new(client, company_data)
+      properties = mapper.to_hubspot_properties
+      ensure_properties("companies", properties)
+
+      body = { properties: properties.transform_keys { |k| k.to_s.downcase.gsub(/[^a-z0-9]/, "_") }.transform_values(&:to_s) }
+
+      res = hubspot_client.api_request(
+        method: "POST",
+        path: "/crm/v3/objects/companies",
+        body: body
+      )
+
+      if res.code.to_i < 300
+        parsed = JSON.parse(res.body)
+        { id: parsed["id"], action: :created }
+      else
+        raise "Error creating company (HTTP #{res.code}): #{res.body}"
+      end
+    end
+
+    def update_existing_company(company_id, company_data)
+      properties = company_data.transform_keys { |k| k.to_s.downcase.gsub(/[^a-z0-9]/, "_") }.transform_values(&:to_s)
+      ensure_properties("companies", properties)
+
+      res = hubspot_client.api_request(
+        method: "PATCH",
+        path: "/crm/v3/objects/companies/#{company_id}",
+        body: { properties: properties }
+      )
+
+      if res.code.to_i < 300
+        { id: company_id, action: :updated }
+      else
+        raise "Error updating company (HTTP #{res.code}): #{res.body}"
       end
     end
 

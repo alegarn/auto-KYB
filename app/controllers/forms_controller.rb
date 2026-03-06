@@ -91,8 +91,9 @@ class FormsController < ApplicationController
   connections.each do |conn|
     service = Crm::ConnectionManager.service_for(conn)
 
-    # Dummy data from form fields mapped dynamically per CRM
-    dummy_data = {}
+    # Separate contact and company data from form fields mapped per CRM
+    dummy_contact_data = {}
+    dummy_company_data = {}
     form_fields.each do |f|
       f = f.with_indifferent_access if f.respond_to?(:with_indifferent_access)
       type = f["field_type"].to_s
@@ -103,10 +104,18 @@ class FormsController < ApplicationController
             f.dig("metadata", "export_key").presence ||
             f["label"]
 
-      dummy_data[key] = type == "number" ? rand(1..100) : "Test #{f['label']}"
+      value = type == "number" ? rand(1..100) : "Test #{f['label']}"
+      object_type = provider_mapping&.dig("object_type") || "contact"
+
+      case object_type
+      when "company"
+        dummy_company_data[key] = value
+      else
+        dummy_contact_data[key] = value
+      end
     end
 
-    result = service.export_data(dummy_client, dummy_data, [])
+    result = service.export_data(dummy_client, dummy_contact_data, [], company_data: dummy_company_data)
     unless result[:success]
       success = false
       errors << "#{conn.provider.titleize}: #{result[:error]}"
