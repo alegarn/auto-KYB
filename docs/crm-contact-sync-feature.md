@@ -29,6 +29,28 @@ The CRM service classes have been refactored to use a modular mapping architectu
 * `link_existing_contact(client, external_id)`: Saves an external CRM ID to the local database mapping.
 * `update_existing_contact(external_id, data)`: Pushes new form data to an already established CRM contact.
 
+#### Mapping Logic & Data Types
+The system performs intelligent mapping between local form fields and CRM properties using a centralized utility ([app/frontend/lib/crm-utils.ts](app/frontend/lib/crm-utils.ts)).
+
+**Data Type Compatibility Matrix:**
+| Quick KYB Type | CRM Equivalent Types |
+| :--- | :--- |
+| `string` (text, email, select, etc.) | string, text, email, phone, url, enumeration |
+| `number` | number, integer, float, decimal |
+| `boolean` (checkbox) | boolean, bool, yesno, enumeration |
+| `date` | date, datetime |
+| `file` | file, string, url |
+| `json` (table) | string, text, json |
+
+**Automatic Field Matching (`autoMapFields`):**
+A heuristic-based mapper automatically suggests links by matching field IDs or labels against CRM property names/labels, verified against the compatibility matrix. This reduces manual configuration effort while preventing type mismatch errors.
+
+#### Export Preview & Validation
+Before performing an export, the `analyzeMappings` utility generates a `CrmExportSummary` to give users visibility into the side effects of their action:
+* **Contact Creation:** Status of the contact record creation.
+* **Company Creation:** Status of the company record. Note: CRM providers often require specific identifiers (e.g., `name` or `domain` for HubSpot Companies) to successfully create a record.
+* **Association Link:** Verification that the Contact and Company will be properly associated within the CRM.
+
 The primary `export_data(client, data, files)` method now acts as a guard:
 ```ruby
 def export_data(client, data, files = [])

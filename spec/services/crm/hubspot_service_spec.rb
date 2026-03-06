@@ -123,6 +123,78 @@ RSpec.describe Crm::HubspotService do
       end
     end
 
+
+    context "when creating new company and associating" do
+      it "creates the company and associates it with the contact" do
+        allow(client_double).to receive(:api_request).and_return(double(code: 200, body: '{}'))
+        create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "cont_456", external_company_id: nil)
+        
+        allow(client_double).to receive(:api_request).with(
+          hash_including(method: "POST", path: %r{/contacts/v1/contact/vid/cont_456/profile})
+        ).and_return(double(code: 200, body: '{}'))
+
+        allow(service).to receive(:search_company).and_return(nil)
+        
+        allow(client_double).to receive(:api_request).with(
+          hash_including(method: "POST", path: "/crm/v3/objects/companies")
+        ).and_return(double(code: 201, body: %Q({"id":"comp_456"})))
+
+        expect(client_double).to receive(:api_request).with(
+          hash_including(method: "PUT", path: "/crm/v3/objects/contacts/cont_456/associations/companies/comp_456/1")
+        ).and_return(double(code: 200, body: '{}'))
+
+        company_data = { domain: "test.com" }
+        company_mapper_double2 = instance_double(Crm::Hubspot::CompanyMapper, to_hubspot_properties: { name: "Test Co", domain: "test.com" })
+        allow(Crm::Hubspot::CompanyMapper).to receive(:new).with(client, company_data).and_return(company_mapper_double2)
+
+        result = service.export_data(client, data, [], company_data: company_data)
+
+        unless result[:success]
+          puts "[DEBUG] Export failed: #{result[:error]}"
+        end
+
+        expect(result[:success]).to be true
+        expect(result[:details][:company][:action]).to eq(:created)
+        expect(result[:details][:company][:id]).to eq("comp_456")
+        expect(result[:details][:association][:action]).to eq(:linked)
+      end
+    end
+
+    context "when creating new company and associating" do
+      it "creates the company and associates it with the contact" do
+        allow(client_double).to receive(:api_request).and_return(double(code: 200, body: '{}'))
+        create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "cont_456", external_company_id: nil)
+        
+        allow(client_double).to receive(:api_request).with(
+          hash_including(method: "POST", path: %r{/contacts/v1/contact/vid/cont_456/profile})
+        ).and_return(double(code: 200, body: '{}'))
+
+        allow(service).to receive(:search_company).and_return(nil)
+        
+        allow(client_double).to receive(:api_request).with(
+          hash_including(method: "POST", path: "/crm/v3/objects/companies")
+        ).and_return(double(code: 201, body: %Q({"id":"comp_456"})))
+
+        expect(client_double).to receive(:api_request).with(
+          hash_including(method: "PUT", path: "/crm/v3/objects/contacts/cont_456/associations/companies/comp_456/1")
+        ).and_return(double(code: 200, body: '{}'))
+
+        company_data = { domain: "test.com" }
+        company_mapper_double2 = instance_double(Crm::Hubspot::CompanyMapper, to_hubspot_properties: { name: "Test Co", domain: "test.com" })
+        allow(Crm::Hubspot::CompanyMapper).to receive(:new).with(client, company_data).and_return(company_mapper_double2)
+
+        result = service.export_data(client, data, [], company_data: company_data)
+
+        unless result[:success]
+          puts "[DEBUG] Export failed: #{result[:error]}"
+        end
+
+        expect(result[:success]).to be true
+        expect(result[:details][:company][:action]).to eq(:created)
+        expect(result[:details][:company][:id]).to eq("comp_456")
+        expect(result[:details][:association][:action]).to eq(:linked)
+      end
+    end
     context "when creating new records with files" do
       it "updates linked contact and uploads attached files" do
         create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "cont_with_files")
