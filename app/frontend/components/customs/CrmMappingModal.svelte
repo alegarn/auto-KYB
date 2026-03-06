@@ -96,7 +96,7 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
+  <div data-testid="crm-mapping-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl flex flex-col max-h-[90vh]">
       <!-- Header -->
       <div class="px-6 py-4 border-b flex justify-between items-center">
@@ -104,6 +104,7 @@
         <div class="flex gap-4 items-center">
           <button 
             type="button" 
+            data-testid="auto-map-fields"
             class="text-sm px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded border border-indigo-200" 
             onclick={async () => {
               const { autoMapFields } = await import('../../lib/crm-utils');
@@ -140,7 +141,7 @@
           </div>
         {:else}
           {#each Object.entries(crmProperties) as [provider, properties]}
-            <div class="mb-8">
+            <div class="mb-8" data-provider={provider}>
               <h3 class="text-lg font-medium mb-4 capitalize">{provider} Integration</h3>
               
               <!-- CRM Export Summary Banner -->
@@ -235,6 +236,8 @@
 
                               <div class="space-y-1">
                                 <select 
+                                  data-field-id={field.id}
+                                  data-provider={provider}
                                   class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border {isCompatible ? '' : 'border-red-300 ring-1 ring-red-300'}"
                                   value={currentValue}
                                   onchange={(e) => updateMapping(field.id, provider, e.currentTarget.value)}
@@ -257,7 +260,7 @@
                                 </select>
                                 
                                 {#if !isCompatible}
-                                  <p class="text-[10px] text-red-600 font-medium">
+                                  <p data-testid={`type-mismatch-${field.id}-${provider}`} class="text-[10px] text-red-600 font-medium">
                                     Type mismatch: {getFieldDataType(field.field_type)} vs {selectedProp.type}. This might lead to data issues.
                                   </p>
                                 {/if}
