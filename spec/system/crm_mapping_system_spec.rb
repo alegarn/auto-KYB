@@ -38,8 +38,15 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     expect(page).to have_css('[data-testid="crm-mapping-modal"]', wait: 5)
 
     within find('[data-testid="crm-mapping-modal"]') do
-      expect(page).to have_selector('option', text: /Contact: Email \(string\)/)
-      expect(page).to have_selector('option', text: /Company: Company Name \(string\)/)
+      # Click the first field's select trigger
+      first_field_id = form.form_fields.first.id
+      find("[data-testid=\"crm-mapping-select-#{first_field_id}-hubspot\"]").click
+    end
+
+    # Dropdown content is in modal because of portalProps disabled={true}
+    within find('[data-testid="crm-mapping-modal"]') do
+      expect(page).to have_selector('[data-slot="select-item"]', text: /Email/i)
+      expect(page).to have_selector('[data-slot="select-item"]', text: /Company/i)
     end
   end
 
@@ -60,19 +67,27 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     visit edit_form_path(form)
     find('button', text: /CRM Sync Settings/).click
 
+    # Field 1: Search for 'City'
+    find("[data-testid=\"crm-mapping-select-#{field1.id}-hubspot\"]").click
     within find('[data-testid="crm-mapping-modal"]') do
-      # Field 1: Search for 'City'
-      within find("tr", text: 'Field 1') do
-        find("input[placeholder*=\"Filter Hubspot\"]").set('City')
-        expect(page).to have_selector('option', text: /Contact: City/)
-        expect(page).not_to have_selector('option', text: /Contact: Email/)
-      end
+      find("input[placeholder*=\"Filter\"]").set('City')
+      expect(page).to have_selector('[data-slot="select-item"]', text: /City/i)
+      expect(page).not_to have_selector('[data-slot="select-item"]', text: /Email/i)
+  
+      # Select 'City' to close dropdown and move to field 2
+      find('[data-slot="select-item"]', text: /City/i).click
+    end
+    expect(page).to have_no_selector('[data-slot="select-item"]')
 
-      # Field 2: Should still show both because search is independent
-      within find("tr", text: 'Field 2') do
-        expect(page).to have_selector('option', text: /Contact: City/)
-        expect(page).to have_selector('option', text: /Contact: Email/)
-      end
+    # Field 2: Should still show both because search is independent
+    execute_script("window.scrollTo(0, document.body.scrollHeight)")
+    find("[data-testid=\"crm-mapping-select-#{field2.id}-hubspot\"]").click
+    within find('[data-testid="crm-mapping-modal"]') do
+      expect(page).to have_selector('[data-slot="select-item"]', text: /City/i)
+      expect(page).to have_selector('[data-slot="select-item"]', text: /Email/i)
+  
+      # Close field 2 dropdown before finishing
+      find('[data-slot="select-item"]', text: /City/i).click
     end
   end
 
@@ -92,13 +107,13 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     visit edit_form_path(form)
     find('button', text: /CRM Sync Settings/).click
 
+    find("[data-testid=\"crm-mapping-select-#{checkbox_field.id}-hubspot\"]").click
     within find('[data-testid="crm-mapping-modal"]') do
-      select_el = find("select[data-field-id=\"#{checkbox_field.id}\"]")
-      select_el.find('option', text: /Verified/).select_option
-
-      expect(page).to have_selector("p[data-testid=\"type-mismatch-#{checkbox_field.id}-hubspot\"]", text: /Type mismatch: boolean vs string/, wait: 5)
-      expect(page).to have_text('This might lead to data issues.')
+      find('[data-slot="select-item"]', text: /Verified/i).click
     end
+
+    expect(page).to have_selector("p[data-testid=\"type-mismatch-#{checkbox_field.id}-hubspot\"]", text: /Type mismatch: boolean vs string/, wait: 5)
+    expect(page).to have_text('This might lead to data issues.')
   end
 
   it 'accepts compatible mappings (checkbox -> boolean) without warning' do
@@ -116,10 +131,12 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     visit edit_form_path(form)
     find('button', text: /CRM Sync Settings/).click
 
+    find("[data-testid=\"crm-mapping-select-#{checkbox_field.id}-hubspot\"]").click
     within find('[data-testid="crm-mapping-modal"]') do
-      find("select[data-field-id=\"#{checkbox_field.id}\"]").find('option', text: /Subscribed/).select_option
-      expect(page).not_to have_selector("p[data-testid=\"type-mismatch-#{checkbox_field.id}-hubspot\"]")
+      find('[data-slot="select-item"]', text: /Subscribed/i).click
     end
+    
+    expect(page).not_to have_selector("p[data-testid=\"type-mismatch-#{checkbox_field.id}-hubspot\"]")
   end
 
   it 'auto-maps fields with exact/fuzzy matches' do
@@ -140,16 +157,11 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     visit edit_form_path(form)
     find('button', text: /CRM Sync Settings/).click
 
-    within find('[data-testid="crm-mapping-modal"]') do
-      find('[data-testid="auto-map-fields"]').click
+    find('[data-testid="auto-map-fields"]').click
 
-      # verify selects were populated
-      email_val = find("select[data-field-id=\"#{email_field.id}\"]").value
-      company_val = find("select[data-field-id=\"#{company_field.id}\"]").value
-
-      expect(email_val).to eq('contact:email')
-      expect(company_val).to eq('company:name')
-    end
+    # verify selects triggers show the labels
+    expect(page).to have_button(text: /Email \(string\)/i)
+    expect(page).to have_button(text: /Company Name \(string\)/i)
   end
 
   it 'E2E: sending test data calls HubSpot endpoints to create contact, company and association' do
@@ -185,15 +197,55 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     visit edit_form_path(form)
     find('button', text: /CRM Sync Settings/).click
 
-    within find('[data-testid="crm-mapping-modal"]') do
-      # use auto-map to ensure preview is ready, then send test
-      find('[data-testid="auto-map-fields"]').click
-      find('button', text: /Send Test Data/).click
+    # use auto-map to ensure preview is ready, then send test
+    find('[data-testid="auto-map-fields"]').click
+    
+    # Wait for summaries to be ready
+    expect(page).to have_content('Contact (1 field)')
+    expect(page).to have_content('Company (1 field)')
 
-      # The UI shows a prominent success message in the modal body when done
-      expect(page).to have_content('Test export sent successfully!', wait: 8)
+    # Use wait to ensure element is interactable
+    find('button', text: /Send Test Data/, wait: 5).click
+
+    # The UI shows a prominent success message in the modal body when done
+    expect(page).to have_content('Test export sent successfully!', wait: 10)
+  end
+
+  it 'synchronizes mappings to form fields metadata upon saving' do
+    user = sign_in_user
+    user.crm_connections.create!(provider: 'hubspot', status: 'active', access_token: 'fake', refresh_token: 'fake')
+
+    form = user.forms.create!(name: 'Meta Sync', structure: { 'description' => 'Test' })
+    field = form.form_fields.create!(field_type: 'text', label: 'Sync Field', position: 1, metadata: { 'crm_mapping' => {} })
+
+    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+      { 'name' => 'field_name', 'label' => 'Field Label', 'type' => 'string' }
+    ])
+    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
+
+    visit edit_form_path(form)
+    find('button', text: /CRM Sync Settings/).click
+
+    # Use wait and ensure we click specifically on the trigger
+    find("[data-testid=\"crm-mapping-select-#{field.id}-hubspot\"]", wait: 5).click
+    within find('[data-testid="crm-mapping-modal"]') do
+      find('[data-slot="select-item"]', text: /Field Label/i, wait: 5).click
     end
 
-    stub_request(:post, "https://api.hubapi.com/crm/v3/objects/companies/search").to_return(status: 200, body: { total: 0, results: [] }.to_json, headers: {'Content-Type'=>'application/json'})
+    # Ensure dropdown is closed before clicking save
+    expect(page).not_to have_selector('[data-slot="select-item"]')
+
+    click_button 'Save Mapping'
+
+    # Ensure modal closed
+    expect(page).not_to have_css('[data-testid="crm-mapping-modal"]')
+
+    # Verify field metadata updated
+    field.reload
+    expect(field.metadata['crm_mapping']['hubspot']).to eq({
+      'type' => 'existing',
+      'object_type' => 'contact',
+      'property_name' => 'field_name'
+    })
   end
 end

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { areTypesCompatible, getFieldDataType, analyzeMappings, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
-  import * as Select from "../ui/select";
-  import { Search } from "@lucide/svelte";
+  import { Select } from "bits-ui";
+  import { ChevronsUpDown, Search } from "@lucide/svelte";
+  import { cn } from "../../lib/utils";
 
   // Props
   let { 
@@ -18,6 +19,7 @@
   // Local state for mapping
   // maps field.id -> { provider: { type: 'existing' | 'custom', property_name: string } }
   let mappings = $state<Record<string, Record<string, any>>>({});
+  let fieldSearch = $state<Record<string, string>>({});
 
   // Initialize mappings from fields metadata if it exists
   $effect(() => {
@@ -29,6 +31,15 @@
       mappings = newMappings;
     }
   });
+
+  function getFilteredProperties(providerProperties: any[], search: string) {
+    if (!search) return providerProperties;
+    const s = search.toLowerCase();
+    return providerProperties.filter(p => 
+      (p.label || '').toLowerCase().includes(s) || 
+      (p.name || '').toLowerCase().includes(s)
+    );
+  }
 
   function handleSave() {
     onsave?.({ fields: getUpdatedFields() });
@@ -93,30 +104,6 @@
   }
 
   // Reactive summary: what CRM records will be created per provider
-  // Field-specific search terms for filtering property lists: Record<field.id, Record<provider, term>>
-  let fieldSearch = $state<Record<string, Record<string, string>>>({});
-
-  function capitalize(s: string) {
-    return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
-  }
-
-  // Get filtered properties for a specific field and provider
-  function getFilteredProperties(fieldId: string, provider: string) {
-    const props = crmProperties[provider] || { contact: [], company: [] };
-    const term = (fieldSearch[fieldId]?.[provider] || '').toLowerCase().trim();
-    
-    if (!term) return props;
-
-    return {
-      contact: (props.contact || []).filter((p: any) => 
-        ((p.label || '') + ' ' + (p.name || '') + ' ' + (p.type || '')).toLowerCase().includes(term)
-      ),
-      company: (props.company || []).filter((p: any) => 
-        ((p.label || '') + ' ' + (p.name || '') + ' ' + (p.type || '')).toLowerCase().includes(term)
-      )
-    };
-  }
-
   let summaries = $derived.by(() => {
     const result: Record<string, CrmExportSummary> = {};
     for (const provider of Object.keys(crmProperties)) {
@@ -264,90 +251,82 @@
                                 ? (properties[mapping.object_type] || []).find((p: any) => p.name === mapping.property_name) 
                                 : null}
                               {@const isCompatible = !selectedProp || areTypesCompatible(field.field_type, selectedProp.type)}
-                              
-                              {@const filtered = getFilteredProperties(field.id, provider)}
 
                               <div class="space-y-1">
                                 <Select.Root 
-                                  value={currentValue}
-                                  onValueChange={(val) => updateMapping(field.id, provider, val)}
                                   type="single"
+                                  bind:value={() => currentValue, (v) => updateMapping(field.id, provider, v)}
+                                  onOpenChange={(isOpen) => { if (!isOpen) fieldSearch[`${field.id}-${provider}`] = ''; }}
                                 >
-                                  <Select.Trigger 
-                                    class="w-full h-9 px-3 py-1 flex items-center justify-between text-sm bg-white border rounded-md shadow-sm {isCompatible ? 'border-gray-300' : 'border-red-300 ring-1 ring-red-300 focus:ring-red-300'}"
+                                  <Select.Trigger
+                                    class={cn(
+                                      "flex h-9 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500",
+                                      !isCompatible && "border-red-300 ring-1 ring-red-300"
+                                    )}
+                                    data-testid={`crm-mapping-select-${field.id}-${provider}`}
                                   >
-                                    <span class="truncate">
-                                      {#if !currentValue}
-                                        -- Do not map --
-                                      {:else if currentValue === '__custom_contact__'}
-                                        + Create as Custom {capitalize('contact')} Property
-                                      {:else if currentValue === '__custom_company__'}
-                                        + Create as Custom {capitalize('company')} Property
-                                      {:else if selectedProp}
-                                        {capitalize(mapping.object_type)}: {selectedProp.label || selectedProp.name} ({selectedProp.type})
-                                      {:else}
-                                        {currentValue}
-                                      {/if}
-                                    </span>
+                                    {#if currentValue === "__custom_contact__"}
+                                      + Create as Custom Contact Property
+                                    {:else}
+                                      {selectedProp ? `${selectedProp.label || selectedProp.name} (${selectedProp.type})` : "-- Do not map --"}
+                                    {/if}
+                                    <ChevronsUpDown class="h-4 w-4 opacity-50" />
                                   </Select.Trigger>
-                                  <Select.Content class="max-h-80 overflow-y-auto w-72">
-                                    <!-- Embedded Search Bar -->
-                                    <div class="sticky top-0 bg-white p-2 border-b z-20">
-                                      <div class="relative">
-                                        <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                                        <input 
-                                          type="text" 
-                                          placeholder={`Filter ${capitalize(provider)} properties...`}
-                                          class="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
-                                          bind:value={() => (fieldSearch[field.id] ||= {})[provider], (v) => (fieldSearch[field.id] ||= {})[provider] = v}
-                                          onclick={(e) => e.stopPropagation()}
-                                        />
-                                      </div>
+                                  <Select.Content 
+                                    class="z-50 min-w-[8rem] overflow-hidden rounded-md border bg-white p-1 text-gray-950 shadow-md animate-in fade-in-80"
+                                    data-slot="select-content"
+                                  >
+                                    <div class="flex items-center border-b px-3 mb-1 bg-white sticky top-0 z-10">
+                                      <Search class="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                      <input 
+                                        class="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                        placeholder={`Filter ${provider} properties...`}
+                                        value={fieldSearch[`${field.id}-${provider}`] || ''}
+                                        oninput={(e) => fieldSearch[`${field.id}-${provider}`] = e.currentTarget.value}
+                                        onkeydown={(e) => {
+                                          if (e.key === 'Space') e.stopPropagation();
+                                        }}
+                                      />
                                     </div>
-
-                                    <div class="p-1">
-                                      <Select.Item value="" label="-- Do not map --">-- Do not map --</Select.Item>
+                                    <div class="max-h-60 overflow-y-auto">
+                                      <Select.Item
+                                        value=""
+                                        class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                        data-slot="select-item"
+                                      >
+                                        -- Do not map --
+                                      </Select.Item>
+                                      <Select.Item
+                                        value="__custom_contact__"
+                                        class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm font-semibold text-blue-600 outline-none focus:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                        data-slot="select-item"
+                                      >
+                                        + Create as Custom Contact Property
+                                      </Select.Item>
                                       
-                                      <div class="mt-1 mb-1 border-b border-gray-100 pb-1">
-                                        <Select.Item value="__custom_contact__" class="text-blue-600 font-medium">+ Create custom {capitalize('contact')} property</Select.Item>
-                                        <Select.Item value="__custom_company__" class="text-blue-600 font-medium">+ Create custom {capitalize('company')} property</Select.Item>
-                                      </div>
+                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Contact Properties</div>
+                                      {#each getFilteredProperties(properties.contact || [], fieldSearch[`${field.id}-${provider}`]) as prop}
+                                        <Select.Item
+                                          value={`contact:${prop.name}`}
+                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100"
+                                          data-slot="select-item"
+                                        >
+                                          <span class="flex-1 truncate">{prop.label || prop.name}</span>
+                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type.toLowerCase()}</span>
+                                        </Select.Item>
+                                      {/each}
 
-                                      {#if (filtered.contact || []).length > 0}
-                                        <Select.Group>
-                                          <Select.Label class="text-xs font-bold text-gray-500 px-2 py-1 uppercase tracking-wider">{capitalize('contact')} Properties</Select.Label>
-                                          {#each filtered.contact as prop}
-                                            <Select.Item value={`contact:${prop.name}`} label={`${capitalize('contact')}: ${prop.label || prop.name}`}>
-                                              <div class="flex flex-col">
-                                                <span class="font-medium text-gray-900">{prop.label || prop.name}</span>
-                                                <span class="text-[10px] text-gray-500">{prop.type}</span>
-                                              </div>
-                                            </Select.Item>
-                                          {/each}
-                                        </Select.Group>
-                                      {/if}
-
-                                      {#if (filtered.company || []).length > 0}
-                                        <div class="mt-2 pt-2 border-t border-gray-100">
-                                          <Select.Group>
-                                            <Select.Label class="text-xs font-bold text-gray-500 px-2 py-1 uppercase tracking-wider">{capitalize('company')} Properties</Select.Label>
-                                            {#each filtered.company as prop}
-                                              <Select.Item value={`company:${prop.name}`} label={`${capitalize('company')}: ${prop.label || prop.name}`}>
-                                                <div class="flex flex-col">
-                                                  <span class="font-medium text-gray-900">{prop.label || prop.name}</span>
-                                                  <span class="text-[10px] text-gray-500">{prop.type}</span>
-                                                </div>
-                                              </Select.Item>
-                                            {/each}
-                                          </Select.Group>
-                                        </div>
-                                      {/if}
-                                      
-                                      {#if (filtered.contact || []).length === 0 && (filtered.company || []).length === 0}
-                                        <div class="px-2 py-4 text-center text-xs text-gray-400 italic">
-                                          No matching properties found
-                                        </div>
-                                      {/if}
+                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Company Properties</div>
+                                      {#each getFilteredProperties(properties.company || [], fieldSearch[`${field.id}-${provider}`]) as prop}
+                                        <Select.Item
+                                          value={`company:${prop.name}`}
+                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100"
+                                          data-slot="select-item"
+                                        >
+                                          <span class="flex-1 truncate">{prop.label || prop.name}</span>
+                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type.toLowerCase()}</span>
+                                        </Select.Item>
+                                      {/each}
                                     </div>
                                   </Select.Content>
                                 </Select.Root>
