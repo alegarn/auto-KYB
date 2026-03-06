@@ -43,12 +43,13 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     end
   end
 
-  it 'filters properties via the search input' do
+  it 'filters properties via the search input independently for each field' do
     user = sign_in_user
     user.crm_connections.create!(provider: 'hubspot', status: 'active', access_token: 'fake', refresh_token: 'fake')
 
     form = user.forms.create!(name: 'Filter Test', structure: { 'description' => 'Test' })
-    field = form.form_fields.create!(field_type: 'text', label: 'Field 1', position: 1, metadata: { 'crm_mapping' => {} })
+    field1 = form.form_fields.create!(field_type: 'text', label: 'Field 1', position: 1, metadata: { 'crm_mapping' => {} })
+    field2 = form.form_fields.create!(field_type: 'text', label: 'Field 2', position: 2, metadata: { 'crm_mapping' => {} })
 
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
       { 'name' => 'email', 'label' => 'Email', 'type' => 'string' },
@@ -60,15 +61,18 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     find('button', text: /CRM Sync Settings/).click
 
     within find('[data-testid="crm-mapping-modal"]') do
-      # Initially both should be there
-      expect(page).to have_selector('option', text: /Contact: Email/)
-      expect(page).to have_selector('option', text: /Contact: City/)
+      # Field 1: Search for 'City'
+      within find("tr", text: 'Field 1') do
+        find("input[placeholder*=\"Filter Hubspot\"]").set('City')
+        expect(page).to have_selector('option', text: /Contact: City/)
+        expect(page).not_to have_selector('option', text: /Contact: Email/)
+      end
 
-      # Search for 'City'
-      find("input[placeholder*=\"Filter Hubspot\"]", match: :first).set('City')
-
-      expect(page).to have_selector('option', text: /Contact: City/)
-      expect(page).not_to have_selector('option', text: /Contact: Email/)
+      # Field 2: Should still show both because search is independent
+      within find("tr", text: 'Field 2') do
+        expect(page).to have_selector('option', text: /Contact: City/)
+        expect(page).to have_selector('option', text: /Contact: Email/)
+      end
     end
   end
 
