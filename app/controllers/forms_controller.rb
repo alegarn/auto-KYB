@@ -72,15 +72,17 @@ class FormsController < ApplicationController
     return
   end
 
-  # Dummy client
-  dummy_client = Data.define(:name, :email, :company_name, :phone, :address, :country, :company_id).new(
-    name: "Test Client",
-    email: "test_crm_#{SecureRandom.hex(4)}@example.com",
-    company_name: "Test Company #{SecureRandom.hex(2)}",
-    phone: "+33123456789",
-    address: "123 Test Street",
-    country: "FR",
-    company_id: "TC-#{SecureRandom.hex(4)}"
+  # Dummy client with dummy crm_client_link to avoid NoMethodError in export_data
+  # We use a real Struct to simulate the client object
+  dummy_client = Struct.new(:name, :email, :company_name, :phone, :address, :country, :company_id, :crm_client_link).new(
+    "Test Client",
+    "test_crm_#{SecureRandom.hex(4)}@example.com",
+    "Test Company #{SecureRandom.hex(2)}",
+    "+33123456789",
+    "123 Test Street",
+    "FR",
+    "TC-#{SecureRandom.hex(4)}",
+    nil # Force create in service since it's a test
   )
 
   success = true
@@ -152,7 +154,13 @@ def duplicate
           prop_name = mapping["property_name"].presence || (f["label"] || f[:label]).to_s.downcase.gsub(/[^a-z0-9_]/, "_")
           # Update the form definition to set the implicit property name
           mapping["property_name"] = prop_name
-          custom_mappings << { provider: provider, label: (f["label"] || f[:label]), property_name: prop_name }
+          custom_mappings << { 
+            provider: provider, 
+            label: (f["label"] || f[:label]), 
+            property_name: prop_name,
+            object_type: mapping["object_type"] || "contact",
+            field_type: (f["field_type"] || f[:field_type]).to_s
+          }
         end
       end
     end
@@ -226,16 +234,19 @@ def duplicate
 
     if connections.any? { |c| c.provider == "hubspot" }
       begin
-        properties[:hubspot] = Crm::Hubspot::PropertiesService.new(current_user).list_properties
+        service = Crm::Hubspot::PropertiesService.new(current_user)
+        properties[:hubspot] = {
+          contact: service.list_properties(object_type: 'contact'),
+          company: service.list_properties(object_type: 'company')
+        }
       rescue StandardError => e
         Rails.logger.error("[FormsController#crm_properties] #{e.message}")
-        properties[:hubspot] = []
+        properties[:hubspot] = { contact: [], company: [] }
       end
     end
 
     properties
   end
-
   def form_params
     params.require(:form).permit(
       :name,

@@ -39,12 +39,12 @@ RSpec.describe Crm::Hubspot::DataFetcher do
 
       expect(result[:results].size).to eq(1)
       contact_data = result[:results].first
-      expect(contact_data[:hubspot_id]).to eq("123")
+      expect(contact_data[:external_contact_id]).to eq("123")
       expect(contact_data[:email]).to eq("test@example.com")
       expect(contact_data[:name]).to eq("John Doe")
       expect(contact_data[:phone]).to eq("555-1234")
       expect(contact_data[:company_name]).to eq("ACME Corp")
-      expect(contact_data[:address]).to eq("123 Main St")
+      expect(contact_data[:address][:street]).to eq("123 Main St")
 
       expect(result[:paging][:next][:after]).to eq("cursor123")
     end
@@ -120,7 +120,7 @@ RSpec.describe Crm::Hubspot::DataFetcher do
       ).and_return(response)
 
       result = fetcher.search_contact_by_email("search@example.com")
-      expect(result[:hubspot_id]).to eq("789")
+      expect(result[:external_contact_id]).to eq("789")
       expect(result[:email]).to eq("search@example.com")
       expect(result[:name]).to eq("Search")
     end

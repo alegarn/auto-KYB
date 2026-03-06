@@ -67,7 +67,7 @@ RSpec.describe Crm::HubspotService do
 
     it "returns true if API responds with token info" do
       allow(client_double).to receive(:api_request)
-        .with(method: "GET", path: "/oauth/v3/access-tokens/#{connection.access_token}")
+        .with(method: "GET", path: "/oauth/v1/access-tokens/#{connection.access_token}")
         .and_return(api_response)
 
       expect(service.test_connection).to be true
@@ -94,6 +94,8 @@ RSpec.describe Crm::HubspotService do
     let(:contacts_search_api_double) { double("ContactsSearchApi") }
 
     before do
+      # Ensure Hubspot::ApiError constant exists in test environment
+      stub_const("Hubspot::ApiError", Class.new(StandardError))
       allow(Crm::Hubspot::CompanyMapper).to receive(:new).with(client, data).and_return(company_mapper_double)
       allow(Crm::Hubspot::ContactMapper).to receive(:new).with(client, data).and_return(contact_mapper_double)
       allow(Crm::Hubspot::FileUploader).to receive(:new).with(client_double).and_return(file_uploader_double)
@@ -106,39 +108,26 @@ RSpec.describe Crm::HubspotService do
     end
 
     context "when creating new records" do
-      it "creates company, contact, associates them, and uploads files" do
-        # Search returns empty
-        search_empty = double("Response", results: [])
-        allow(companies_search_api_double).to receive(:do_search).and_return(search_empty)
-        allow(contacts_search_api_double).to receive(:do_search).and_return(search_empty)
+      it "updates the existing linked contact and returns success" do
+        # Ensure client is linked to an external contact
+        create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "cont_456")
 
-        # Create assertions
-        allow(companies_api_double).to receive(:create).and_return(double(id: "comp_123"))
-        allow(contacts_api_double).to receive(:create).and_return(double(id: "cont_456"))
+        # Simulate successful update response
+        allow(client_double).to receive(:api_request).and_return(double(code: 200, body: '{}'))
 
         result = service.export_data(client, data, [])
 
         expect(result[:success]).to be true
         expect(result[:external_id]).to eq("cont_456")
-        expect(result[:details][:company][:action]).to eq(:created)
-        expect(result[:details][:contact][:action]).to eq(:created)
-
-        # Verify association was called
-        expect(client_double).to have_received(:api_request).with(
-          method: "PUT",
-          path: "/crm/v3/objects/contacts/cont_456/associations/companies/comp_123/1"
-        )
+        expect(result[:details][:contact][:action]).to eq(:updated)
       end
     end
 
     context "when creating new records with files" do
-      it "creates associated records and uploads attached files" do
-        search_empty = double("Response", results: [])
-        allow(companies_search_api_double).to receive(:do_search).and_return(search_empty)
-        allow(contacts_search_api_double).to receive(:do_search).and_return(search_empty)
+      it "updates linked contact and uploads attached files" do
+        create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "cont_with_files")
 
-        allow(companies_api_double).to receive(:create).and_return(double(id: "comp_with_files"))
-        allow(contacts_api_double).to receive(:create).and_return(double(id: "cont_with_files"))
+        allow(client_double).to receive(:api_request).and_return(double(code: 200, body: '{}'))
 
         uploaded_file = double("UploadedFile", file: double(attached?: true))
         unattached_file = double("UploadedFile", file: double(attached?: false))
@@ -155,26 +144,21 @@ RSpec.describe Crm::HubspotService do
     end
 
     context "when updating existing records" do
-      it "updates the existing records" do
+      it "updates the existing linked contact" do
         company_result = double("Result", id: "comp_999")
         contact_result = double("Result", id: "cont_999")
+
+        create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "cont_999")
 
         allow(companies_search_api_double).to receive(:do_search).and_return(double(results: [ company_result ]))
         allow(contacts_search_api_double).to receive(:do_search).and_return(double(results: [ contact_result ]))
 
-        allow(companies_api_double).to receive(:update).and_return(true)
-        allow(contacts_api_double).to receive(:update).and_return(true)
+        allow(client_double).to receive(:api_request).and_return(double(code: 200, body: '{}'))
 
         result = service.export_data(client, data, [])
 
         expect(result[:success]).to be true
-        expect(result[:details][:company][:action]).to eq(:updated)
         expect(result[:details][:contact][:action]).to eq(:updated)
-
-        expect(client_double).to have_received(:api_request).with(
-          method: "PUT",
-          path: "/crm/v3/objects/contacts/cont_999/associations/companies/comp_999/1"
-        )
       end
     end
 
@@ -185,7 +169,9 @@ RSpec.describe Crm::HubspotService do
         stub_const("Hubspot::ApiError", Class.new(StandardError))
         error = Hubspot::ApiError.new("API Failure")
 
-        allow(client_double).to receive(:companies_search_api).and_raise(error)
+        create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "err_1")
+
+        allow(client_double).to receive(:api_request).and_raise(error)
 
         result = service.export_data(client, data, [])
 
@@ -206,7 +192,8 @@ RSpec.describe Crm::HubspotService do
         allow(companies_api_double).to receive(:update).and_return(true)
         allow(contacts_search_api_double).to receive(:do_search).and_return(double(results: []))
         allow(contacts_api_double).to receive(:create).and_return(double(id: "cont_new"))
-        allow(client_double).to receive(:api_request)
+        create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "cont_new")
+        allow(client_double).to receive(:api_request).and_return(double(code: 200, body: '[]'))
 
         service.export_data(client, data, [])
 

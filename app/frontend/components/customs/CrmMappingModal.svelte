@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { areTypesCompatible, getFieldDataType } from '../../lib/crm-utils';
+
   // Props
   let { 
     open = $bindable(false), 
@@ -56,17 +58,29 @@
       mappings[fieldId] = {};
     }
     
-    if (value === '__custom__') {
+    if (value === '__custom_contact__') {
       mappings[fieldId][provider] = {
         type: 'custom',
+        object_type: 'contact',
         property_name: '' // Will be generated or asked later, keeping it simple here
+      };
+    } else if (value === '__custom_company__') {
+      mappings[fieldId][provider] = {
+        type: 'custom',
+        object_type: 'company',
+        property_name: ''
       };
     } else if (value === '') {
       delete mappings[fieldId][provider];
     } else {
+      // Format is "object_type:property_name"
+      const [object_type, ...rest] = value.split(':');
+      const property_name = rest.join(':');
+      
       mappings[fieldId][provider] = {
         type: 'existing',
-        property_name: value
+        object_type,
+        property_name
       };
     }
   }
@@ -96,7 +110,7 @@
             <div class="mb-8">
               <h3 class="text-lg font-medium mb-4 capitalize">{provider} Integration</h3>
               
-              {#if properties && properties.length > 0}
+              {#if properties && ((properties.contact && properties.contact.length > 0) || (properties.company && properties.company.length > 0))}
                 <div class="overflow-x-auto border rounded-lg">
                   <table class="w-full text-left text-sm text-gray-600">
                     <thead class="bg-gray-50 border-b">
@@ -109,28 +123,50 @@
                       {#each fields as field}
                         <tr class="hover:bg-gray-50">
                           <td class="px-4 py-3 font-medium text-gray-900">
-                            {field.label || field.name || 'Unnamed Field'}
-                            <span class="text-xs text-gray-500 ml-2">({field.kind})</span>
+                            {field.label || field.id || 'Unnamed Field'}
+                            <span class="text-xs text-gray-500 ml-2">({getFieldDataType(field.field_type)})</span>
                           </td>
                           <td class="px-4 py-3">
                             {#if true}
-                              {@const currentValue = mappings[field.id]?.[provider]?.type === 'custom' 
-                                ? '__custom__' 
-                                : mappings[field.id]?.[provider]?.property_name || ''}
+                              {@const mapping = mappings[field.id]?.[provider]}
+                              {@const currentValue = mapping?.type === 'custom' 
+                                ? `__custom_${mapping.object_type}__` 
+                                : mapping?.property_name ? `${mapping.object_type}:${mapping.property_name}` : ''}
                               
-                              <select 
-                                class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                value={currentValue}
-                                onchange={(e) => updateMapping(field.id, provider, e.currentTarget.value)}
-                              >
-                                <option value="">-- Do not map --</option>
-                                <option value="__custom__" class="font-semibold text-blue-600">+ Create as Custom Property</option>
-                                <optgroup label="Existing Properties">
-                                  {#each properties as prop}
-                                    <option value={prop.name}>{prop.label || prop.name}</option>
-                                  {/each}
-                                </optgroup>
-                              </select>
+                              {@const selectedProp = mapping?.type === 'existing' 
+                                ? (properties[mapping.object_type] || []).find((p: any) => p.name === mapping.property_name) 
+                                : null}
+                              {@const isCompatible = !selectedProp || areTypesCompatible(field.field_type, selectedProp.type)}
+
+                              <div class="space-y-1">
+                                <select 
+                                  class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border {isCompatible ? '' : 'border-red-300 ring-1 ring-red-300'}"
+                                  value={currentValue}
+                                  onchange={(e) => updateMapping(field.id, provider, e.currentTarget.value)}
+                                >
+                                  <option value="">-- Do not map --</option>
+                                  <option value="__custom_contact__" class="font-semibold text-blue-600">+ Create as Custom Contact Property</option>
+                                  <option value="__custom_company__" class="font-semibold text-blue-600">+ Create as Custom Company Property</option>
+                                  
+                                  <optgroup label="Existing Contact Properties">
+                                    {#each (properties.contact || []) as prop}
+                                      <option value={`contact:${prop.name}`}>{prop.label || prop.name} ({prop.type})</option>
+                                    {/each}
+                                  </optgroup>
+
+                                  <optgroup label="Existing Company Properties">
+                                    {#each (properties.company || []) as prop}
+                                      <option value={`company:${prop.name}`}>{prop.label || prop.name} ({prop.type})</option>
+                                    {/each}
+                                  </optgroup>
+                                </select>
+                                
+                                {#if !isCompatible}
+                                  <p class="text-[10px] text-red-600 font-medium">
+                                    Type mismatch: {getFieldDataType(field.field_type)} vs {selectedProp.type}. This might lead to data issues.
+                                  </p>
+                                {/if}
+                              </div>
                             {/if}
                           </td>
                         </tr>

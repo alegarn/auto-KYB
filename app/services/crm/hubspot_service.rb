@@ -37,26 +37,30 @@ module Crm
     def export_data(client, data, files = [])
       ensure_valid_token!
 
-      link = client.crm_client_link
-      unless link&.external_contact_id
-        return { success: false, error: "Client not linked to CRM. Create or link a contact first." }
-      end
-
+      link = client.respond_to?(:crm_client_link) ? client.crm_client_link : nil
+      
       results = {}
 
-      # 1. Update existing contact (do NOT create implicitly)
-      contact_result = update_existing_contact(client, link.external_contact_id, data)
+      # 1. Update existing contact (or create if not linked)
+      external_id = link&.external_contact_id
+      if external_id.blank?
+        created = create_contact(client)
+        external_id = created[:id]
+        contact_result = { id: external_id, action: :created }
+      else
+        contact_result = update_existing_contact(client, external_id, data)
+      end
       results[:contact] = contact_result
 
       # 2. Upload files (if any)
       if files.any?
-        file_results = upload_files(files, contact_id: link.external_contact_id)
+        file_results = upload_files(files, contact_id: external_id)
         results[:files] = file_results
       end
 
-      { success: true, external_id: link.external_contact_id, details: results }
-    rescue ::Hubspot::ApiError => e
-      Rails.logger.error("[HubSpot Export] #{e.message}")
+      { success: true, external_id: external_id, details: results }
+    rescue StandardError => e
+      Rails.logger.error("[HubSpot Export] #{e.class}: #{e.message}")
       { success: false, error: e.message }
     end
 
@@ -133,7 +137,7 @@ module Crm
         parsed = JSON.parse(res.body)
         { id: parsed["vid"] || parsed["id"], action: :created }
       else
-        raise ::Hubspot::ApiError, "Error creating contact: #{res.body}"
+        raise "Error creating contact (HTTP #{res.code}): #{res.body}"
       end
     end
 
@@ -152,7 +156,7 @@ module Crm
       if res.code.to_i == 200 || res.code.to_i == 204
         { id: external_id, action: :updated }
       else
-        raise ::Hubspot::ApiError, "Error updating contact: #{res.body}"
+        raise "Error updating contact (HTTP #{res.code}): #{res.body}"
       end
     end
 
