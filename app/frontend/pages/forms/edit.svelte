@@ -161,13 +161,14 @@
     showCrmMappingModal = false;
   }
 
-  async function sendTestCrmData() {
+  async function sendTestCrmData(updatedFields?: FormField[]) {
     testingCrm = true;
     try {
       const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
       
+      const targetFields = updatedFields || fields;
       const payload = {
-        fields: fields.map((f, i) => ({
+        fields: targetFields.map((f, i) => ({
           ...(f.id ? { id: f.id } : {}),
           label: f.label,
           field_type: f.field_type,
@@ -187,7 +188,7 @@
       });
       if (response.ok) {
         testCrmSuccess = true;
-        setTimeout(() => { closeCrmMapping(); }, 2000);
+        setTimeout(() => { testCrmSuccess = false; }, 3000);
       } else {
         const body = await response.json();
         alert(`Test export failed: ${body.error || 'Unknown error'}`);

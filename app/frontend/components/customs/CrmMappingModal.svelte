@@ -29,8 +29,12 @@
   });
 
   function handleSave() {
-    // Construct updated fields array with new metadata
-    const updatedFields = fields.map(field => {
+    onsave?.({ fields: getUpdatedFields() });
+    open = false;
+  }
+
+  function getUpdatedFields() {
+    return fields.map(field => {
       const fieldMapping = mappings[field.id];
       if (!fieldMapping || Object.keys(fieldMapping).length === 0) {
         return field;
@@ -43,9 +47,10 @@
         }
       };
     });
+  }
 
-    onsave?.({ fields: updatedFields });
-    open = false;
+  function handleTest() {
+    ontestcrm?.(getUpdatedFields());
   }
 
   function close() {
@@ -287,7 +292,7 @@
         {/if}
         
         <button 
-          onclick={ontestcrm}
+          onclick={handleTest}
           class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
           disabled={testingCrm || Object.keys(crmProperties).length === 0}
         >
