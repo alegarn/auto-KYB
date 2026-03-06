@@ -91,6 +91,31 @@
   }
 
   // Reactive summary: what CRM records will be created per provider
+  // Per-provider search terms for filtering long property lists
+  let providerSearch = $state<Record<string, string>>({});
+
+  function capitalize(s: string) {
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+  }
+
+  // Filtered properties based on the per-provider search term
+  let filteredProperties = $derived.by(() => {
+    const result: Record<string, { contact: any[]; company: any[] }> = {};
+    for (const [prov, props] of Object.entries(crmProperties || {})) {
+      const term = (providerSearch[prov] || '').toLowerCase().trim();
+      const contact = (props?.contact || []).filter((p: any) => {
+        if (!term) return true;
+        return ((p.label || '') + ' ' + (p.name || '') + ' ' + (p.type || '')).toLowerCase().includes(term);
+      });
+      const company = (props?.company || []).filter((p: any) => {
+        if (!term) return true;
+        return ((p.label || '') + ' ' + (p.name || '') + ' ' + (p.type || '')).toLowerCase().includes(term);
+      });
+      result[prov] = { contact, company };
+    }
+    return result;
+  });
+
   let summaries = $derived.by(() => {
     const result: Record<string, CrmExportSummary> = {};
     for (const provider of Object.keys(crmProperties)) {
@@ -148,6 +173,16 @@
           {#each Object.entries(crmProperties) as [provider, properties]}
             <div class="mb-8" data-provider={provider}>
               <h3 class="text-lg font-medium mb-4 capitalize">{provider} Integration</h3>
+              <div class="mb-4">
+                <input
+                  type="text"
+                  placeholder="Filter properties..."
+                  class="w-full border border-gray-200 rounded px-3 py-2 text-sm"
+                  value={providerSearch[provider] || ''}
+                  oninput={(e) => providerSearch = { ...providerSearch, [provider]: e.currentTarget.value }}
+                  aria-label={`Filter properties for ${provider}`}
+                />
+              </div>
               
               <!-- CRM Export Summary Banner -->
               {#if summaries[provider]}
@@ -238,31 +273,40 @@
                                 ? (properties[mapping.object_type] || []).find((p: any) => p.name === mapping.property_name) 
                                 : null}
                               {@const isCompatible = !selectedProp || areTypesCompatible(field.field_type, selectedProp.type)}
+                              {@const filtered = filteredProperties[provider] || { contact: [], company: [] }}
 
                               <div class="space-y-1">
-                                <select 
-                                  data-field-id={field.id}
-                                  data-provider={provider}
-                                  class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border {isCompatible ? '' : 'border-red-300 ring-1 ring-red-300'}"
-                                  value={currentValue}
-                                  onchange={(e) => updateMapping(field.id, provider, e.currentTarget.value)}
-                                >
-                                  <option value="">-- Do not map --</option>
-                                  <option value="__custom_contact__" class="font-semibold text-blue-600">+ Create as Custom Contact Property</option>
-                                  <option value="__custom_company__" class="font-semibold text-blue-600">+ Create as Custom Company Property</option>
-                                  
-                                  <optgroup label="Existing Contact Properties">
-                                    {#each (properties.contact || []) as prop}
-                                      <option value={`contact:${prop.name}`}>Contact: {prop.label || prop.name} ({prop.type})</option>
-                                    {/each}
-                                  </optgroup>
+                                <div class="relative">
+                                  <input 
+                                    type="text" 
+                                    placeholder={`Filter ${capitalize(provider)} properties...`}
+                                    class="w-full mb-1 px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-blue-400 outline-none"
+                                    bind:value={providerSearch[provider]}
+                                  />
+                                  <select 
+                                    data-field-id={field.id}
+                                    data-provider={provider}
+                                    class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border {isCompatible ? '' : 'border-red-300 ring-1 ring-red-300'}"
+                                    value={currentValue}
+                                    onchange={(e) => updateMapping(field.id, provider, e.currentTarget.value)}
+                                  >
+                                    <option value="">-- Do not map --</option>
+                                    <option value={`__custom_contact__`} class="font-semibold text-blue-600">+ Create as Custom {capitalize('contact')} Property</option>
+                                    <option value={`__custom_company__`} class="font-semibold text-blue-600">+ Create as Custom {capitalize('company')} Property</option>
+                                    
+                                    <optgroup label={`Existing ${capitalize('contact')} Properties`}>
+                                      {#each (filtered.contact || []) as prop}
+                                        <option value={`contact:${prop.name}`}>{capitalize('contact')}: {prop.label || prop.name} ({prop.type})</option>
+                                      {/each}
+                                    </optgroup>
 
-                                  <optgroup label="Existing Company Properties">
-                                    {#each (properties.company || []) as prop}
-                                      <option value={`company:${prop.name}`}>Company: {prop.label || prop.name} ({prop.type})</option>
-                                    {/each}
-                                  </optgroup>
-                                </select>
+                                    <optgroup label={`Existing ${capitalize('company')} Properties`}>
+                                      {#each (filtered.company || []) as prop}
+                                        <option value={`company:${prop.name}`}>{capitalize('company')}: {prop.label || prop.name} ({prop.type})</option>
+                                      {/each}
+                                    </optgroup>
+                                  </select>
+                                </div>
                                 
                                 {#if !isCompatible}
                                   <p data-testid={`type-mismatch-${field.id}-${provider}`} class="text-[10px] text-red-600 font-medium">

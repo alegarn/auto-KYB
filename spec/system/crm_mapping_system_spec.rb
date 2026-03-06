@@ -38,8 +38,37 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     expect(page).to have_css('[data-testid="crm-mapping-modal"]', wait: 5)
 
     within find('[data-testid="crm-mapping-modal"]') do
-      expect(page).to have_selector('option', text: /Email \(string\)/)
-      expect(page).to have_selector('option', text: /Company Name \(string\)/)
+      expect(page).to have_selector('option', text: /Contact: Email \(string\)/)
+      expect(page).to have_selector('option', text: /Company: Company Name \(string\)/)
+    end
+  end
+
+  it 'filters properties via the search input' do
+    user = sign_in_user
+    user.crm_connections.create!(provider: 'hubspot', status: 'active', access_token: 'fake', refresh_token: 'fake')
+
+    form = user.forms.create!(name: 'Filter Test', structure: { 'description' => 'Test' })
+    field = form.form_fields.create!(field_type: 'text', label: 'Field 1', position: 1, metadata: { 'crm_mapping' => {} })
+
+    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+      { 'name' => 'email', 'label' => 'Email', 'type' => 'string' },
+      { 'name' => 'city', 'label' => 'City', 'type' => 'string' }
+    ])
+    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
+
+    visit edit_form_path(form)
+    find('button', text: /CRM Sync Settings/).click
+
+    within find('[data-testid="crm-mapping-modal"]') do
+      # Initially both should be there
+      expect(page).to have_selector('option', text: /Contact: Email/)
+      expect(page).to have_selector('option', text: /Contact: City/)
+
+      # Search for 'City'
+      find("input[placeholder*=\"Filter Hubspot\"]", match: :first).set('City')
+
+      expect(page).to have_selector('option', text: /Contact: City/)
+      expect(page).not_to have_selector('option', text: /Contact: Email/)
     end
   end
 
