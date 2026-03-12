@@ -194,6 +194,11 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
     const fieldLabel = String(field.label || fieldId || '').toLowerCase();
     const fieldLabelNorm = normalizeForMatch(field.label || fieldId || '');
     const fieldIdNorm = normalizeForMatch(fieldId);
+    
+    // Use export_key as a matching feature if available
+    const exportKey = (field.metadata?.export_key || '').toLowerCase();
+    const exportKeyNorm = exportKey ? normalizeForMatch(exportKey) : '';
+
     newMappings[fieldId] = {};
 
     Object.entries(crmProperties).forEach(([provider, properties]) => {
@@ -209,11 +214,17 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
           const propLabelNorm = normalizeForMatch(p.label);
           const fieldIdLower = String(fieldId).toLowerCase();
 
-          if (propName === fieldLabel || propLabel === fieldLabel || propName === fieldIdLower) {
+          // Try match against label, ID or EXPORT KEY
+          const matchesRaw = propName === fieldLabel || propLabel === fieldLabel || propName === fieldIdLower || propName === exportKey || propLabel === exportKey;
+
+          if (matchesRaw) {
             return areTypesCompatible(field.field_type, p.type);
           }
           // Also allow exact match on normalized strings (handles punctuation/diacritics)
-          if ((propNameNorm && propNameNorm === fieldLabelNorm) || (propLabelNorm && propLabelNorm === fieldLabelNorm)) {
+          const matchesNorm = (propNameNorm && (propNameNorm === fieldLabelNorm || propNameNorm === exportKeyNorm)) || 
+                             (propLabelNorm && (propLabelNorm === fieldLabelNorm || propLabelNorm === exportKeyNorm));
+
+          if (matchesNorm) {
             return areTypesCompatible(field.field_type, p.type);
           }
           return false;
