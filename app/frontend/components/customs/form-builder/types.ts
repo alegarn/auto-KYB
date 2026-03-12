@@ -78,6 +78,7 @@ export interface FieldMetadata {
   logo?: LogoConfig;
   text_content?: string;
   export_key?: string;
+  crm_mapping?: Record<string, any>;
 }
 
 export interface FormField {

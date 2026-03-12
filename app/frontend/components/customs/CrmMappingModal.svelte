@@ -49,15 +49,15 @@
   function getUpdatedFields() {
     return fields.map(field => {
       const fieldMapping = mappings[field.id];
-      if (!fieldMapping || Object.keys(fieldMapping).length === 0) {
-        return field;
+      const metadata = { ...field.metadata };
+      
+      if (fieldMapping && Object.keys(fieldMapping).length > 0) {
+        metadata.crm_mapping = fieldMapping;
       }
+      
       return {
         ...field,
-        metadata: {
-          ...field.metadata,
-          crm_mapping: fieldMapping
-        }
+        metadata
       };
     });
   }
@@ -100,6 +100,23 @@
         object_type,
         property_name
       };
+    }
+  }
+
+  function syncExportKey(fieldId: string, provider: string) {
+    const mapping = mappings[fieldId]?.[provider];
+    if (mapping?.property_name) {
+      // Find the field in the current fields list and update its temporary metadata
+      // Since 'fields' is a prop, we should ideally handle this in the parent
+      // but to allow immediate visual feedback in the modal we update a local copy
+      // or simply rely on the fact that we'll 'onsave' later.
+      const fieldIdx = fields.findIndex(f => f.id === fieldId);
+      if (fieldIdx !== -1) {
+        fields[fieldIdx].metadata = {
+          ...fields[fieldIdx].metadata,
+          export_key: mapping.property_name
+        };
+      }
     }
   }
 
@@ -237,8 +254,15 @@
                       {#each fields as field}
                         <tr class="hover:bg-gray-50">
                           <td class="px-4 py-3 font-medium text-gray-900">
-                            {field.label || field.id || 'Unnamed Field'}
-                            <span class="text-xs text-gray-500 ml-2">({getFieldDataType(field.field_type)})</span>
+                            <div class="flex flex-col">
+                              <span>{field.label || field.id || 'Unnamed Field'}</span>
+                              <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="text-[10px] text-gray-500 uppercase font-semibold">Type: {getFieldDataType(field.field_type)}</span>
+                                {#if field.metadata?.export_key}
+                                  <span class="text-[10px] text-indigo-100 bg-indigo-600 px-1 rounded-sm font-mono tracking-tight" title="Data Export Key: {field.metadata.export_key}">Key: {field.metadata.export_key}</span>
+                                {/if}
+                              </div>
+                            </div>
                           </td>
                           <td class="px-4 py-3">
                             {#if true}
@@ -335,6 +359,22 @@
                                   <p data-testid={`type-mismatch-${field.id}-${provider}`} class="text-[10px] text-red-600 font-medium">
                                     Type mismatch: {getFieldDataType(field.field_type)} vs {selectedProp.type}. This might lead to data issues.
                                   </p>
+                                {/if}
+
+                                {#if selectedProp && field.metadata?.export_key !== selectedProp.name}
+                                  <div class="flex items-center justify-between">
+                                    <p class="text-[10px] text-amber-600 font-medium">
+                                      Key mismatch: export key ({field.metadata?.export_key || 'label'}) != {selectedProp.name}
+                                    </p>
+                                    <button 
+                                      type="button"
+                                      onclick={() => syncExportKey(field.id, provider)}
+                                      class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors"
+                                      title="Update Data Export Key to match CRM property name"
+                                    >
+                                      Align Key
+                                    </button>
+                                  </div>
                                 {/if}
                               </div>
                             {/if}
