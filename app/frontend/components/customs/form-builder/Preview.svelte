@@ -12,14 +12,14 @@
     const types = (f.metadata.file?.allowed_types && f.metadata.file.allowed_types.length)
       ? f.metadata.file.allowed_types
       : ALLOWED_FILE_EXTENSIONS;
-    return types.map(t => t.startsWith('.') ? t : `.${t.replace(/^\./, '')}`).join(',');
+    return types.map(t => '.' + t.replace(/^\.+/, '')).join(',');
   }
 
   function allowedTypesLabel(f: FormField): string {
     const types = (f.metadata.file?.allowed_types && f.metadata.file.allowed_types.length)
       ? f.metadata.file.allowed_types
       : ALLOWED_FILE_EXTENSIONS;
-    return types.map(t => t.replace(/^\./, '').toUpperCase()).join(', ');
+    return types.map(t => t.replace(/^\.+/, '').toUpperCase()).join(', ');
   }
 </script>
 

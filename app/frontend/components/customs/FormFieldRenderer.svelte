@@ -133,7 +133,7 @@
   const maxFileSizeBytes = $derived(fileUploadConstraints.max_file_size_bytes ?? 10 * 1024 * 1024);
   const configuredMaxSizeBytes = $derived(fileConfig.max_size_kb ? fileConfig.max_size_kb * 1024 : null);
   const effectiveMaxFileSizeBytes = $derived(configuredMaxSizeBytes == null ? maxFileSizeBytes : Math.min(configuredMaxSizeBytes, maxFileSizeBytes));
-  const accept = $derived(fileConfig.allowed_types?.map((t: string) => `.${t}`).join(',') || defaultAccept);
+  const accept = $derived(fileConfig.allowed_types?.map((t: string) => `.${t.replace(/^\.+/, '')}`).join(',') || defaultAccept);
   const separatorConfig = $derived(metadata.separator ?? {});
   const textContent = $derived(metadata.text_content ?? '');
 
