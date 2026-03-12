@@ -99,7 +99,8 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
       # Svelte 5 result list
       expect(page).to have_content('John Doe', wait: 5)
       
-      within('ul') do
+      # Select based on the name to be more specific
+      within('li', text: 'John Doe') do
         click_button 'Select'
       end
 
@@ -110,7 +111,8 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
 
       click_button 'Create client'
 
-      expect(page).to have_content('Client was successfully created.')
+      expect(page).to have_content('Access URL')
+      expect(page).to have_content('Password to access')
       expect(CrmClientLink.last.external_contact_id).to eq('hs-123')
     end
 
