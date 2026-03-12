@@ -2,6 +2,7 @@
   import { Input } from "@/components/ui/input/index.js";
   import { Label } from "@/components/ui/label/index.js";
   import { Button } from "@/components/ui/button/index.js";
+  import Modal from "@/components/ui/modal.svelte";
   import type { FormField } from "./types";
 
   interface Props {
@@ -12,6 +13,8 @@
   }
 
   let { fields, onupdate, showValidation = false, duplicateKeys = [] }: Props = $props();
+
+  let showSyncModal = $state(false);
 
   const dataFields = $derived(
     fields.map((f, i) => ({ field: f, index: i })).filter(
@@ -54,6 +57,24 @@
     });
   }
 
+  function syncAllKeysWithCrm() {
+    dataFields.forEach(({ field, index }) => {
+      const crmMapping = field.metadata?.crm_mapping;
+      if (crmMapping) {
+        // Find first provider that has a property name
+        const firstActiveMapping: any = Object.values(crmMapping).find((m: any) => m.property_name);
+        if (firstActiveMapping?.property_name) {
+          onupdate(index, { 
+            metadata: { 
+              ...field.metadata, 
+              export_key: firstActiveMapping.property_name 
+            } 
+          });
+        }
+      }
+    });
+  }
+
   function applyTransformToAll(transformFn: (str: string) => string) {
     dataFields.forEach(({ field, index }) => {
       const baseLabel = field.label || `Field ${index + 1}`;
@@ -90,8 +111,24 @@
       <Button variant="outline" size="sm" onclick={() => applyTransformToAll(toCamelCase)}>
         camelCase
       </Button>
+      <Button 
+        variant="outline" 
+        size="sm" 
+        class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100" 
+        onclick={() => showSyncModal = true}
+      >
+        sync with CRM
+      </Button>
     </div>
   {/if}
+
+  <Modal
+    bind:showModal={showSyncModal}
+    title="Sync with CRM?"
+    description="This will overwrite your current Export Keys with the technical property names from your CRM. This action cannot be undone."
+    confirmText="Confirm Sync"
+    onConfirm={syncAllKeysWithCrm}
+  />
 
   <div class="space-y-4">
     {#each dataFields as { field, index }}

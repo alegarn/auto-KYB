@@ -18,6 +18,10 @@
 - Q: When sending test data to CRM, how should the test data be generated and what should happen to it in the CRM? → A: Use placeholder/sample data (e.g., 'Test Client', 'test@example.com') and mark records as test data in CRM (flagged for easy deletion)
 - Q: Where in the UI should the CRM test connection feature be available? → A: Both: In CRM settings (general connection test) AND on form pages (form-specific mapping test)
 - Q: When a CRM test connection fails, what information should be displayed to the user? → A: Categorized errors (connection, authentication, field mapping, file upload) with specific guidance for each type
+- Q: How does the system ensure data type compatibility between form fields and CRM properties? → A: The system uses a compatibility matrix (e.g., 'number' matches 'integer', 'float', 'decimal') and displays a "Type mismatch" warning in the UI if incompatible types are selected.
+- Q: How does the system handle mapping to multiple CRM objects (Contact vs Company)? → A: The UI allows selecting the target object type (Contact or Company) for each field. An "Export Preview" summary indicates if both records will be created and if they can be successfully linked (e.g., checking for required identifiers like 'email' for Contacts or 'name/domain' for Companies).
+- Q: Can users create new properties in their CRM directly from the app? → A: Yes, users can select "+ Create as Custom Contact/Company Property" which will trigger the creation of that property in the CRM during the export process.
+- Q: Is there an automated way to set up mappings? → A: Yes, an "Auto-Map Fields" feature uses fuzzy matching and type validation to suggest mappings for all form fields.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -187,7 +191,72 @@ As a user, I want to export a client from the application to a connected CRM as 
 
 ---
 
-### Edge Cases
+### User Story 10 - Form-Level CRM Field Mapping Configuration (Priority: P1)
+
+As a user, I want to configure how form fields map to CRM properties directly within the form builder, so that I have clear, contextual control over where collected data is exported.
+
+**Why this priority**: Users need explicit control over how dynamic form data corresponds to CRM records. Auto-mapping might miss edge cases, and giving users the choice to use existing CRM default properties or dynamically create new custom properties in the CRM guarantees accurate data representation.
+
+**Independent Test**: Can be tested mathematically in a mock environment by interacting with the Form Builder's "CRM Mapping" tab, selecting "Create Custom Property" vs an "Existing Property", and verifying the payload structures generated upon form submission.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is editing a form, **When** they open the CRM Mapping settings, **Then** they see a table matching Form Fields to corresponding CRM Properties for the selected CRM
+2. **Given** the user adds a new form field, **When** they view the mapping settings, **Then** the system automatically auto-suggests a corresponding CRM property using fuzzy matching
+3. **Given** a form field does not match any existing standard CRM property, **When** the mapper loads, **Then** the field defaults to the "Create as Custom Property" action
+4. **Given** the user configures a field to "Create as Custom Property", **When** the form mapping is saved (or form submitted), **Then** the application asynchronously creates that custom property in the CRM via API
+5. **Given** the user wants to map standard app fields (e.g. client name, company email), **When** they check the standard mappings section in global settings, **Then** they see the hardcoded mappings which represent where core entities route to their CRM
+
+---
+
+### User Story 11 - CRM Property Data Type Validation (Priority: P2)
+
+As a user, I want to see warnings when I map a form field to an incompatible CRM property type, so that I can avoid data truncation or transfer failures due to type mismatches.
+
+**Why this priority**: Prevents silent data loss or API errors. While users can still save the mapping, being informed of the "DataType" mismatch (e.g., mapping a 'text' field to a CRM 'number' property) allows them to correct the mapping before real data is sent.
+
+**Independent Test**: Can be tested by selecting a 'long text' form field and mapping it to a 'boolean' CRM property, then verifying that a "Type mismatch" warning is displayed in the UI.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is in the CRM mapping modal, **When** they select a CRM property with a type (e.g., 'number') that is incompatible with the form field type (e.g., 'text' or 'select'), **Then** a "Type mismatch" warning is displayed below the field
+2. **Given** a type mismatch is present, **When** the user switches to a compatible CRM property, **Then** the warning automatically disappears
+3. **Given** multiple CRM providers are active, **When** the user checks different provider tabs, **Then** type validation is performed independently for each provider's unique property schema
+
+---
+
+### User Story 12 - CRM Object Creation Preview and Required Identifiers (Priority: P1)
+
+As a user, I want a clear preview of which CRM object records (Contact, Company) will be created and whether they contain the required identifiers, so that I can ensure the CRM integration will successfully link and create records.
+
+**Why this priority**: CRM APIs often have mandatory fields (e.g., HubSpot requires 'name' or 'domain' for Companies). Without these, the entire export might fail or create disconnected records. A real-time "Export Preview" makes these requirements visible and actionable.
+
+**Independent Test**: Can be tested by mapping only 'non-identifier' fields for a Company and verifying the "Company (incomplete)" warning appears, then mapping a 'name' field and verifying it changes to "Ready".
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is in the mapping modal, **When** they map at least one field to a Contact, **Then** the "Contact" status in the Export Preview is marked as "Ready"
+2. **Given** the user maps fields to both Contact and Company, **When** both have at least one field mapped, **Then** the "Linked" status indicates the records will be associated in the CRM
+3. **Given** a CRM (like HubSpot) requires a company 'name' for creation, **When** the user maps other company fields but NOT 'name', **Then** a specific warning listing the missing required identifier is displayed
+4. **Given** the user maps no fields to a specific object type, **When** viewing the Export Preview, **Then** the status for that object type shows "No [Object Type]" to indicate it will be skipped during export
+
+---
+
+### User Story 13 - Automation of Field Mapping (Priority: P2)
+
+As a user, I want to automatically match my form fields to CRM properties at the click of a button, so that I don't have to manually select dozens of properties for complex forms.
+
+**Why this priority**: High UX value for efficiency. In complex forms with many KYC/KYB fields, manual mapping is tedious and error-prone. Automation handles the 80% of obvious matches, leaving the user to only review and adjust exceptions.
+
+**Independent Test**: Can be tested by opening a form with fields like "First Name", "Company Email", clicking "Auto-Map Fields", and verifying they are correctly mapped to "firstname" and "email" in the CRM.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user has complex forms and an active CRM, **When** they click "Auto-Map Fields", **Then** the system uses fuzzy matching and type validation to automatically suggest mappings for as many fields as possible
+2. **Given** auto-mapping is triggered, **When** a field already has a manual mapping, **Then** the manual mapping is preserved and NOT overwritten by the automation
+3. **Given** auto-mapping finds a match but the types are incompatible, **When** analyzing the result, **Then** the system should prioritize compatible types or surface a warning if a mismatching name is the best match
+
+---
 
 - What happens when the user has no active CRM connections and a client validates their form? The form validation proceeds normally, but no data transfer occurs. The user is notified that no CRM connection is active.
 - What happens when the CRM provider's API is temporarily unavailable during transfer? The system implements retry logic with 3 retries using exponential backoff (30s, 2min, 10min intervals) and notifies the user if all retry attempts fail.
@@ -254,7 +323,16 @@ As a user, I want to export a client from the application to a connected CRM as 
 - **FR-038**: System MUST include test file uploads when verifying CRM data transfer for forms with file fields
 - **FR-039**: System MUST allow users to select which CRM(s) to test when multiple connections are active
 - **FR-040**: System MUST provide links to view test records in CRM after successful test data transfer
-
+- **FR-041**: System MUST allow users to explicitly configure CRM field mappings for custom form fields within the form builder interface
+- **FR-042**: System MUST automatically suggest corresponding CRM properties using fuzzy matching algorithms against form field names
+- **FR-043**: System MUST fall back to a "Create as Custom Property" configuration by default when no matching CRM standard property is found
+- **FR-044**: System MUST automatically create custom properties in the respective CRMs via their APIs when a payload with "custom property" mappings is dispatched
+- **FR-045**: System MUST provide a read-only list in global settings displaying where core application fields (name, company, email) are mapped by default- FR-046: System MUST validate data type compatibility between form fields (text, number, boolean, date, file, json) and CRM property types (string, integer, email, phone, enumeration, datetime, etc.)
+- FR-047: System MUST display persistent warnings in the mapping interface if incompatible data types are selected for mapping
+- FR-048: System MUST provide an "Export Preview" summary indicating the status ('ready', 'warning', 'none') of Contact and Company record creation per CRM provider
+- FR-049: System MUST identify and list missing required identifiers (e.g., 'name' or 'domain' for HubSpot Company) when mapping fields to a CRM object type
+- FR-050: System MUST provide an "Auto-Map Fields" feature that uses fuzzy matching and type validation to suggest mappings for form fields efficiently
+- FR-051: System MUST perform CRM property lookups and matching asynchronously to avoid blocking the main UI thread (using Svelte 5 $effect and $derived runes)
 ### Key Entities
 
 - **CRM Connection**: Represents an authorized OAuth2 connection between a user and a CRM provider (Zoho, Salesforce, or HubSpot). Contains connection credentials, status, and provider-specific metadata.

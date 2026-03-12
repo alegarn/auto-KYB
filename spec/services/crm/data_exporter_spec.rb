@@ -10,7 +10,7 @@ RSpec.describe Crm::DataExporter, type: :service do
 
   it 'creates transfers and enqueues jobs for active connections only' do
     active = create(:crm_connection, user: user, status: 'active')
-    _inactive = create(:crm_connection, user: user, status: 'inactive')
+    _inactive = create(:crm_connection, user: user, status: 'inactive', provider: 'salesforce')
 
     exporter = described_class.new(client)
 
@@ -23,7 +23,7 @@ RSpec.describe Crm::DataExporter, type: :service do
 
   it 'creates a pending transfer record for each active connection' do
     create(:crm_connection, user: user, status: 'active')
-    create(:crm_connection, user: user, status: 'active')
+    create(:crm_connection, user: user, status: 'active', provider: 'salesforce')
 
     exporter = described_class.new(client)
 
