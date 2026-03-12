@@ -53,6 +53,7 @@ RSpec.describe "CRM Synchronization during Client workflows", type: :request do
 
   describe "POST /clients/:id/link_crm_contact" do
     it "creates a link for the client" do
+      allow(hubspot_service).to receive(:fetch_contact).with("XYZ").and_return({ name: "Jane Linked" })
       post link_crm_contact_client_path(client), params: { external_contact_id: "XYZ" }
       
       expect(client.reload.crm_client_link.external_contact_id).to eq("XYZ")

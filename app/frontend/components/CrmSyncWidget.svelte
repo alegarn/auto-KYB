@@ -12,12 +12,23 @@
   let selectedContactId = $state<string | null>(null);
   let selectedContactData = $state<{ name: string, email: string } | null>(null);
 
+  let searchTimeout: ReturnType<typeof setTimeout>;
+
   $effect(() => {
     onSyncDataChanged({
       strategy,
       external_contact_id: selectedContactId,
       prefillData: selectedContactData
     });
+  });
+
+  $effect(() => {
+    if (strategy === 'link' && searchQuery.length >= 3 && !selectedContactId) {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        searchCrm();
+      }, 700);
+    }
   });
 
   async function searchCrm() {

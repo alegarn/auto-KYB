@@ -1,7 +1,7 @@
 <script lang="ts">
   import { areTypesCompatible, getFieldDataType, analyzeMappings, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
   import { Select } from "bits-ui";
-  import { ChevronsUpDown, Search } from "@lucide/svelte";
+  import { Check, ChevronsUpDown, Search } from "@lucide/svelte";
   import { cn } from "../../lib/utils";
 
   // Props
@@ -256,7 +256,7 @@
                                 <Select.Root 
                                   type="single"
                                   bind:value={() => currentValue, (v) => updateMapping(field.id, provider, v)}
-                                  onOpenChange={(isOpen) => { if (!isOpen) fieldSearch[`${field.id}-${provider}`] = ''; }}
+                                  onOpenChange={(isOpen: boolean) => { if (!isOpen) fieldSearch[`${field.id}-${provider}`] = ''; }}
                                 >
                                   <Select.Trigger
                                     class={cn(
@@ -312,7 +312,7 @@
                                           data-slot="select-item"
                                         >
                                           <span class="flex-1 truncate">{prop.label || prop.name}</span>
-                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type.toLowerCase()}</span>
+                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}
 
@@ -324,7 +324,7 @@
                                           data-slot="select-item"
                                         >
                                           <span class="flex-1 truncate">{prop.label || prop.name}</span>
-                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type.toLowerCase()}</span>
+                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}
                                     </div>

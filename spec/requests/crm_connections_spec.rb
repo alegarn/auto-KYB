@@ -12,8 +12,8 @@ RSpec.describe "CrmConnections", type: :request do
   describe "POST /crm_connections" do
     it "redirects to HubSpot authorization url" do
       post "/crm_connections", params: { provider: "hubspot" }
-      expect(response).to have_http_status(:redirect)
-      expect(response.location).to start_with("https://app.hubspot.com/oauth/authorize")
+      expect(response).to have_http_status(:conflict)
+      expect(response.headers["X-Inertia-Location"]).to include("hubspot.com/oauth/authorize")
       expect(session[:crm_oauth_state]).to be_present
     end
 
