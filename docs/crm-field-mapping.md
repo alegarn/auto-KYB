@@ -18,6 +18,8 @@ Most integrations support mapping to:
 - **Contact**: Individual person properties (Email, First Name, etc.).
 - **Company**: Organizational properties (Company Name, Domain, etc.).
 
+> **Note on Restricted Properties**: Quick KYB automatically hides **Read-Only** and **Calculated** CRM properties (e.g., HubSpot's `engagements_last_meeting_booked`). This prevents integration errors that occur when attempting to write data to system-managed fields.
+
 ### Auto-Mapping
 The "Auto-Map Fields" feature attempts to guess the correct CRM property by comparing the CRM's property labels and names against:
 1. The field's **Export Key** (highest priority).
