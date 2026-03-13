@@ -16,7 +16,13 @@ module Crm
           # Try to get them using the standard SDK
           begin
             response = @client.sdk.crm.properties.core_api.get_all(object_type: object_type)
-            response.results.map do |prop|
+            
+            # Filter out read only and calculated properties
+            filterable_results = response.results.reject do |prop|
+              prop.calculated || prop.modification_metadata&.read_only_value
+            end
+
+            filterable_results.map do |prop|
               {
                 name: prop.name,
                 label: prop.label,

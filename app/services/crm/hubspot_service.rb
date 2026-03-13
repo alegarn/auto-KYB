@@ -229,10 +229,20 @@ module Crm
       res = hubspot_client.api_request(method: "GET", path: "/properties/v1/#{object_type}/properties")
       return unless res.code.to_i == 200
 
-      existing = JSON.parse(res.body).map { |p| p["name"] }
+      all_props = JSON.parse(res.body)
+      all_props = [] unless all_props.is_a?(Array)
 
-      properties_hash.each do |k, v|
+      existing = all_props.map { |p| p["name"] }
+      read_only_props = all_props.select { |p| p["readOnlyValue"] || p["calculated"] }.map { |p| p["name"] }
+
+      properties_hash.keys.each do |k|
         prop_name = k.to_s.downcase.gsub(/[^a-z0-9]/, "_")
+
+        if read_only_props.include?(prop_name)
+          properties_hash.delete(k)
+          next
+        end
+
         next if existing.include?(prop_name)
 
         group = object_type == "contacts" ? "contactinformation" : "companyinformation"
