@@ -38,7 +38,7 @@ module Crm
       ensure_valid_token!
 
       link = client.respond_to?(:crm_client_link) ? client.crm_client_link : nil
-      
+
       results = {}
 
       # 1. Update existing contact (or create if not linked)
@@ -78,7 +78,7 @@ module Crm
 
       # 4. Upload files (if any)
       if files.any?
-        file_results = upload_files(files, contact_id: external_id)
+        file_results = upload_files(files, contact_id: external_id, company_id: company_id)
         results[:files] = file_results
       end
 
@@ -306,11 +306,23 @@ module Crm
       Rails.logger.warn("[HubSpot Association] #{e.message}")
     end
 
-    def upload_files(files, contact_id: nil)
+    def upload_files(files, contact_id: nil, company_id: nil)
       uploader = Crm::Hubspot::FileUploader.new(hubspot_client)
-      files.filter_map do |uploaded_file|
+      files.filter_map do |item|
+        # support both old array of UploadedFile and new array of Hashes [{file: UploadedFile, target: :contact, action: '__note_attachment__'}]
+        uploaded_file = item.is_a?(Hash) ? item[:file] : item
+        target = item.is_a?(Hash) ? item[:target] : :contact
+        action = item.is_a?(Hash) ? item[:action] : "__note_attachment__"
+
         next unless uploaded_file.file.attached?
-        uploader.upload(uploaded_file, associate_to_contact: contact_id)
+
+        # Currently HubSpot implementation only supports note attachment
+        next unless action == "__note_attachment__"
+
+        target_id = target == :company ? company_id : contact_id
+        next if target_id.blank?
+
+        uploader.upload(uploaded_file, target_type: target, target_id: target_id)
       end
     end
 

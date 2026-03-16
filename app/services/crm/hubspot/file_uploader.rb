@@ -13,44 +13,35 @@ module Crm
       # Upload an UploadedFile (ActiveStorage) to HubSpot's Files API
       #
       # @param uploaded_file [UploadedFile] the Quick KYB file record
-      # @param associate_to_contact [String, nil] HubSpot contact ID to associate
+      # @param target_type [Symbol] :contact or :company
+      # @param target_id [String, nil] HubSpot object ID to associate
       # @return [Hash] { file_id: "...", name: "..." } or nil on failure
-      def upload(uploaded_file, associate_to_contact: nil)
+      def upload(uploaded_file, target_type: :contact, target_id: nil)
         blob = uploaded_file.file.blob
 
-        # Download binary from ActiveStorage to a temp file
         tempfile = Tempfile.new([ blob.filename.base, ".#{blob.filename.extension}" ])
         tempfile.binmode
         blob.download { |chunk| tempfile.write(chunk) }
         tempfile.rewind
 
-        # Build multipart form for HubSpot Files API
         options = {
           access: "PRIVATE",
           overwrite: false,
-          duplicateValidationStrategy: "REJECT", # prevents duplicates matching identical names/checksums
+          duplicateValidationStrategy: "RETURN_EXISTING",
           duplicateValidationScope: "ENTIRE_PORTAL"
         }
 
         folder_path = "/quick-kyb/#{uploaded_file.client_id}"
 
-        @client.api_request(
-          method: "POST",
-          path: UPLOAD_PATH,
-          body: nil, # multipart — handled below
-          headers: {}
-        )
-
-        # The SDK doesn't natively support multipart file uploads,
-        # so we use a direct Net::HTTP call via the client's token
         result = upload_via_http(tempfile, blob.filename.to_s, blob.content_type, folder_path, options)
 
         tempfile.close
         tempfile.unlink
 
         if result && result["id"]
-          # Optionally associate file to a contact
-          associate_file(result["id"], associate_to_contact) if associate_to_contact
+          if target_id.present?
+            create_note_with_attachment(result["id"], blob.filename.to_s, target_type, target_id)
+          end
           { file_id: result["id"], name: result["name"] }
         end
       rescue => e
@@ -82,34 +73,62 @@ module Crm
       def build_multipart_body(tempfile, filename, content_type, folder_path, options, boundary)
         parts = []
 
-        # File part
         parts << "--#{boundary}\r\n"
         parts << "Content-Disposition: form-data; name=\"file\"; filename=\"#{filename}\"\r\n"
         parts << "Content-Type: #{content_type}\r\n\r\n"
         parts << tempfile.read
         parts << "\r\n"
 
-        # Options JSON part
-        file_options = options.merge(folderPath: folder_path)
         parts << "--#{boundary}\r\n"
         parts << "Content-Disposition: form-data; name=\"options\"\r\n"
         parts << "Content-Type: application/json\r\n\r\n"
-        parts << file_options.to_json
+        parts << options.to_json
         parts << "\r\n"
 
-        # Closing boundary
-        parts << "--#{boundary}--\r\n"
+        if folder_path.present?
+          parts << "--#{boundary}\r\n"
+          parts << "Content-Disposition: form-data; name=\"folderPath\"\r\n\r\n"
+          parts << folder_path.to_s
+          parts << "\r\n"
+        end
 
+        parts << "--#{boundary}--\r\n"
         parts.join
       end
 
-      def associate_file(file_id, contact_id)
-        @client.api_request(
-          method: "PUT",
-          path: "/crm/v3/objects/contacts/#{contact_id}/associations/files/#{file_id}/1"
+      def create_note_with_attachment(file_id, filename, target_type, target_id)
+        association_type_id = target_type.to_s == "company" ? 190 : 202
+
+        note_body = {
+          properties: {
+            hs_note_body: "Original uploaded file: #{filename}",
+            hs_timestamp: Time.current.utc.iso8601,
+            hs_attachment_ids: file_id.to_s
+          },
+          associations: [
+            {
+              to: {
+                id: target_id.to_s
+              },
+              types: [
+                {
+                  associationCategory: "HUBSPOT_DEFINED",
+                  associationTypeId: association_type_id
+                }
+              ]
+            }
+          ]
+        }
+
+        note_res = @client.api_request(
+          method: "POST",
+          path: "/crm/v3/objects/notes",
+          body: note_body
         )
+
+        return unless note_res && note_res["id"]
       rescue => e
-        Rails.logger.warn("[HubSpot FileUploader] Association failed: #{e.message}")
+        Rails.logger.warn("[HubSpot FileUploader] Note Creation/Association failed: #{e.message}")
       end
 
     end
