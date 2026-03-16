@@ -84,13 +84,33 @@ describe('CrmMappingModal', () => {
   };
 
   it('renders the form field label and data type', () => {
-    // bits-ui trigger doesn't have combobox role by default in JSDOM sometimes
-    // or it might be different. Let's look for test-ids if needed, but first check text.
     render(CrmMappingModal, { props: { ...defaultProps, onsave: vi.fn() } });
     
     expect(screen.getByText('Company Name')).toBeInTheDocument();
-    // In our new UI, (string) is shown next to the label
-    expect(screen.getByText('(string)')).toBeInTheDocument();
+    // In our UI, it shows "Type: string" (case depends on getFieldDataType)
+    expect(screen.getByText(/Type: string/i)).toBeInTheDocument();
+  });
+
+  it('filters out layout fields (section, subtitle, static_text, separator, logo)', () => {
+    const fields = [
+      { id: 'f1', label: 'Company Name', field_type: 'text', required: false, position: 0, metadata: {} },
+      { id: 'f2', label: 'My Section', field_type: 'section', required: false, position: 1, metadata: {} },
+      { id: 'f3', label: 'My Subtitle', field_type: 'subtitle', required: false, position: 2, metadata: {} },
+      { id: 'f4', label: 'My Info', field_type: 'static_text', required: false, position: 3, metadata: {} },
+      { id: 'f5', label: 'My Separator', field_type: 'separator', required: false, position: 4, metadata: {} },
+      { id: 'f6', label: 'My Logo', field_type: 'logo', required: false, position: 5, metadata: {} }
+    ];
+
+    render(CrmMappingModal, { props: { ...defaultProps, fields, onsave: vi.fn() } });
+
+    expect(screen.getByText('Company Name')).toBeInTheDocument();
+    
+    // Check that layout field labels are NOT in the document
+    expect(screen.queryByText('My Section')).not.toBeInTheDocument();
+    expect(screen.queryByText('My Subtitle')).not.toBeInTheDocument();
+    expect(screen.queryByText('My Info')).not.toBeInTheDocument();
+    expect(screen.queryByText('My Separator')).not.toBeInTheDocument();
+    expect(screen.queryByText('My Logo')).not.toBeInTheDocument();
   });
 
   it('shows a warning message when data types are incompatible', async () => {
