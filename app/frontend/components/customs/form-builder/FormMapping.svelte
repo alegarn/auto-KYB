@@ -2,8 +2,9 @@
   import { Input } from "@/components/ui/input/index.js";
   import { Label } from "@/components/ui/label/index.js";
   import { Button } from "@/components/ui/button/index.js";
+  import { Info, AlertCircle } from "@lucide/svelte";
   import Modal from "@/components/ui/modal.svelte";
-  import type { FormField } from "./types";
+  import { isLayoutField, type FormField } from "./types";
 
   interface Props {
     fields: FormField[];
@@ -18,8 +19,14 @@
 
   const dataFields = $derived(
     fields.map((f, i) => ({ field: f, index: i })).filter(
-      ({ field }) => !['section', 'subtitle', 'static_text', 'separator', 'logo'].includes(field.field_type)
+      ({ field }) => !isLayoutField(field.field_type)
     )
+  );
+
+  const activeProviders = $derived(
+    Array.from(new Set(
+      dataFields.flatMap(({ field }) => Object.keys(field.metadata?.crm_mapping || {}))
+    ))
   );
 
   const hasDuplicateKeys = $derived(duplicateKeys.length > 0);
@@ -61,9 +68,9 @@
     dataFields.forEach(({ field, index }) => {
       const crmMapping = field.metadata?.crm_mapping;
       if (crmMapping) {
-        // Find first provider that has a property name
-        const firstActiveMapping: any = Object.values(crmMapping).find((m: any) => m.property_name);
-        if (firstActiveMapping?.property_name) {
+        // Find first provider that has a property name and is NOT read-only
+        const firstActiveMapping: any = Object.values(crmMapping).find((m: any) => m.property_name && !m.read_only);
+        if (firstActiveMapping?.property_name && firstActiveMapping.type === 'existing') {
           onupdate(index, { 
             metadata: { 
               ...field.metadata, 
@@ -125,7 +132,7 @@
   <Modal
     bind:showModal={showSyncModal}
     title="Sync with CRM?"
-    description="This will overwrite your current Export Keys with the technical property names from your CRM. This action cannot be undone."
+    description={`This will overwrite your current Export Keys with the technical property names from your ${activeProviders.length > 0 ? activeProviders.join(' & ') : 'CRM'}. This action cannot be undone.`}
     confirmText="Confirm Sync"
     onConfirm={syncAllKeysWithCrm}
   />
@@ -136,6 +143,7 @@
         <Label for={`mapping-${field.id || index}`} class="text-xs font-medium">
           {field.label || `Field ${index + 1}`}
         </Label>
+        
         <Input
           id={`mapping-${field.id || index}`}
           type="text"
@@ -148,6 +156,29 @@
             });
           }}
         />
+
+        {#each Object.entries(field.metadata?.crm_mapping || {}) as [provider, mapping]}
+          {#if mapping.type === 'custom'}
+            <div class="flex items-start gap-2 rounded-md bg-blue-50/50 p-2 text-[10px] text-blue-700 border border-blue-100/50">
+              <Info class="size-3 shrink-0 mt-0.5" />
+              <p>
+                Mapped to a <strong>{provider}</strong> custom property. This field will create a new property in your CRM upon export.
+              </p>
+            </div>
+          {:else if mapping.read_only}
+            <div class="flex items-start gap-2 rounded-md bg-destructive/5 p-2 text-[10px] text-destructive border border-destructive/20">
+              <AlertCircle class="size-3 shrink-0 mt-0.5" />
+              <div class="space-y-1">
+                <p>
+                  Mapped to <strong>{mapping.property_name}</strong> ({provider}), which is <strong>read-only</strong> on the CRM. 
+                </p>
+                <p class="font-medium opacity-90">
+                  Tip: Use the "Mapping" button to switch to a <strong>Custom Property</strong> or another writable field.
+                </p>
+              </div>
+            </div>
+          {/if}
+        {/each}
       </div>
     {/each}
 

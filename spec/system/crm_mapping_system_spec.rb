@@ -22,13 +22,13 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     form.form_fields.create!(field_type: 'email', label: 'Client Email', position: 2, metadata: { 'crm_mapping' => {} })
 
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
-      { 'name' => 'email', 'label' => 'Email', 'type' => 'string' },
-      { 'name' => 'phone', 'label' => 'Phone', 'type' => 'string' }
+      { 'name' => 'email', 'label' => 'Email', 'type' => 'string', 'read_only' => false },
+      { 'name' => 'phone', 'label' => 'Phone', 'type' => 'string', 'read_only' => false }
     ])
 
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([
-      { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string' },
-      { 'name' => 'domain', 'label' => 'Domain', 'type' => 'string' }
+      { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string', 'read_only' => false },
+      { 'name' => 'domain', 'label' => 'Domain', 'type' => 'string', 'read_only' => false }
     ])
 
     visit edit_form_path(form)
@@ -59,8 +59,8 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     field2 = form.form_fields.create!(field_type: 'text', label: 'Field 2', position: 2, metadata: { 'crm_mapping' => {} })
 
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
-      { 'name' => 'email', 'label' => 'Email', 'type' => 'string' },
-      { 'name' => 'city', 'label' => 'City', 'type' => 'string' }
+      { 'name' => 'email', 'label' => 'Email', 'type' => 'string', 'read_only' => false },
+      { 'name' => 'city', 'label' => 'City', 'type' => 'string', 'read_only' => false }
     ])
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
 
@@ -100,7 +100,7 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
 
     # CRM property 'verified' is a string -> incompatible with checkbox (boolean)
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
-      { 'name' => 'verified', 'label' => 'Verified', 'type' => 'string' }
+      { 'name' => 'verified', 'label' => 'Verified', 'type' => 'string', 'read_only' => false }
     ])
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
 
@@ -148,10 +148,10 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     company_field = form.form_fields.create!(field_type: 'text', label: 'Company Name', position: 2, metadata: { 'crm_mapping' => {} })
 
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
-      { 'name' => 'email', 'label' => 'Email', 'type' => 'string' }
+      { 'name' => 'email', 'label' => 'Email', 'type' => 'string', 'read_only' => false }
     ])
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([
-      { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string' }
+      { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string', 'read_only' => false }
     ])
 
     visit edit_form_path(form)
@@ -176,10 +176,10 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
 
     # Properties so modal renders
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
-      { 'name' => 'email', 'label' => 'Email', 'type' => 'string' }
+      { 'name' => 'email', 'label' => 'Email', 'type' => 'string', 'read_only' => false }
     ])
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([
-      { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string' }
+      { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string', 'read_only' => false }
     ])
 
     mock_response = Struct.new(:code, :body).new(201, { vid: 999, id: '777' }.to_json)
@@ -219,7 +219,7 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     field = form.form_fields.create!(field_type: 'text', label: 'Sync Field', position: 1, metadata: { 'crm_mapping' => {} })
 
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
-      { 'name' => 'field_name', 'label' => 'Field Label', 'type' => 'string' }
+      { 'name' => 'field_name', 'label' => 'Field Label', 'type' => 'string', 'read_only' => false }
     ])
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
 
@@ -245,7 +245,8 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     expect(field.metadata['crm_mapping']['hubspot']).to eq({
       'type' => 'existing',
       'object_type' => 'contact',
-      'property_name' => 'field_name'
+      'property_name' => 'field_name',
+      'read_only' => false
     })
   end
 end

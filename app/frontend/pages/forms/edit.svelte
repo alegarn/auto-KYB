@@ -15,6 +15,9 @@
 
   let { form: initial, errors: serverErrors, error: serverError, crmProperties } = $props()
 
+  // Track if crmProperties is still being deferred/loaded
+  const loadingProperties = $derived(crmProperties === undefined);
+
   let name = $state(initial?.name || "")
   let fields = $state<FormField[]>([])
   let settings = $state<FormSettings>({})
@@ -343,6 +346,7 @@
         bind:open={showCrmMappingModal}
         form={initial}
         {crmProperties}
+        {loadingProperties}
         {fields}
         onsave={({ fields: updatedFields }: { fields: FormField[] }) => {
           fields = updatedFields;

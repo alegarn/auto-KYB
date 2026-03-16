@@ -205,8 +205,8 @@ RSpec.describe Crm::HubspotService do
         unattached_file = double("UploadedFile", file: double(attached?: false))
 
         allow(file_uploader_double).to receive(:upload)
-          .with(uploaded_file, associate_to_contact: "cont_with_files")
-          .and_return({ file_id: "hubspot_file_1" })
+        .with(uploaded_file, target_type: :contact, target_id: "cont_with_files")
+        .and_return({ file_id: "hubspot_file_1" })
 
         result = service.export_data(client, data, [ uploaded_file, unattached_file ])
 

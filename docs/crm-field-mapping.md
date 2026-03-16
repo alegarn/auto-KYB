@@ -18,6 +18,11 @@ Most integrations support mapping to:
 - **Contact**: Individual person properties (Email, First Name, etc.).
 - **Company**: Organizational properties (Company Name, Domain, etc.).
 
+### Layout Elements Exclusion
+Layout elements—such as **Sections**, **Subtitles**, **Text Blocks**, **Separators**, and **Logos**—are purely for form structure and design. Because they do not collect user input, they are explicitly excluded from:
+- **CRM Mapping**: They do not appear in the CRM mapping modal.
+- **Data Export Mapping**: They do not have an `export_key` and are invisible in the mapping sidebar.
+
 > **Note on Restricted Properties**: Quick KYB automatically hides **Read-Only** and **Calculated** CRM properties (e.g., HubSpot's `engagements_last_meeting_booked`). This prevents integration errors that occur when attempting to write data to system-managed fields.
 
 ### Auto-Mapping

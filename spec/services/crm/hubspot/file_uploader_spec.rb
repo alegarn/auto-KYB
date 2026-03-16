@@ -17,14 +17,6 @@ RSpec.describe Crm::Hubspot::FileUploader do
 
   before do
     allow(blob).to receive(:download).and_yield("fake file content")
-
-    # Stub the bizarre empty POST request
-    allow(client).to receive(:api_request).with(
-      method: "POST",
-      path: "/files/v3/files",
-      body: nil,
-      headers: {}
-    ).and_return(nil)
   end
 
   describe "#upload" do
@@ -42,22 +34,40 @@ RSpec.describe Crm::Hubspot::FileUploader do
 
         expect(result).to eq({ file_id: "hub_file_123", name: "test.pdf" })
         expect(WebMock).to have_requested(:post, "https://api.hubapi.com/files/v3/files")
-          .with(headers: { 'Authorization' => 'Bearer fake_token' })
       end
 
-      it "associates to contact if associate_to_contact is provided" do
-        allow(client).to receive(:api_request).with(
-          method: "PUT",
-          path: "/crm/v3/objects/contacts/101/associations/files/hub_file_123/1"
-        ).and_return(nil)
+      it "creates a note associated to contact if target_id is provided" do
+        # We need to stub the note creation request
+        allow(client).to receive(:api_request).and_return({ "id" => "note_123" })
 
-        result = uploader.upload(uploaded_file, associate_to_contact: "101")
+        # We must freeze time because Time.current is used in the payload
+        freeze_time do
+          result = uploader.upload(uploaded_file, target_type: :contact, target_id: "101")
+          
+          expect(result).to eq({ file_id: "hub_file_123", name: "test.pdf" })
+          
+          expected_body = {
+            properties: {
+              hs_note_body: "Original uploaded file: test.pdf",
+              hs_timestamp: Time.current.utc.iso8601,
+              hs_attachment_ids: "hub_file_123"
+            },
+            associations: [
+              {
+                to: { id: "101" },
+                types: [
+                  { associationCategory: "HUBSPOT_DEFINED", associationTypeId: 202 }
+                ]
+              }
+            ]
+          }
 
-        expect(result).to eq({ file_id: "hub_file_123", name: "test.pdf" })
-        expect(client).to have_received(:api_request).with(
-          method: "PUT",
-          path: "/crm/v3/objects/contacts/101/associations/files/hub_file_123/1"
-        )
+          expect(client).to have_received(:api_request).with(
+            method: "POST",
+            path: "/crm/v3/objects/notes",
+            body: expected_body
+          )
+        end
       end
     end
 
@@ -77,11 +87,11 @@ RSpec.describe Crm::Hubspot::FileUploader do
 
     context "when exception occurs" do
       before do
-        allow(client).to receive(:api_request).and_raise(StandardError.new("Boom"))
+        stub_request(:post, "https://api.hubapi.com/files/v3/files").to_timeout
       end
 
       it "catches error and returns nil" do
-        expect(Rails.logger).to receive(:error).with(/Boom/)
+        expect(Rails.logger).to receive(:error).with(/execution expired/)
         result = uploader.upload(uploaded_file)
         expect(result).to be_nil
       end

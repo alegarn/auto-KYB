@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { areTypesCompatible, getFieldDataType, analyzeMappings, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
+  import { areTypesCompatible, getFieldDataType, analyzeMappings, getProviderFileActions, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
+  import { isLayoutField } from './form-builder/types';
   import { Select } from "bits-ui";
-  import { Check, ChevronsUpDown, Search } from "@lucide/svelte";
+  import { Check, ChevronsUpDown, Search, Loader2 } from "@lucide/svelte";
   import { cn } from "../../lib/utils";
 
   // Props
@@ -9,6 +10,7 @@
     open = $bindable(false), 
     form = {}, 
     crmProperties = {}, 
+    loadingProperties = false, // Add loading prop
     fields = [],
     onsave,
     ontestcrm,
@@ -98,7 +100,8 @@
       mappings[fieldId][provider] = {
         type: 'existing',
         object_type,
-        property_name
+        property_name,
+        read_only: (crmProperties[provider][object_type] || []).find((p: any) => p.name === property_name)?.read_only || false
       };
     }
   }
@@ -170,9 +173,14 @@
 
       <!-- Body -->
       <div class="p-6 overflow-y-auto flex-1">
-        {#if Object.keys(crmProperties).length === 0}
+        {#if loadingProperties}
+          <div class="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
+            <Loader2 class="h-8 w-8 animate-spin text-indigo-500" />
+            <p class="text-sm font-medium">Fetching CRM properties...</p>
+          </div>
+        {:else if Object.keys(crmProperties).length === 0}
           <div class="p-4 bg-yellow-50 text-yellow-800 rounded-md">
-            No active CRM connection found or fetching properties...
+            No active CRM connection found. Please connect your HubSpot or Salesforce account in settings.
           </div>
         {:else}
           {#each Object.entries(crmProperties) as [provider, properties]}
@@ -251,7 +259,7 @@
                       </tr>
                     </thead>
                     <tbody class="divide-y">
-                      {#each fields as field}
+                      {#each fields.filter(f => !isLayoutField(f.field_type)) as field}
                         <tr class="hover:bg-gray-50">
                           <td class="px-4 py-3 font-medium text-gray-900">
                             <div class="flex flex-col">
@@ -275,6 +283,8 @@
                                 ? (properties[mapping.object_type] || []).find((p: any) => p.name === mapping.property_name) 
                                 : null}
                               {@const isCompatible = !selectedProp || areTypesCompatible(field.field_type, selectedProp.type)}
+                              {@const providerFileActions = getProviderFileActions(provider)}
+                              {@const selectedFileAction = providerFileActions.find(a => a.value === currentValue)}
 
                               <div class="space-y-1">
                                 <Select.Root 
@@ -291,6 +301,8 @@
                                   >
                                     {#if currentValue === "__custom_contact__"}
                                       + Create as Custom Contact Property
+                                    {:else if selectedFileAction}
+                                      {selectedFileAction.label}
                                     {:else}
                                       {selectedProp ? `${selectedProp.label || selectedProp.name} (${selectedProp.type})` : "-- Do not map --"}
                                     {/if}
@@ -328,14 +340,28 @@
                                         + Create as Custom Contact Property
                                       </Select.Item>
                                       
+                                      {#if getFieldDataType(field.field_type) === 'file' && providerFileActions.length > 0}
+                                        <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">File Actions</div>
+                                        {#each providerFileActions as fileAction}
+                                          <Select.Item
+                                            value={fileAction.value}
+                                            class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                            data-slot="select-item"
+                                          >
+                                            {fileAction.label}
+                                          </Select.Item>
+                                        {/each}
+                                      {/if}
+
                                       <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Contact Properties</div>
                                       {#each getFilteredProperties(properties.contact || [], fieldSearch[`${field.id}-${provider}`]) as prop}
                                         <Select.Item
                                           value={`contact:${prop.name}`}
-                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100"
+                                          disabled={prop.read_only}
+                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                           data-slot="select-item"
                                         >
-                                          <span class="flex-1 truncate">{prop.label || prop.name}</span>
+                                          <span class="flex-1 truncate">{prop.label || prop.name} {prop.read_only ? '(Read Only)' : ''}</span>
                                           <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}
@@ -344,10 +370,11 @@
                                       {#each getFilteredProperties(properties.company || [], fieldSearch[`${field.id}-${provider}`]) as prop}
                                         <Select.Item
                                           value={`company:${prop.name}`}
-                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100"
+                                          disabled={prop.read_only}
+                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                           data-slot="select-item"
                                         >
-                                          <span class="flex-1 truncate">{prop.label || prop.name}</span>
+                                          <span class="flex-1 truncate">{prop.label || prop.name} {prop.read_only ? '(Read Only)' : ''}</span>
                                           <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}

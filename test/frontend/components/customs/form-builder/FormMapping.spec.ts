@@ -34,6 +34,27 @@ describe('FormMapping', () => {
     expect(queryByLabelText('Section')).not.toBeInTheDocument()
   })
 
+  it('filters out all layout field types (section, subtitle, static_text, separator, logo)', () => {
+    const fields = [
+      { id: '1', label: 'Text', field_type: 'text', position: 1 },
+      { id: '2', label: 'My Section', field_type: 'section', position: 2 },
+      { id: '3', label: 'My Subtitle', field_type: 'subtitle', position: 3 },
+      { id: '4', label: 'My Info', field_type: 'static_text', position: 4 },
+      { id: '5', label: 'My Separator', field_type: 'separator', position: 5 },
+      { id: '6', label: 'My Logo', field_type: 'logo', position: 6 }
+    ]
+    const onupdate = vi.fn()
+
+    const { queryByLabelText, getByLabelText } = render(FormMapping, { fields, onupdate })
+
+    expect(getByLabelText('Text')).toBeInTheDocument()
+    expect(queryByLabelText('My Section')).not.toBeInTheDocument()
+    expect(queryByLabelText('My Subtitle')).not.toBeInTheDocument()
+    expect(queryByLabelText('My Info')).not.toBeInTheDocument()
+    expect(queryByLabelText('My Separator')).not.toBeInTheDocument()
+    expect(queryByLabelText('My Logo')).not.toBeInTheDocument()
+  })
+
   it('updates export_key when input changes', async () => {
     const fields = [
       { id: '1', label: 'First Name', field_type: 'text', position: 1 }
