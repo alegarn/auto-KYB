@@ -287,3 +287,30 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
 
   return newMappings;
 }
+
+export type FileMappingAction = {
+  value: string;
+  label: string;
+};
+
+export function getProviderFileActions(provider: string): FileMappingAction[] {
+  switch (provider.toLowerCase()) {
+    case 'hubspot':
+      return [
+        { value: 'contact:__note_attachment__', label: 'Attach as Note to Contact' },
+        { value: 'company:__note_attachment__', label: 'Attach as Note to Company' }
+      ];
+    case 'salesforce':
+      return [
+        { value: 'contact:__content_version__', label: 'Attach as ContentVersion to Contact' },
+        { value: 'company:__content_version__', label: 'Attach as ContentVersion to Account' }
+      ];
+    case 'zoho':
+      return [
+        { value: 'contact:__attachment__', label: 'Attach to Contact' },
+        { value: 'company:__attachment__', label: 'Attach to Account' }
+      ];
+    default:
+      return [];
+  }
+}

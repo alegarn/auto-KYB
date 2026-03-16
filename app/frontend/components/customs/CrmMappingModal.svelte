@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { areTypesCompatible, getFieldDataType, analyzeMappings, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
+  import { areTypesCompatible, getFieldDataType, analyzeMappings, getProviderFileActions, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
   import { isLayoutField } from './form-builder/types';
   import { Select } from "bits-ui";
   import { Check, ChevronsUpDown, Search, Loader2 } from "@lucide/svelte";
@@ -283,6 +283,8 @@
                                 ? (properties[mapping.object_type] || []).find((p: any) => p.name === mapping.property_name) 
                                 : null}
                               {@const isCompatible = !selectedProp || areTypesCompatible(field.field_type, selectedProp.type)}
+                              {@const providerFileActions = getProviderFileActions(provider)}
+                              {@const selectedFileAction = providerFileActions.find(a => a.value === currentValue)}
 
                               <div class="space-y-1">
                                 <Select.Root 
@@ -299,6 +301,8 @@
                                   >
                                     {#if currentValue === "__custom_contact__"}
                                       + Create as Custom Contact Property
+                                    {:else if selectedFileAction}
+                                      {selectedFileAction.label}
                                     {:else}
                                       {selectedProp ? `${selectedProp.label || selectedProp.name} (${selectedProp.type})` : "-- Do not map --"}
                                     {/if}
@@ -336,6 +340,19 @@
                                         + Create as Custom Contact Property
                                       </Select.Item>
                                       
+                                      {#if getFieldDataType(field.field_type) === 'file' && providerFileActions.length > 0}
+                                        <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">File Actions</div>
+                                        {#each providerFileActions as fileAction}
+                                          <Select.Item
+                                            value={fileAction.value}
+                                            class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                            data-slot="select-item"
+                                          >
+                                            {fileAction.label}
+                                          </Select.Item>
+                                        {/each}
+                                      {/if}
+
                                       <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Contact Properties</div>
                                       {#each getFilteredProperties(properties.contact || [], fieldSearch[`${field.id}-${provider}`]) as prop}
                                         <Select.Item

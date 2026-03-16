@@ -1,4 +1,5 @@
 class CrmDataExportJob < ApplicationJob
+
   queue_as :default
 
   # Retry logic with exponential backoff (30s, 2min, 10min)
@@ -17,7 +18,7 @@ class CrmDataExportJob < ApplicationJob
 
     begin
       service = Crm::ConnectionManager.service_for(connection)
-      
+
       # Prepare contact data
       contact_data = {
         name: client.name,
@@ -31,16 +32,31 @@ class CrmDataExportJob < ApplicationJob
       form_fields = form&.structure&.dig("fields") || []
       form_response = client.respond_to?(:form_response) ? (client.form_response || {}) : {}
 
+      # Prepare files based on mappings
+      mapped_files = []
+
       form_fields.each do |field|
         field = field.with_indifferent_access
         mapping = field.dig("metadata", "crm_mapping", connection.provider)
         next unless mapping.present?
 
-        field_value = form_response[field["id"]] || form_response[field["label"]]
-        next unless field_value.present?
-
         prop_name = mapping["property_name"]
         next unless prop_name.present?
+
+        if field["field_type"] == "file"
+          uploaded_file = client.uploaded_files.available.find_by(field_key: field["id"])
+          if uploaded_file
+            mapped_files << {
+              file: uploaded_file,
+              target: mapping["object_type"].to_sym,
+              action: mapping["property_name"]
+            }
+          end
+          next
+        end
+
+        field_value = form_response[field["id"]] || form_response[field["label"]]
+        next unless field_value.present?
 
         case mapping["object_type"]
         when "company"
@@ -53,30 +69,28 @@ class CrmDataExportJob < ApplicationJob
       # Save payload snapshot for idempotency and tracking
       transfer.update!(payload_snapshot: contact_data.slice(:name, :email, :company))
 
-      # Prepare files
-      files = client.uploaded_files.to_a
-
       # Perform export with separated contact and company data
-      result = service.export_data(client, contact_data, files, company_data: company_data)
+      result = service.export_data(client, contact_data, mapped_files, company_data: company_data)
 
       if result[:success]
         transfer.update!(
-          status: 'success',
+          status: "success",
           transferred_at: Time.current,
           error_message: nil
         )
       else
         transfer.update!(
-          status: 'failed',
-          error_message: result[:error] || 'Unknown error occurred during export'
+          status: "failed",
+          error_message: result[:error] || "Unknown error occurred during export"
         )
       end
     rescue => e
       transfer.update!(
-        status: 'failed',
+        status: "failed",
         error_message: e.message
       )
       raise e # Re-raise to trigger ActiveJob retry
     end
   end
+
 end
