@@ -5,17 +5,28 @@
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
   import CrmSyncWidget from '@/components/CrmSyncWidget.svelte';
+  import CrmSyncNotice from '@/components/CrmSyncNotice.svelte';
   import { fetchCountriesData } from '/lib/countries';
+  import { mapCrmPrefillToForm, type ClientFormData } from '@/lib/crm_domain';
 
   let { user, errors = {}, forms = [] } = $props();
 
   let countries = $state([{ name: 'United States', code: 'US', flag: '🇺🇸' }]);
   let countryOptions = $derived((countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag })));
-  let selectedCountry = $state('');
   let countriesLoading = $state(false);
   let countriesError = $state(null);
 
-  let companyName = $state('');
+  let formData = $state<ClientFormData>({
+    name: '',
+    email: '',
+    phone: '',
+    companyName: '',
+    companyId: '',
+    selectedCountry: '',
+    street: '',
+    city: '',
+    postal: ''
+  });
 
   let crmSyncData = $state({
     strategy: 'skip',
@@ -35,31 +46,12 @@
     }
 
     // Prefill logic
-    const nameInput = document.querySelector<HTMLInputElement>('input[name="client[name]" required]');
-    if (nameInput && data.prefillData.name) nameInput.value = data.prefillData.name;
-    
-    const emailInput = document.querySelector<HTMLInputElement>('input[name="client[email]"]');
-    if (emailInput && data.prefillData.email) emailInput.value = data.prefillData.email;
-    
-    if (data.prefillData.company_name) companyName = data.prefillData.company_name;
-
-    const phoneInput = document.querySelector<HTMLInputElement>('input[name="client[phone]"]');
-    if (phoneInput && data.prefillData.phone) phoneInput.value = data.prefillData.phone;
-
-    if (data.prefillData.country) {
-      selectedCountry = data.prefillData.country;
-    }
-
-    if (data.prefillData.address) {
-      const streetInput = document.querySelector<HTMLInputElement>('input[name="client[address][street]"]');
-      if (streetInput && data.prefillData.address.street) streetInput.value = data.prefillData.address.street;
-
-      const cityInput = document.querySelector<HTMLInputElement>('input[name="client[address][city]"]');
-      if (cityInput && data.prefillData.address.city) cityInput.value = data.prefillData.address.city;
-
-      const postalInput = document.querySelector<HTMLInputElement>('input[name="client[address][postal_code]"]');
-      if (postalInput && data.prefillData.address.postal_code) postalInput.value = data.prefillData.address.postal_code;
-    }
+    const prefills = mapCrmPrefillToForm(data.prefillData);
+    Object.entries(prefills).forEach(([key, value]) => {
+      if (value !== undefined) {
+        formData[key as keyof ClientFormData] = value;
+      }
+    });
   }
 
   async function fetchCountries() {
@@ -123,7 +115,7 @@
           <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">1. Integration & Relationship</h2>
         </div>
         <div class="p-4 space-y-4">
-          <CrmSyncWidget onSyncDataChanged={handleCrmSync} {companyName} />
+          <CrmSyncWidget onSyncDataChanged={handleCrmSync} companyName={formData.companyName} />
           <input type="hidden" name="crm[strategy]" value={crmSyncData.strategy} />
           {#if crmSyncData.external_contact_id}
             <input type="hidden" name="crm[external_contact_id]" value={crmSyncData.external_contact_id} />
@@ -165,7 +157,7 @@
         <div class="p-4 space-y-4">
           <div>
             <Label for="client-name" class="block text-sm font-medium">Full Name (Contact Person) <span class="text-rose-600">*</span></Label>
-            <Input id="client-name" name="client[name]" required class={`w-full ${hasError('name') ? 'border-rose-600' : ''}`} />
+            <Input id="client-name" name="client[name]" required bind:value={formData.name} class={`w-full ${hasError('name') ? 'border-rose-600' : ''}`} />
             {#if hasError('name')}
               <div class="text-rose-600 text-sm mt-1">{errors['name']?.[0]}</div>
             {/if}
@@ -174,7 +166,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label for="client-email" class="block text-sm font-medium">Personal/Work Email</Label>
-              <Input id="client-email" name="client[email]" type="email" class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
+              <Input id="client-email" name="client[email]" type="email" bind:value={formData.email} class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
               {#if hasError('email')}
                 <div class="text-rose-600 text-sm mt-1">{errors['email']?.[0]}</div>
               {/if}
@@ -182,7 +174,7 @@
 
             <div>
               <Label for="client-phone" class="block text-sm font-medium">Phone Number</Label>
-              <Input id="client-phone" name="client[phone]" class={`w-full ${hasError('phone') ? 'border-rose-600' : ''}`} />
+              <Input id="client-phone" name="client[phone]" bind:value={formData.phone} class={`w-full ${hasError('phone') ? 'border-rose-600' : ''}`} />
               {#if hasError('phone')}
                 <div class="text-rose-600 text-sm mt-1">{errors['phone']?.[0]}</div>
               {/if}
@@ -202,7 +194,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label for="client-company" class="block text-sm font-medium">Registered Company Name <span class="text-rose-600">*</span></Label>
-              <Input id="client-company" name="client[company_name]" required bind:value={companyName} class={`w-full bg-background ${hasError('company_name') ? 'border-rose-600' : ''}`} />
+              <Input id="client-company" name="client[company_name]" required bind:value={formData.companyName} class={`w-full bg-background ${hasError('company_name') ? 'border-rose-600' : ''}`} />
               {#if hasError('company_name')}
                 <div class="text-rose-600 text-sm mt-1">{errors['company_name']?.[0]}</div>
               {/if}
@@ -210,7 +202,7 @@
 
             <div>
               <Label for="client-company-id" class="block text-sm font-medium">Company Registration ID <span class="text-rose-600">*</span></Label>
-              <Input id="client-company-id" name="client[company_id]" required class={`w-full bg-background ${hasError('company_id') ? 'border-rose-600' : ''}`} />
+              <Input id="client-company-id" name="client[company_id]" required bind:value={formData.companyId} class={`w-full bg-background ${hasError('company_id') ? 'border-rose-600' : ''}`} />
               {#if hasError('company_id')}
                 <div class="text-rose-600 text-sm mt-1">{errors['company_id']?.[0]}</div>
               {/if}
@@ -224,7 +216,7 @@
                 <option>Loading countries...</option>
               </select>
             {:else}
-              <select id="client-country" name="client[country]" bind:value={selectedCountry} class={`w-full border rounded px-3 py-2 bg-background ${hasError('country') ? 'border-rose-600' : ''}`}>
+              <select id="client-country" name="client[country]" bind:value={formData.selectedCountry} class={`w-full border rounded px-3 py-2 bg-background ${hasError('country') ? 'border-rose-600' : ''}`}>
                 <option value="">Select a country</option>
                 {#each countryOptions as opt}
                   <option value={opt?.value}>{opt?.flag} {opt?.label}</option>
@@ -244,18 +236,24 @@
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2 mt-2">
               <div class="md:col-span-2">
                 <Label for="client-street" class="block text-sm">Street</Label>
-                <Input id="client-street" name="client[address][street]" placeholder="e.g. 123 Business Road" class="w-full" />
+                <Input id="client-street" name="client[address][street]" bind:value={formData.street} placeholder="e.g. 123 Business Road" class="w-full" />
               </div>
               <div>
                 <Label for="client-city" class="block text-sm">City</Label>
-                <Input id="client-city" name="client[address][city]" placeholder="City" />
+                <Input id="client-city" name="client[address][city]" bind:value={formData.city} placeholder="City" />
               </div>
               <div>
                 <Label for="client-postal" class="block text-sm">Postal Code</Label>
-                <Input id="client-postal" name="client[address][postal_code]" placeholder="Code" />
+                <Input id="client-postal" name="client[address][postal_code]" bind:value={formData.postal} placeholder="Code" />
               </div>
             </div>
           </fieldset>
+
+          <CrmSyncNotice 
+            strategy={crmSyncData.strategy} 
+            companyName={formData.companyName} 
+            companyId={formData.companyId} 
+          />
         </div>
       </section>
     </div>
