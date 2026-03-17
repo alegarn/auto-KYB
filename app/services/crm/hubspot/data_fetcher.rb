@@ -70,6 +70,17 @@ module Crm
         response.results.map { |r| map_contact(r) }
       end
 
+      # Search companies by generic query
+      def search_companies(query)
+        body = {
+          query: query,
+          properties: COMPANY_PROPERTIES,
+          limit: 10
+        }
+        response = @client.companies_search_api.do_search(body: body)
+        response.results.map { |r| map_company(r) }
+      end
+
       # Fetch a single contact by ID
       def fetch_contact(external_id)
         response = @client.contacts_api.get_by_id(contact_id: external_id, properties: CONTACT_PROPERTIES)

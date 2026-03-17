@@ -52,8 +52,8 @@ module Crm
       end
       results[:contact] = contact_result
 
-      # 2. Create/update company if company_data is present
-      if company_data.present?
+      # 2. Create/update company if company_data or company_name is present
+      if company_data.present? || client.company_name.present?
         company_id = link&.respond_to?(:external_company_id) ? link&.external_company_id : nil
 
         if company_id.blank?
@@ -130,6 +130,12 @@ module Crm
       Crm::Hubspot::DataFetcher.new(hubspot_client).search_contact_by_email(email)
     end
 
+    # Search companies by query
+    def search_companies(query)
+      ensure_valid_token!
+      Crm::Hubspot::DataFetcher.new(hubspot_client).search_companies(query)
+    end
+
     def fetch_contact(external_id)
       ensure_valid_token!
       Crm::Hubspot::DataFetcher.new(hubspot_client).fetch_contact(external_id)
@@ -145,8 +151,8 @@ module Crm
       @hubspot_client ||= Crm::Hubspot::Client.new(connection)
     end
 
-    def create_contact(client)
-      mapper = Crm::Hubspot::ContactMapper.new(client, {})
+    def create_contact(client, sync_address_to_contact: false)
+      mapper = Crm::Hubspot::ContactMapper.new(client, { sync_address_to_contact: sync_address_to_contact })
       properties = mapper.to_hubspot_properties
       ensure_properties("contacts", properties)
       formatted_props = properties.map { |k, v| { property: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }

@@ -56,6 +56,17 @@ module ClientPortal
 
       if validate
         ClientPortal::SessionService.clear_cookie(cookies)
+
+        # Trigger CRM export
+        client_form.client.user.crm_connections.where(status: "active").find_each do |conn|
+          transfer = CrmTransfer.create!(
+            client: client_form.client,
+            crm_connection: conn,
+            status: "pending"
+          )
+          CrmDataExportJob.perform_later(transfer.id)
+        end
+
         redirect_to client_portal_confirmation_path, status: :see_other
       else
         render inertia: "ClientPortal/FormResponse", props: {

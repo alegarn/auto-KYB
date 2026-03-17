@@ -112,7 +112,13 @@ class ClientsController < ApplicationController
     client = current_user.clients.new(client_params)
 
     if client.save
-      CrmSyncService.call(client, crm_sync_params[:strategy], external_contact_id: crm_sync_params[:external_contact_id])
+      CrmSyncService.call(
+        client,
+        crm_sync_params[:strategy],
+        external_contact_id: crm_sync_params[:external_contact_id],
+        external_company_id: crm_sync_params[:external_company_id],
+        sync_address_to_contact: crm_sync_params[:sync_address_to_contact]
+      )
 
       form_id = client_form_params[:form_id]
 
@@ -173,6 +179,22 @@ class ClientsController < ApplicationController
       expires_in: client_form_params[:expires_in] || 7.days
     )
 
+    if result.action == :success
+      # Handle CRM Sync if requested
+      if crm_sync_params[:strategy].present? && crm_sync_params[:strategy] != "skip"
+        CrmSyncService.call(
+          @client,
+          crm_sync_params[:strategy],
+          external_contact_id: crm_sync_params[:external_contact_id],
+          external_company_id: crm_sync_params[:external_company_id],
+          sync_address_to_contact: crm_sync_params[:sync_address_to_contact]
+        )
+      end
+
+      redirect_to client_path(@client), notice: "Client updated"
+      return
+    end
+
     case result.action
     when :password_reveal
       store_client_form_one_time_password(result.client_form, result.password)
@@ -185,8 +207,6 @@ class ClientsController < ApplicationController
         forms: forms_for_select,
         attempted_form_id: result.attempted_form_id
       }, status: :unprocessable_entity
-    when :success
-      redirect_to client_path(@client), notice: "Client updated"
     end
   rescue ActiveRecord::RecordInvalid => e
     render inertia: "Clients/Edit", props: {
@@ -224,7 +244,7 @@ class ClientsController < ApplicationController
 
   def crm_contact_details
     external_id = params[:external_contact_id] || @client.crm_client_link&.external_contact_id
-    
+
     unless external_id
       render json: { error: "No external contact ID provided" }, status: :bad_request
       return
@@ -304,7 +324,7 @@ class ClientsController < ApplicationController
   end
 
   def crm_sync_params
-    params.fetch(:crm, {}).permit(:strategy, :external_contact_id)
+    params.fetch(:crm, {}).permit(:strategy, :external_contact_id, :external_company_id, :sync_address_to_contact)
   end
 
   def client_form_params
@@ -336,4 +356,5 @@ class ClientsController < ApplicationController
 
     render inertia: view, props: props, status: :unprocessable_entity
   end
+
 end
