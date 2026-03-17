@@ -91,3 +91,14 @@ Once a link is established, standard operations like "Export to CRM" proceed saf
 ### Rails Controllers
 * Endpoints like `crm_match_suggestions` and `link_crm_contact` are exposed specifically for XHR/Fetch consumption, returning strict JSON payloads to the frontend.
 * Strong parameter enforcement and `rescue_from` blocks are implemented on all CRM-touching endpoints to catch timeouts and rate limits gracefully.
+
+### Behavioral Edge Cases & Technical Trade-offs
+
+#### 1. API Debouncing on Company and Contact Search
+To prevent hitting CRM API rate limits while users type company or contact names during the "New Client" flow, all Search API requests initiated by the frontend widget `CrmSyncWidget.svelte` are debounced. The debouncing ensures that only purposeful keystrokes resolve into live requests through the internal `/crm/imports` edge controller, preserving token thresholds.
+
+#### 2. Background Job Fallback on Client form validation (FormResponseSaver)
+If a client is created without immediately linking to a CRM (using the `skip` strategy on the User Interface), the application still allows for late-stage CRM synchronization. When the external forms are completed by the end-client and strictly saved using `validate: true` via the `FormResponseSaver` abstract service layer, it will safely spawn `CrmDataExportJob` entries mapping exactly the filled fields to the CRM. The job queue is decoupled from `FormResponsesController` to respect correct Rails MVC paradigms.
+
+#### 3. Handling Duplicate Company Entities (Graceful Degradation)
+When generating a CRM mapped object, the internal `CrmSyncService` evaluates locally-stored company properties contextually. Instead of blindly trusting user input to formulate a remote `HubSpot Company` via the v3 API, we process a `search_companies` query first. If a match occurs utilizing identical domains or string structures securely mapping the `HubSpot Company ID`, it bridges that association without producing a redundant company, gracefully degrading the object creation intent into a structured `associate` command logic internally.

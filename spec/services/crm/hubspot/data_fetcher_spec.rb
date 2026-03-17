@@ -5,12 +5,14 @@ RSpec.describe Crm::Hubspot::DataFetcher do
   let(:contacts_api) { instance_double("Hubspot::Crm::Contacts::BasicApi") }
   let(:companies_api) { instance_double("Hubspot::Crm::Companies::BasicApi") }
   let(:contacts_search_api) { instance_double("Hubspot::Crm::Contacts::SearchApi") }
+  let(:companies_search_api) { instance_double("Hubspot::Crm::Companies::SearchApi") }
   let(:fetcher) { described_class.new(client) }
 
   before do
     allow(client).to receive(:contacts_api).and_return(contacts_api)
     allow(client).to receive(:companies_api).and_return(companies_api)
     allow(client).to receive(:contacts_search_api).and_return(contacts_search_api)
+    allow(client).to receive(:companies_search_api).and_return(companies_search_api)
   end
 
   describe '#fetch_contacts' do
@@ -131,6 +133,30 @@ RSpec.describe Crm::Hubspot::DataFetcher do
 
       result = fetcher.search_contact_by_email("notfound@example.com")
       expect(result).to be_nil
+    end
+  end
+
+  describe '#search_companies' do
+    let(:hubspot_company) do
+      double("HubspotCompany",
+             id: "101",
+             properties: { "name" => "Acme Corp" })
+    end
+
+    it 'calls do_search with correct params and returns mapped result' do
+      response = double("Response", results: [ hubspot_company ])
+      expect(companies_search_api).to receive(:do_search).with(
+        body: {
+          query: 'Acme',
+          properties: described_class::COMPANY_PROPERTIES,
+          limit: 10
+        }
+      ).and_return(response)
+
+      results = fetcher.search_companies('Acme')
+      company = results.first
+      expect(company[:hubspot_id]).to eq("101")
+      expect(company[:company_name]).to eq("Acme Corp")
     end
   end
 end
