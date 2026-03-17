@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe Crm::Hubspot::ContactMapper do
   let(:client) { create(:client, name: "John Doe", email: "john@example.com", phone: "+1234567890", company_name: "Acme Corp", address: "123 Main St") }
-  let(:data) { { country: "USA", kyc_status: "verified", risk_score: "low" } }
+  let(:data) { { country: "USA", kyc_status: "verified", risk_score: "low", sync_address_to_contact: "true" } }
   
   subject { described_class.new(client, data) }
 

@@ -2,18 +2,13 @@
   import { onMount } from 'svelte';
   import { router } from '@inertiajs/svelte';
   
-  let { clientId, clientEmail } = $props<{ clientId: string, clientEmail?: string }>();
+  let { clientId, clientEmail, clientCompany } = $props<{ clientId: string, clientEmail?: string, clientCompany?: string }>();
   
   let match = $state<{ external_contact_id: string, name: string, email: string } | null>(null);
   let loading = $state(true);
   let resolved = $state(false);
 
   onMount(async () => {
-    if (!clientEmail) {
-      loading = false;
-      return;
-    }
-
     try {
       const res = await fetch(`/clients/${clientId}/crm_match_suggestions`);
       const data = await res.json();

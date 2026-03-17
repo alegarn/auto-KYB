@@ -215,6 +215,27 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       expect(inertia.props[:errors].values.flatten.join).to include("Form not found")
     end
 
+    context "with CRM sync parameters" do
+      let!(:crm_connection) { create(:crm_connection, user: user, provider: "hubspot") }
+      let(:client) { create(:client, user: user) }
+
+      it "triggers CrmSyncService with the provided flags" do
+        expect(CrmSyncService).to receive(:call).with(
+          instance_of(Client),
+          "update",
+          hash_including(sync_address_to_contact: "true")
+        )
+
+        patch :update, params: { 
+          id: client.id, 
+          client: { name: "Updated Name" },
+          crm: { strategy: "update", sync_address_to_contact: "true" }
+        }
+
+        expect(response).to redirect_to(client_path(client))
+      end
+    end
+
     context 'remapping linked forms' do
       let(:form_a) { create(:form, user: user) }
       let(:form_b) { create(:form, user: user) }
