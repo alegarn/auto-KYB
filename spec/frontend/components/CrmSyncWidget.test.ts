@@ -14,7 +14,7 @@ describe('CrmSyncWidget', () => {
     const onSyncDataChanged = vi.fn();
     const { getByLabelText } = render(CrmSyncWidget, { onSyncDataChanged });
 
-    const skipRadio = getByLabelText('Do not sync with CRM') as HTMLInputElement;
+    const skipRadio = getByLabelText('Do not sync with CRM yet') as HTMLInputElement;
     expect(skipRadio.checked).toBe(true);
     // Component sets default on mount
   });

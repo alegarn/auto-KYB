@@ -99,7 +99,7 @@
   <div class="space-y-3">
     <div class="flex items-center space-x-2">
       <input type="radio" id="crm-skip" bind:group={strategy} value="skip" />
-      <Label for="crm-skip">Do not sync with CRM</Label>
+      <Label for="crm-skip">Do not sync with CRM yet</Label>
     </div>
 
     <div class="flex items-center space-x-2">

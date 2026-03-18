@@ -62,7 +62,7 @@ RSpec.describe 'CRM Company Creation Notice', type: :system, js: true do
     expect(page).to have_text('New CRM Company Record')
 
     within 'section', text: '1. Integration & Relationship' do
-      choose 'Do not sync with CRM'
+      choose 'Do not sync with CRM yet'
     end
 
     expect(page).not_to have_text('New CRM Company Record')
