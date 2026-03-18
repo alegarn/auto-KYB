@@ -136,6 +136,11 @@ module Crm
       Crm::Hubspot::DataFetcher.new(hubspot_client).search_companies(query)
     end
 
+    def fetch_company(external_id)
+      ensure_valid_token!
+      Crm::Hubspot::DataFetcher.new(hubspot_client).fetch_company(external_id)
+    end
+
     def fetch_contact(external_id)
       ensure_valid_token!
       Crm::Hubspot::DataFetcher.new(hubspot_client).fetch_contact(external_id)

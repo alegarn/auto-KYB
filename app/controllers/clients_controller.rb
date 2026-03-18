@@ -257,7 +257,28 @@ class ClientsController < ApplicationController
     end
 
     service = Crm::ConnectionManager.service_for(connection)
+    external_company_id = @client.crm_client_link&.external_company_id
     contact = service.fetch_contact(external_id)
+
+    if contact && external_company_id.present?
+      begin
+        company = service.fetch_company(external_company_id)
+        if company
+          contact[:company_name] = company[:company_name] if company[:company_name].present?
+          contact[:company_id]   = company[:company_id]   if company[:company_id].present?
+          contact[:domain]       = company[:domain]        if company[:domain].present?
+          contact[:phone]        = company[:phone]         if company[:phone].present?
+
+          if company.dig(:address, :city).present? || company.dig(:address, :street).present? ||
+             company.dig(:address, :postal_code).present?
+            contact[:address] = company[:address]
+          end
+          contact[:country] = company[:country] if company[:country].present?
+        end
+      rescue => e
+        Rails.logger.warn("Failed to fetch CRM company #{external_company_id}: #{e.message}")
+      end
+    end
 
     if contact
       render json: contact

@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Clients API", type: :request do
-  let(:user) { create(:user) }
+  let(:user) { create(:user, :subscribed) }
   let(:session) { user.sessions.create! }
   let(:inertia_headers) { { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest } }
 

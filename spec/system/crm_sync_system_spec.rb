@@ -9,6 +9,10 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
   let(:user) { create(:user, :subscribed, onboarding_completed: true) }
   let!(:crm_connection) { create(:crm_connection, user: user, provider: 'hubspot', access_token: 'fake', refresh_token: 'fake') }
 
+  after do
+    WebMock.allow_net_connect!
+  end
+
   before do
     # WebMock by default blocks all net connections. We must allow localhost for Capybara's server
     WebMock.disable_net_connect!(allow_localhost: true)
@@ -59,6 +63,42 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
       headers: { 'Content-Type': 'application/json' }
     )
 
+    stub_request(:post, "https://api.hubapi.com/properties/v1/contacts/properties").to_return(
+      status: 200,
+      body: {}.to_json,
+      headers: { 'Content-Type': 'application/json' }
+    )
+
+    stub_request(:post, "https://api.hubapi.com/crm/v3/objects/companies/search").to_return(
+      status: 200,
+      body: { results: [], total: 0 }.to_json,
+      headers: { 'Content-Type': 'application/json' }
+    )
+
+    stub_request(:post, "https://api.hubapi.com/crm/v3/objects/companies").to_return(
+      status: 201,
+      body: { id: 'comp-123' }.to_json,
+      headers: { 'Content-Type': 'application/json' }
+    )
+
+    stub_request(:get, "https://api.hubapi.com/properties/v1/companies/properties").to_return(
+      status: 200,
+      body: { results: [] }.to_json,
+      headers: { 'Content-Type': 'application/json' }
+    )
+
+    stub_request(:post, "https://api.hubapi.com/properties/v1/companies/properties").to_return(
+      status: 200,
+      body: {}.to_json,
+      headers: { 'Content-Type': 'application/json' }
+    )
+
+    stub_request(:put, %r{https://api.hubapi.com/crm/v3/objects/contacts/.*/associations/companies/.*}).to_return(
+      status: 200,
+      body: {}.to_json,
+      headers: { 'Content-Type': 'application/json' }
+    )
+
     stub_request(:get, /api.hubapi.com.*contacts\/hs-123/).to_return(
       status: 200,
       body: {
@@ -105,11 +145,12 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
       end
 
       select 'Default KYB Form', from: 'client_form[form_id]'
-      fill_in 'client[name]', with: 'John Doe'
-      fill_in 'client[company_name]', with: 'Acme Corp'
-      fill_in 'client[email]', with: 'john.doe@example.com'
+      fill_in 'Full Name (Contact Person)', with: 'John Doe'
+      fill_in 'Registered Company Name', with: 'Acme Corp'
+      fill_in 'Company Registration ID', with: '12345'
+      fill_in 'Personal/Work Email', with: 'john.doe@example.com'
 
-      click_button 'Create client'
+      click_button 'Create Client Profile'
 
       expect(page).to have_content('Access URL')
       expect(page).to have_content('Password to access')
@@ -126,11 +167,12 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
       expect(page).to have_no_selector('input[placeholder="Search by email or name..."]')
 
       select 'Default KYB Form', from: 'client_form[form_id]'
-      fill_in 'client[name]', with: 'Jane Smith'
-      fill_in 'client[company_name]', with: 'Acme Corp'
-      fill_in 'client[email]', with: 'jane@example.com'
+      fill_in 'Full Name (Contact Person)', with: 'Jane Smith'
+      fill_in 'Registered Company Name', with: 'Acme Corp'
+      fill_in 'Company Registration ID', with: '12345'
+      fill_in 'Personal/Work Email', with: 'jane@example.com'
 
-      click_button 'Create client'
+      click_button 'Create Client Profile'
 
       expect(page).to have_content('Password Reveal')
       # expect(new_client.crm_client_link.external_contact_id).to eq('hs-456')

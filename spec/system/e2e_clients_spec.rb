@@ -18,9 +18,10 @@ RSpec.describe 'E2E Clients CRUD', type: :system, js: true do
     expect(page).to have_content(/New client/i)
     
     # Fill in the client details
-    fill_in 'Name', with: 'My New E2E Client' rescue fill_in 'name', with: 'My New E2E Client' rescue find('input[name="name"]').set('My New E2E Client') rescue find('input[type="text"]', match: :first).set('My New E2E Client')
-    fill_in 'Company name', with: 'E2E Company' rescue fill_in 'company_name', with: 'E2E Company' rescue find('input[name="company_name"]').set('E2E Company')
-    fill_in 'Email', with: 'e2e-client@example.com' rescue fill_in 'email', with: 'e2e-client@example.com' rescue find('input[name="email"]').set('e2e-client@example.com') rescue find('input[type="email"]').set('e2e-client@example.com')
+    fill_in 'Full Name (Contact Person)', with: 'My New E2E Client'
+    fill_in 'Registered Company Name', with: 'E2E Company'
+    fill_in 'Company Registration ID', with: '123456789'
+    fill_in 'Personal/Work Email', with: 'e2e-client@example.com'
     
     # Select a form
     page.execute_script("
@@ -64,7 +65,7 @@ RSpec.describe 'E2E Clients CRUD', type: :system, js: true do
     
     expect(page).to have_content(/Edit/i) rescue expect(page).to have_content(/Update/i)
     
-    fill_in 'Name', with: 'Updated E2E Client' rescue fill_in 'name', with: 'Updated E2E Client' rescue find('input[name="name"]').set('Updated E2E Client') rescue find('input[type="text"]', match: :first).set('Updated E2E Client')
+    fill_in 'Full Name (Contact Person)', with: 'Updated E2E Client'
     click_button 'Save' rescue click_button 'Update' rescue find('button', text: /Save|Update/i).click rescue page.execute_script("Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Update') || el.textContent.includes('Save')).click()")
     
     visit clients_path

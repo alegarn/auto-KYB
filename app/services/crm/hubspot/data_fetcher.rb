@@ -82,6 +82,14 @@ module Crm
       end
 
       # Fetch a single contact by ID
+      def fetch_company(external_id)
+        response = @client.companies_api.get_by_id(company_id: external_id, properties: COMPANY_PROPERTIES)
+        map_company(response)
+      rescue ::Hubspot::ApiError => e
+        Rails.logger.error("[HubSpot Fetch Company] #{e.message}")
+        nil
+      end
+
       def fetch_contact(external_id)
         response = @client.contacts_api.get_by_id(contact_id: external_id, properties: CONTACT_PROPERTIES)
         map_contact(response)

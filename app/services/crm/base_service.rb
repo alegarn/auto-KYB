@@ -40,6 +40,10 @@ module Crm
     # Fetches a contact by external ID
     # @param external_id [String] The CRM's external ID
     # @return [Hash] The mapped contact data
+    def fetch_company(external_id)
+      raise NotImplementedError, "#{self.class} must implement #fetch_company"
+    end
+
     def fetch_contact(external_id)
       raise NotImplementedError, "#{self.class} must implement #fetch_contact"
     end

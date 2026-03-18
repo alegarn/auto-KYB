@@ -18,7 +18,7 @@ RSpec.describe 'Update client', type: :system, js: true do
     within('li', text: client.name) do
       click_link 'Edit'
     end
-    expect(URI.parse(current_url).path).to eq("/clients/#{client.id}/edit")
+    expect(page).to have_current_path("/clients/#{client.id}/edit")
 
     # Form is pre-filled
     expect(find('#client-name').value).to eq('Acme')
@@ -26,10 +26,11 @@ RSpec.describe 'Update client', type: :system, js: true do
     expect(find('#client-email').value).to eq('info@acme.test')
 
     # Update fields
-    fill_in 'client-name', with: 'Acme Updated'
-    fill_in 'client-company', with: 'Acme Co Updated'
+    fill_in 'Full Name', with: 'Acme Updated'
+    fill_in 'Company Name', with: 'Acme Co Updated'
+    fill_in 'Company Registration ID', with: '123456789'
 
-    click_button 'Update client'
+    click_button 'Update Client Profile'
 
     # Accept either a redirect to the client show page OR an inline/UI confirmation.
     # If redirected, assert the updated content is visible. Otherwise assert a
