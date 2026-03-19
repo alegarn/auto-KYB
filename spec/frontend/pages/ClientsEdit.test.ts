@@ -67,7 +67,7 @@ describe('Clients/Edit page CRM rendering', () => {
       expect(getByText(/This client is not linked to your CRM\./i)).toBeInTheDocument();
     });
 
-    expect(queryByText('CRM Sync Active')).not.toBeInTheDocument();
+    expect(queryByText('CRM Data are linked')).not.toBeInTheDocument();
     expect(mockFetch).toHaveBeenCalledWith('/clients/client_123/crm_match_suggestions');
   });
 
@@ -80,7 +80,7 @@ describe('Clients/Edit page CRM rendering', () => {
     });
 
     await waitFor(() => {
-      expect(getByText('CRM Sync Active')).toBeInTheDocument();
+      expect(getByText('CRM Data are linked')).toBeInTheDocument();
       expect(getByText('Complete with CRM data')).toBeInTheDocument();
     });
 

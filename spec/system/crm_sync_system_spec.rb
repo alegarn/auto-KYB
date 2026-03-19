@@ -210,7 +210,7 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
 
       click_button 'Link this contact'
 
-      expect(page).to have_content('CRM Sync Active')
+      expect(page).to have_content('CRM Data are linked')
       expect(client.reload.crm_client_link.external_contact_id).to eq('hs-999')
     end
   end

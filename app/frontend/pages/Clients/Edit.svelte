@@ -217,7 +217,7 @@
   {#if shouldShowCrmPrefillBox}
     <div class="mb-4 p-4 border rounded bg-muted/20 flex justify-between items-center">
       <div class="text-sm">
-        <span class="font-medium text-blue-600">CRM Sync Active</span>
+        <span class="font-medium text-blue-600">CRM Data are linked</span>
         <p class="text-muted-foreground italic">You can fill missing fields with data from your CRM.</p>
       </div>
       <button type="button" class="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-3 py-1.5 text-sm rounded-md font-medium transition-colors" onclick={() => fetchCrmDetails()}>Complete with CRM data</button>
