@@ -2,19 +2,23 @@ require 'rails_helper'
 
 RSpec.describe CrmDataExportJob, type: :job do
   describe '#perform' do
-    let(:client) { create(:client, name: 'John', email: 'john@example.com', company_name: 'Acme Corp') }
-    let(:connection) { create(:crm_connection, provider: 'hubspot') }
+    let(:user) { create(:user) }
+    let(:client) { create(:client, user: user, name: 'John', email: 'john@example.com', company_name: 'Acme Corp') }
+    let(:connection) { create(:crm_connection, user: user, provider: 'hubspot', status: 'active') }
+    let(:form) { create(:form, user: user) }
+    let!(:client_form) { create(:client_form, client: client, form: form) }
+    let!(:mapped_field) { create(:form_field, form: form, label: 'Registration Number', field_type: 'text', position: 1, metadata: { 'export_key' => 'registration_number' }) }
+    let!(:response) { FormResponse.create!(client_form: client_form, data: { mapped_field.id.to_s => 'REG-123' }) }
+    let!(:uploaded_file) { create(:uploaded_file, client: client, form_response: response, field_key: mapped_field.id.to_s) }
     let!(:transfer) { create(:crm_transfer, client: client, crm_connection: connection, status: 'pending') }
 
     it 'marks transfer as success when service returns success' do
       service = double('CrmService')
-      
-      # Now it expects company_data too
+
       expect(service).to receive(:export_data).with(
-        client, 
-        hash_including(name: 'John', email: 'john@example.com', company: 'Acme Corp'), 
-        anything,
-        company_data: {}
+        client,
+        { 'registration_number' => 'REG-123' },
+        [uploaded_file]
       ).and_return({ success: true, external_id: 'ext_123' })
 
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
@@ -25,44 +29,16 @@ RSpec.describe CrmDataExportJob, type: :job do
       expect(transfer.status).to eq('success')
       expect(transfer.transferred_at).not_to be_nil
       expect(transfer.error_message).to be_nil
-      expect(transfer.payload_snapshot).to include(
-        'name' => 'John',
-        'email' => 'john@example.com',
-        'company' => 'Acme Corp'
-      )
+      expect(transfer.payload_snapshot).to eq('registration_number' => 'REG-123')
     end
 
-    it 'splits form_response into contact_data and company_data based on mapping' do
-      # Setup client with form structure and form_response
-      form = create(:form, structure: {
-        "fields" => [
-          { "id" => "field_1", "metadata" => { "crm_mapping" => { "hubspot" => { "object_type" => "contact", "property_name" => "firstname" } } } },
-          { "id" => "field_2", "metadata" => { "crm_mapping" => { "hubspot" => { "object_type" => "company", "property_name" => "domain" } } } },
-          { "id" => "field_3", "metadata" => { "crm_mapping" => { "salesforce" => { "object_type" => "company", "property_name" => "Website" } } } }
-        ]
-      })
-      
-      # Mock form without requiring the method to physically exist on the client model if it's dynamic
-      allow(client).to receive(:respond_to?).and_call_original
-      allow(client).to receive(:respond_to?).with(:form).and_return(true)
-      allow(client).to receive(:respond_to?).with(:form_response).and_return(true)
-      client.define_singleton_method(:form) { form }
-      client.define_singleton_method(:form_response) {
-        {
-          "field_1" => "Jane",
-          "field_2" => "acme.com",
-          "field_3" => "ignored"
-        }
-      }
-      allow_any_instance_of(CrmTransfer).to receive(:client).and_return(client)
-
+    it 'uses the same latest client form payload as the manual export flow' do
       service = double('CrmService')
-      
+
       expect(service).to receive(:export_data).with(
-        client, 
-        hash_including(name: 'John', email: 'john@example.com', company: 'Acme Corp', 'firstname' => 'Jane'), 
-        anything,
-        company_data: { 'domain' => 'acme.com' }
+        client,
+        { 'registration_number' => 'REG-123' },
+        [uploaded_file]
       ).and_return({ success: true })
 
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)

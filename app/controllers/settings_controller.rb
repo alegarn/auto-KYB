@@ -24,7 +24,17 @@ class SettingsController < ApplicationController
     redirect_to auth_loading_path, notice: "You're all set!", status: :see_other
   end
 
+  def update_crm_preferences
+    authorize :settings, :update?
+    current_user.update!(crm_preference_params)
+    redirect_to settings_path, status: :see_other
+  end
+
   private
   # `current_user` and `current_session_id` provided by ApplicationController
+
+  def crm_preference_params
+    params.require(:settings).permit(:crm_auto_sync_on_portal_submit)
+  end
 
 end

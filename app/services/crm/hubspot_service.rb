@@ -62,7 +62,7 @@ module Crm
         end
 
         if company_id.present?
-          company_result = update_existing_company(company_id, company_data)
+          company_result = update_existing_company(client, company_id, company_data)
         else
           company_result = create_company(client, company_data)
           company_id = company_result[:id]
@@ -224,8 +224,9 @@ module Crm
       end
     end
 
-    def update_existing_company(company_id, company_data)
-      properties = company_data.transform_keys { |k| k.to_s.downcase.gsub(/[^a-z0-9]/, "_") }.transform_values(&:to_s)
+    def update_existing_company(client, company_id, company_data = {})
+      mapper = Crm::Hubspot::CompanyMapper.new(client, company_data)
+      properties = mapper.to_hubspot_properties
       ensure_properties("companies", properties)
 
       return { id: company_id, action: :skipped } if properties.empty?
@@ -233,7 +234,7 @@ module Crm
       res = hubspot_client.api_request(
         method: "PATCH",
         path: "/crm/v3/objects/companies/#{company_id}",
-        body: { properties: properties }
+        body: { properties: properties.transform_keys { |k| k.to_s.downcase.gsub(/[^a-z0-9]/, "_") }.transform_values(&:to_s) }
       )
 
       if res.code.to_i < 300

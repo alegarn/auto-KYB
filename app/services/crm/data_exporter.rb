@@ -6,17 +6,26 @@ module Crm
     end
 
     def export_to_all_active!
-      connections = ConnectionManager.active_connections_for(@user)
-      
+      enqueue_exports_for(ConnectionManager.active_connections_for(@user))
+    end
+
+    def export_to_selected!(providers)
+      selected_providers = Array(providers).map(&:to_s).reject(&:blank?).uniq
+      connections = ConnectionManager.active_connections_for(@user).where(provider: selected_providers)
+
+      enqueue_exports_for(connections)
+    end
+
+    private
+
+    def enqueue_exports_for(connections)
       connections.each do |connection|
-        # Create a pending transfer record
         transfer = CrmTransfer.create!(
           client: @client,
           crm_connection: connection,
           status: 'pending'
         )
 
-        # Enqueue the job to process this transfer
         CrmDataExportJob.perform_later(transfer.id)
       end
     end

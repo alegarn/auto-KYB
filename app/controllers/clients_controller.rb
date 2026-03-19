@@ -56,49 +56,24 @@ class ClientsController < ApplicationController
   end
 
   def export_to_crm
-    selected_providers = params[:crms] || []
+    selected_providers = Array(params[:crms]).map(&:to_s).reject(&:blank?).uniq
     if selected_providers.empty?
       render json: { error: "No CRM selected" }, status: :unprocessable_entity
       return
     end
 
-    connections = current_user.crm_connections.where(status: "active", provider: selected_providers)
+    connections = Crm::ConnectionManager.active_connections_for(current_user).where(provider: selected_providers)
     if connections.empty?
       render json: { error: "No active connections for selected CRMs" }, status: :unprocessable_entity
       return
     end
 
-    client_form = @client.client_forms.includes(:form_responses, :form).order(created_at: :desc).first
-    data = {}
-    if client_form && client_form.form_responses.any?
-      response_data = client_form.form_responses.order(:created_at).last.data || {}
-      client_form.form.form_fields.each do |f|
-        type = f.field_type.to_s
-        next if type.start_with?("lay_") || type.start_with?("section") || type == "layout" || type == "title"
-        val = response_data[f.id.to_s]
-        key = f.metadata&.dig("export_key").presence || f.label
-        data[key] = val if val.present?
-      end
-    end
+    Crm::DataExporter.new(@client).export_to_selected!(selected_providers)
 
-    files = @client.uploaded_files.available.to_a
-    success = true
-    errors = []
-
-    connections.each do |conn|
-      service = Crm::ConnectionManager.service_for(conn)
-      result = service.export_data(@client, data, files)
-      unless result[:success]
-        success = false
-        errors << "#{conn.provider.titleize}: #{result[:error]}"
-      end
-    end
-
-    if success
-      render json: { success: true }, status: :ok
-    else
-      render json: { error: errors.join(", ") }, status: :unprocessable_entity
-    end
+    render json: {
+      success: true,
+      message: "Manual CRM export queued. Selected CRM transfers will run in the background and may take a moment to complete."
+    }, status: :ok
   end
 
   def new
@@ -185,6 +160,8 @@ class ClientsController < ApplicationController
           sync_address_to_contact: crm_sync_params[:sync_address_to_contact]
         )
       end
+
+      sync_linked_client_profile_to_crm if crm_sync_params[:strategy].blank?
 
       redirect_to client_path(@client), notice: "Client updated"
       return
@@ -363,7 +340,8 @@ class ClientsController < ApplicationController
       forms: forms_for_select,
       current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id,
       has_crm_link: @client.crm_client_link.present?,
-      has_active_crm_connection: current_user.crm_connections.active.exists?
+      has_active_crm_connection: current_user.crm_connections.active.exists?,
+      crm_sync_status: crm_sync_status_for(@client)
     }.merge(extra_props)
   end
 
@@ -381,6 +359,37 @@ class ClientsController < ApplicationController
     props[:user] = user_props if include_user
 
     render inertia: view, props: props, status: :unprocessable_entity
+  end
+
+  def sync_linked_client_profile_to_crm
+    Crm::ClientProfileSyncService.call(@client)
+  end
+
+  def crm_sync_status_for(client)
+    link = client.crm_client_link
+    connection = link&.crm_connection
+    connection_active = connection&.status == "active"
+
+    {
+      linked: link.present?,
+      connection_active: connection_active,
+      auto_updates_on_edit: link.present? && connection_active,
+      provider: connection&.provider,
+      provider_name: crm_provider_name(connection&.provider)
+    }
+  end
+
+  def crm_provider_name(provider)
+    case provider
+    when "hubspot"
+      "HubSpot"
+    when "salesforce"
+      "Salesforce"
+    when "zoho"
+      "Zoho CRM"
+    else
+      provider&.humanize
+    end
   end
 
 end

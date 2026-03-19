@@ -53,5 +53,33 @@ RSpec.describe CrmSyncService do
       expect(link.external_contact_id).to eq("ext123")
       expect(link.external_company_id).to eq("comp456")
     end
+
+    it 'updates a linked CRM profile through export_data and refreshes stored external ids' do
+      client.update!(company_id: 'REG-42')
+      link = create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: nil, external_company_id: nil)
+
+      allow(service).to receive(:export_data).and_return(
+        {
+          success: true,
+          external_id: 'ext999',
+          details: {
+            contact: { id: 'ext999' },
+            company: { id: 'comp999' }
+          }
+        }
+      )
+
+      expect(service).to receive(:export_data).with(
+        client,
+        hash_including(sync_address_to_contact: false),
+        [],
+        company_data: hash_including(company_id: 'REG-42')
+      )
+
+      described_class.call(client, 'update')
+
+      expect(link.reload.external_contact_id).to eq('ext999')
+      expect(link.external_company_id).to eq('comp999')
+    end
   end
 end

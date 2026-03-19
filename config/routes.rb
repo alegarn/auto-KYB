@@ -58,6 +58,7 @@ Rails.application.routes.draw do
   get "settings", to: "settings#index"
   get "settings/auth_setup", to: "settings#auth_setup", as: :auth_setup_settings
   patch "settings/auth_setup", to: "settings#complete_onboarding"
+  patch "settings/crm_preferences", to: "settings#update_crm_preferences"
 
   get  "sign_in", to: "sessions#new"
   post "sign_in", to: "sessions#create"

@@ -39,14 +39,9 @@ module ClientPortal
     private
 
     def enqueue_crm_exports(client)
-      client.user.crm_connections.where(status: "active").find_each do |conn|
-        transfer = CrmTransfer.create!(
-          client: client,
-          crm_connection: conn,
-          status: "pending"
-        )
-        CrmDataExportJob.perform_later(transfer.id)
-      end
+      return unless client.user.crm_auto_sync_on_portal_submit
+
+      Crm::DataExporter.new(client).export_to_all_active!
     rescue StandardError => e
       Rails.logger.error("Failed to enqueue CRM export: #{e.message}")
     end
