@@ -114,6 +114,16 @@ RSpec.describe "Clients API", type: :request do
       payload = JSON.parse(response.body)
       expect(payload['component']).to eq("Clients/New")
     end
+
+    it "includes the CRM connection flag in inertia props" do
+      create(:crm_connection, user: user, status: "active")
+
+      get new_client_path, headers: inertia_headers
+
+      expect(response).to have_http_status(:ok)
+      payload = JSON.parse(response.body)
+      expect(payload.dig("props", "has_active_crm_connection")).to eq(true)
+    end
   end
 
   describe "POST /clients" do
@@ -162,6 +172,30 @@ RSpec.describe "Clients API", type: :request do
       get edit_client_path(other)
 
       expect(response).to have_http_status(:not_found)
+    end
+
+    it "includes CRM booleans for an unlinked client without active CRM connection" do
+      client = create(:client, user: user)
+
+      get edit_client_path(client), headers: inertia_headers
+
+      expect(response).to have_http_status(:ok)
+      payload = JSON.parse(response.body)
+      expect(payload.dig("props", "has_crm_link")).to eq(false)
+      expect(payload.dig("props", "has_active_crm_connection")).to eq(false)
+    end
+
+    it "includes CRM booleans for a linked client with an active CRM connection" do
+      connection = create(:crm_connection, user: user, status: "active")
+      client = create(:client, user: user)
+      create(:crm_client_link, client: client, crm_connection: connection)
+
+      get edit_client_path(client), headers: inertia_headers
+
+      expect(response).to have_http_status(:ok)
+      payload = JSON.parse(response.body)
+      expect(payload.dig("props", "has_crm_link")).to eq(true)
+      expect(payload.dig("props", "has_active_crm_connection")).to eq(true)
     end
   end
 

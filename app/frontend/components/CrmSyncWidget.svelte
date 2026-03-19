@@ -1,16 +1,30 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { untrack } from 'svelte';
   import { Input } from '/components/ui/input/index.js';
   import { Label } from '/components/ui/label/index.js';
 
-  let { onSyncDataChanged, companyName = '' } = $props<{ onSyncDataChanged: (data: any) => void, companyName?: string }>();
+  type CrmSyncStrategy = '' | 'skip' | 'create' | 'link';
+  type CrmSearchContact = { external_contact_id: string, name: string, email: string };
+  type CrmSyncData = {
+    strategy: CrmSyncStrategy;
+    external_contact_id: string | null;
+    external_company_id: string | null;
+    prefillData: { name: string, email: string } | null;
+    sync_address_to_contact: boolean;
+  };
 
-  let strategy = $state('skip');
+  let {
+    onSyncDataChanged,
+    companyName = '',
+    allowSkip = true
+  } = $props<{ onSyncDataChanged: (data: CrmSyncData) => void, companyName?: string, allowSkip?: boolean }>();
+
+  let strategy = $state<CrmSyncStrategy>(untrack(() => allowSkip ? 'skip' : ''));
   let syncAddressToContact = $state(false);
 
   // Contact search state
   let searchQuery = $state('');
-  let searchResults = $state<{ external_contact_id: string, name: string, email: string }[]>([]);
+  let searchResults = $state<CrmSearchContact[]>([]);
   let isSearching = $state(false);
   let selectedContactId = $state<string | null>(null);
   let selectedContactData = $state<{ name: string, email: string } | null>(null);
@@ -24,11 +38,17 @@
   let companySearchTimeout: ReturnType<typeof setTimeout>;
 
   $effect(() => {
+    if (!allowSkip && strategy === 'skip') {
+      strategy = '';
+    }
+  });
+
+  $effect(() => {
     onSyncDataChanged({
       strategy,
-      external_contact_id: selectedContactId,
+      external_contact_id: strategy === 'link' ? selectedContactId : null,
       external_company_id: (strategy === 'create' && linkExistingCompany && companyMatch) ? companyMatch.hubspot_id : null,
-      prefillData: selectedContactData,
+      prefillData: strategy === 'link' ? selectedContactData : null,
       sync_address_to_contact: syncAddressToContact
     });
   });
@@ -86,7 +106,7 @@
     }
   }
 
-  function selectContact(contact: { external_contact_id: string, name: string, email: string }) {
+  function selectContact(contact: CrmSearchContact) {
     selectedContactId = contact.external_contact_id;
     selectedContactData = contact;
     strategy = 'link';
@@ -97,10 +117,12 @@
   <h3 class="font-medium mb-3">CRM Integration</h3>
   
   <div class="space-y-3">
-    <div class="flex items-center space-x-2">
-      <input type="radio" id="crm-skip" bind:group={strategy} value="skip" />
-      <Label for="crm-skip">Do not sync with CRM yet</Label>
-    </div>
+    {#if allowSkip}
+      <div class="flex items-center space-x-2">
+        <input type="radio" id="crm-skip" bind:group={strategy} value="skip" />
+        <Label for="crm-skip">Do not sync with CRM yet</Label>
+      </div>
+    {/if}
 
     <div class="flex items-center space-x-2">
       <input type="radio" id="crm-create" bind:group={strategy} value="create" />

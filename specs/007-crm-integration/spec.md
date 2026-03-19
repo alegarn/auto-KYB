@@ -152,6 +152,8 @@ As a user, I want to choose which CRM providers I enable from the application se
 2. **Given** the user disables a CRM provider, **When** they view form mapping or manual export screens, **Then** the disabled provider is not listed as an export or mapping target
 3. **Given** the user enables a CRM provider, **When** they then connect that provider using OAuth, **Then** the provider becomes available for exports, imports and test mapping
 4. **Given** the user has multiple providers enabled, **When** they choose defaults in settings, **Then** default selection is pre-selected in manual export and mapping dialogs
+5. **Given** no CRM providers are connected, **When** creating or editing a client, **Then** no CRM-related UI components (sync widgets, import/export buttons) are loaded or displayed to the user
+6. **Given** a CRM is connected, **When** editing an existing client that is already linked to the CRM, **Then** the CRM sync strategy widget is hidden to avoid redundant import/link prompts
 
 ---
 

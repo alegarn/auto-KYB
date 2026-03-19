@@ -104,7 +104,8 @@ class ClientsController < ApplicationController
   def new
     render inertia: "Clients/New", props: default_inertia_props.merge(
       client: {},
-      forms: forms_for_select
+      forms: forms_for_select,
+      has_active_crm_connection: current_user.crm_connections.active.exists?
     )
   end
 
@@ -151,13 +152,7 @@ class ClientsController < ApplicationController
   end
 
   def edit
-    render inertia: "Clients/Edit", props: {
-      client: ClientSerializer.new(@client).as_json,
-      forms: forms_for_select,
-      current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id,
-      has_crm_link: !!@client.crm_client_link,
-      has_active_crm_connection: current_user.crm_connections.active.exists?
-    }
+    render inertia: "Clients/Edit", props: edit_inertia_props
   end
 
   def update
@@ -200,20 +195,16 @@ class ClientsController < ApplicationController
       store_client_form_one_time_password(result.client_form, result.password)
       redirect_to password_reveal_client_form_path(result.client_form), status: :see_other
     when :confirm_replace
-      render inertia: "Clients/Edit", props: {
-        client: ClientSerializer.new(@client).as_json,
+      render inertia: "Clients/Edit", props: edit_inertia_props(
         confirm_replace_required: true,
         confirm_message: result.message,
-        forms: forms_for_select,
         attempted_form_id: result.attempted_form_id
-      }, status: :unprocessable_entity
+      ), status: :unprocessable_entity
     end
   rescue ActiveRecord::RecordInvalid => e
-    render inertia: "Clients/Edit", props: {
-      client: ClientSerializer.new(@client).as_json,
-      errors: e.record.errors.full_messages,
-      forms: forms_for_select
-    }, status: :unprocessable_entity
+    render inertia: "Clients/Edit", props: edit_inertia_props(
+      errors: e.record.errors.full_messages
+    ), status: :unprocessable_entity
   end
 
   def destroy
@@ -366,12 +357,26 @@ class ClientsController < ApplicationController
     current_user.forms.find_by(id: form_id)
   end
 
+  def edit_inertia_props(extra_props = {})
+    {
+      client: ClientSerializer.new(@client).as_json,
+      forms: forms_for_select,
+      current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id,
+      has_crm_link: @client.crm_client_link.present?,
+      has_active_crm_connection: current_user.crm_connections.active.exists?
+    }.merge(extra_props)
+  end
+
   def render_form_not_found(view:, client:, include_user: false)
-    props = {
-      client: client ? ClientSerializer.new(client).as_json : nil,
-      errors: { form_id: [ "Form not found" ] },
-      forms: forms_for_select
-    }
+    props = if view == "Clients/Edit"
+      edit_inertia_props(errors: { form_id: [ "Form not found" ] })
+    else
+      {
+        client: client ? ClientSerializer.new(client).as_json : nil,
+        errors: { form_id: [ "Form not found" ] },
+        forms: forms_for_select
+      }
+    end
 
     props[:user] = user_props if include_user
 

@@ -3,14 +3,15 @@
   import { onMount } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
   import { Label } from '/components/ui/label/index.js';
-  import CrmSyncWidget from '@/components/CrmSyncWidget.svelte';
-  import CrmSyncNotice from '@/components/CrmSyncNotice.svelte';
   import ClientFormFields from '@/components/ClientFormFields.svelte';
   import { fetchCountriesData } from '/lib/countries';
   import { mapCrmPrefillToForm, type ClientFormData } from '@/lib/crm_domain';
   import { hasError } from '@/lib/utils';
 
-  let { user, errors = {}, forms = [] } = $props();
+  type CrmSyncWidgetComponentType = typeof import('/components/CrmSyncWidget.svelte').default;
+  type CrmSyncNoticeComponentType = typeof import('/components/CrmSyncNotice.svelte').default;
+
+  let { user, errors = {}, forms = [], has_active_crm_connection = false } = $props();
 
   let countries = $state([{ name: 'United States', code: 'US', flag: '🇺🇸' }]);
   let countryOptions = $derived((countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag })));
@@ -37,6 +38,10 @@
     sync_address_to_contact: false
   });
   let prefilled = $state(false);
+  let CrmSyncWidgetComponent = $state<CrmSyncWidgetComponentType | null>(null);
+  let CrmSyncNoticeComponent = $state<CrmSyncNoticeComponentType | null>(null);
+
+  const shouldShowCrmSection = $derived(has_active_crm_connection);
 
   function handleCrmSync(data: any) {
     // Always update the base data including sync_address_to_contact
@@ -68,6 +73,41 @@
       countriesLoading = false;
     }
   }
+
+  $effect(() => {
+    if (!shouldShowCrmSection) {
+      CrmSyncWidgetComponent = null;
+      CrmSyncNoticeComponent = null;
+      crmSyncData = {
+        strategy: 'skip',
+        external_contact_id: null,
+        external_company_id: null,
+        prefillData: null,
+        sync_address_to_contact: false
+      };
+      return;
+    }
+
+    let active = true;
+
+    Promise.all([
+      import('/components/CrmSyncWidget.svelte'),
+      import('/components/CrmSyncNotice.svelte')
+    ])
+      .then(([crmSyncWidgetModule, crmSyncNoticeModule]) => {
+        if (!active) return;
+
+        CrmSyncWidgetComponent = crmSyncWidgetModule.default;
+        CrmSyncNoticeComponent = crmSyncNoticeModule.default;
+      })
+      .catch((error) => {
+        console.error('Failed to load CRM components', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  });
 
   onMount(() => {
     fetchCountries();
@@ -110,15 +150,19 @@
           <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">1. Integration & Relationship</h2>
         </div>
         <div class="p-4 space-y-4">
-          <CrmSyncWidget onSyncDataChanged={handleCrmSync} companyName={formData.companyName} />
-          <input type="hidden" name="crm[strategy]" value={crmSyncData.strategy} />
-          {#if crmSyncData.external_contact_id}
-            <input type="hidden" name="crm[external_contact_id]" value={crmSyncData.external_contact_id} />
+          {#if shouldShowCrmSection}
+            {#if CrmSyncWidgetComponent}
+              <CrmSyncWidgetComponent onSyncDataChanged={handleCrmSync} companyName={formData.companyName} />
+            {/if}
+            <input type="hidden" name="crm[strategy]" value={crmSyncData.strategy} />
+            {#if crmSyncData.external_contact_id}
+              <input type="hidden" name="crm[external_contact_id]" value={crmSyncData.external_contact_id} />
+            {/if}
+            {#if crmSyncData.external_company_id}
+              <input type="hidden" name="crm[external_company_id]" value={crmSyncData.external_company_id} />
+            {/if}
+            <input type="hidden" name="crm[sync_address_to_contact]" value={crmSyncData.sync_address_to_contact ? 'true' : 'false'} />
           {/if}
-          {#if crmSyncData.external_company_id}
-            <input type="hidden" name="crm[external_company_id]" value={crmSyncData.external_company_id} />
-          {/if}
-          <input type="hidden" name="crm[sync_address_to_contact]" value={crmSyncData.sync_address_to_contact ? 'true' : 'false'} />
 
           <div>
             <Label for="client-form" class="block text-sm font-medium">Form to link</Label>
@@ -153,20 +197,22 @@
         onFetchCountries={fetchCountries}
       />
 
-      <section class="border rounded-lg overflow-hidden shadow-sm">
-        <div class="p-4">
-          <CrmSyncNotice 
-            strategy={crmSyncData.strategy} 
-            companyName={formData.companyName} 
-            companyId={formData.companyId} 
-          />
-        </div>
-      </section>
+      {#if shouldShowCrmSection && CrmSyncNoticeComponent}
+        <section class="border rounded-lg overflow-hidden shadow-sm">
+          <div class="p-4">
+            <CrmSyncNoticeComponent 
+              strategy={crmSyncData.strategy} 
+              companyName={formData.companyName} 
+              companyId={formData.companyId} 
+            />
+          </div>
+        </section>
+      {/if}
     </div>
 
     <div class="mt-8 pt-6 border-t flex gap-3 items-center">
       <Button type="submit" class="btn px-8">Create Client Profile</Button>
-      <Button href="/clients" class="btn btn-ghost">Cancel</Button>
+      <Button href="/clients" variant="outline" class="text-muted-foreground">Cancel</Button>
     </div>
   </InertiaForm>
 </section>
