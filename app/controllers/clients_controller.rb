@@ -56,36 +56,24 @@ class ClientsController < ApplicationController
   end
 
   def export_to_crm
-    selected_providers = params[:crms] || []
+    selected_providers = Array(params[:crms]).map(&:to_s).reject(&:blank?).uniq
     if selected_providers.empty?
       render json: { error: "No CRM selected" }, status: :unprocessable_entity
       return
     end
 
-    connections = current_user.crm_connections.where(status: "active", provider: selected_providers)
+    connections = Crm::ConnectionManager.active_connections_for(current_user).where(provider: selected_providers)
     if connections.empty?
       render json: { error: "No active connections for selected CRMs" }, status: :unprocessable_entity
       return
     end
 
-    payload = Crm::ExportPayloadBuilder.new(@client).build
-    success = true
-    errors = []
+    Crm::DataExporter.new(@client).export_to_selected!(selected_providers)
 
-    connections.each do |conn|
-      service = Crm::ConnectionManager.service_for(conn)
-      result = service.export_data(@client, payload.data, payload.files)
-      unless result[:success]
-        success = false
-        errors << "#{conn.provider.titleize}: #{result[:error]}"
-      end
-    end
-
-    if success
-      render json: { success: true }, status: :ok
-    else
-      render json: { error: errors.join(", ") }, status: :unprocessable_entity
-    end
+    render json: {
+      success: true,
+      message: "Manual CRM export queued. Selected CRM transfers will run in the background and may take a moment to complete."
+    }, status: :ok
   end
 
   def new

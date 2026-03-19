@@ -32,6 +32,7 @@
   let showCrmExportModal = $state(false);
   let crmExporting = $state(false);
   let crmExportSuccess = $state(false);
+  let crmExportMessage = $state('');
   let selectedCrms = $state<string[]>(['hubspot']); // Default selected
   const availableCrms = $derived(
     (crm_connections || []).map((c: any) => ({
@@ -121,6 +122,7 @@
   function openCrmExport() {
     showCrmExportModal = true;
     crmExportSuccess = false;
+    crmExportMessage = '';
   }
 
   function closeCrmExport() {
@@ -139,6 +141,7 @@
     if (selectedCrms.length === 0) return;
     
     crmExporting = true;
+    crmExportMessage = '';
     try {
       const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
       const response = await fetch(`/clients/${client['id']}/export_to_crm`, {
@@ -150,13 +153,15 @@
         },
         body: JSON.stringify({ crms: selectedCrms })
       });
+      const body = await response.json().catch(() => ({}));
+
       if (response.ok) {
+        crmExportMessage = body.message || 'Manual CRM export queued. Selected CRM transfers will run in the background and may take a moment to complete.';
         crmExportSuccess = true;
         setTimeout(() => {
           closeCrmExport();
         }, 2000);
       } else {
-        const body = await response.json();
         alert(`Export failed: ${body.error || 'Unknown error'}`);
       }
     } catch (e: any) {
@@ -461,7 +466,7 @@
     <div class="space-y-4 py-2">
       {#if crmExportSuccess}
         <div class="p-3 bg-emerald-50 text-emerald-700 rounded-md text-sm font-medium">
-          Successfully exported to selected CRMs!
+          {crmExportMessage}
         </div>
       {:else}
         <div class="space-y-2">
