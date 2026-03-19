@@ -1,13 +1,18 @@
 <script lang="ts">
   import { Form as InertiaForm, router, page } from '@inertiajs/svelte';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
-  import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
+  import Modal from '@/components/ui/modal.svelte';
   import Toast from '@/components/customs/Toast.svelte';
   import CrmMatchBanner from '/components/CrmMatchBanner.svelte';
+  import ClientFormFields from '@/components/ClientFormFields.svelte';
   import { client_path } from '@/routes';
   import { fetchCountriesData } from '/lib/countries';
+  import { hasError } from '@/lib/utils';
+  import { mapCrmPrefillToForm, type ClientFormData } from '@/lib/crm_domain';
+
+  type CrmSyncWidgetComponentType = typeof import('/components/CrmSyncWidget.svelte').default;
 
   let {
     client = {},
@@ -18,10 +23,14 @@
     attempted_form_id = null,
     has_crm_link = false,
     has_active_crm_connection = false,
+    crm_sync_status = { linked: false, connection_active: false, auto_updates_on_edit: false, provider: null, provider_name: null },
     confirm_replace_required = false } = $props();
+
+  const CRM_LINKED_NOTICE_STORAGE_KEY = 'quick-kyb.crm-linked-edit-notice.v1';
 
   // modal and form state
   let showConfirm = $state({ open: false, continue: false });
+  let showCrmLinkedNotice = $state(false);
   let confirmDialog: HTMLElement | null = $state(null);
   let previouslyFocused: HTMLElement | null = $state(null);
 
@@ -89,6 +98,67 @@
   let countriesLoading = $state(false);
   let countriesError = $state(null);
 
+  // CRM sync state
+  let crmSyncData = $state({
+    strategy: '',
+    external_contact_id: null,
+    external_company_id: null,
+    sync_address_to_contact: false
+  });
+  let CrmSyncWidgetComponent = $state<CrmSyncWidgetComponentType | null>(null);
+
+  const shouldShowCrmSyncWidget = $derived(has_active_crm_connection && !has_crm_link);
+  const shouldShowCrmPrefillBox = $derived(has_active_crm_connection && has_crm_link);
+  const crmProviderName = $derived(crm_sync_status?.provider_name || 'your CRM');
+  const crmSyncNotice = $derived.by(() => {
+    if (!crm_sync_status?.linked) return null;
+
+    if (crm_sync_status?.auto_updates_on_edit) {
+      return {
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+        text: `Linked to ${crmProviderName}. Fetching data is manual, but saving this page automatically pushes profile and company changes back to the CRM.`
+      };
+    }
+
+    return {
+      className: 'border-amber-200 bg-amber-50 text-amber-950',
+      text: 'This client is linked to CRM, but the connection is not active right now. Changes here stay local until the CRM connection is restored.'
+    };
+  });
+
+  function handleCrmSync(data: any) {
+    crmSyncData = data;
+  }
+
+  $effect(() => {
+    if (!shouldShowCrmSyncWidget) {
+      CrmSyncWidgetComponent = null;
+      crmSyncData = {
+        strategy: '',
+        external_contact_id: null,
+        external_company_id: null,
+        sync_address_to_contact: false
+      };
+      return;
+    }
+
+    let active = true;
+
+    import('/components/CrmSyncWidget.svelte')
+      .then((module) => {
+        if (active) {
+          CrmSyncWidgetComponent = module.default;
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load CRM sync widget', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  });
+
   async function fetchCountries() {
     countriesLoading = true;
     countriesError = null;
@@ -108,7 +178,32 @@
 
   onMount(() => {
     fetchCountries();
+
+    if (!shouldShowCrmPrefillBox || !crm_sync_status?.auto_updates_on_edit) return;
+
+    const dismissedNotice = window.localStorage.getItem(CRM_LINKED_NOTICE_STORAGE_KEY);
+    if (!dismissedNotice) {
+      showCrmLinkedNotice = true;
+    }
   });
+
+  function dismissCrmLinkedNotice() {
+    showCrmLinkedNotice = false;
+    window.localStorage.setItem(CRM_LINKED_NOTICE_STORAGE_KEY, 'dismissed');
+  }
+
+  // Mutable form state – $state (not $derived) so bind:value works reactively
+  let formData = $state<ClientFormData>(untrack(() => ({
+    name: client?.name || '',
+    email: client?.email || '',
+    phone: client?.phone || '',
+    companyName: client?.company_name || '',
+    companyId: client?.company_id || '',
+    selectedCountry: client?.country || '',
+    street: client?.address?.street || '',
+    city: client?.address?.city || '',
+    postal: client?.address?.postal_code || ''
+  })));
 
   async function fetchCrmDetails() {
     try {
@@ -116,33 +211,12 @@
       if (resp.ok) {
         const crmData = await resp.json();
         if (crmData) {
-          // Fill empty fields
-          const nameInput = document.querySelector<HTMLInputElement>('input[name="client[name]"]');
-          if (nameInput && !nameInput.value && crmData.name) nameInput.value = crmData.name;
-
-          const emailInput = document.querySelector<HTMLInputElement>('input[name="client[email]"]');
-          if (emailInput && !emailInput.value && crmData.email) emailInput.value = crmData.email;
-
-          const companyInput = document.querySelector<HTMLInputElement>('input[name="client[company_name]"]');
-          if (companyInput && !companyInput.value && crmData.company_name) companyInput.value = crmData.company_name;
-
-          const phoneInput = document.querySelector<HTMLInputElement>('input[name="client[phone]"]');
-          if (phoneInput && !phoneInput.value && crmData.phone) phoneInput.value = crmData.phone;
-
-          if (!selectedCountry && crmData.country) {
-            selectedCountry = crmData.country;
-          }
-
-          if (crmData.address) {
-            const streetInput = document.querySelector<HTMLInputElement>('input[name="client[address][street]"]');
-            if (streetInput && !streetInput.value && crmData.address.street) streetInput.value = crmData.address.street;
-
-            const cityInput = document.querySelector<HTMLInputElement>('input[name="client[address][city]"]');
-            if (cityInput && !cityInput.value && crmData.address.city) cityInput.value = crmData.address.city;
-
-            const postalInput = document.querySelector<HTMLInputElement>('input[name="client[address][postal_code]"]');
-            if (postalInput && !postalInput.value && crmData.address.postal_code) postalInput.value = crmData.address.postal_code;
-          }
+          const mapped = mapCrmPrefillToForm(crmData);
+          Object.entries(mapped).forEach(([key, value]) => {
+            if (value !== undefined) {
+              formData[key as keyof ClientFormData] = value;
+            }
+          });
         }
       }
     } catch (err) {
@@ -155,201 +229,168 @@
 
   // @ts-ignore: Property 'toast' does not exist on type 'FlashData'
   const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null)
-  const flashClasses: string = $derived(
-    flashToast
-      ? flashToast?.type === 'notice'
-        ? 'mb-4 rounded-md p-4 text-sm bg-green-50 text-green-700'
-        : 'mb-4 rounded-md p-4 text-sm bg-red-50 text-red-700'
-      : ''
-  )
 
   // currently linked form (if provided via client props)
   const currentLinkedForm = $derived.by(() => {
     const linkedId = current_form_id || client?.client_form_id || client?.form_id || client?.form?.id;
     return (forms && forms.length) ? forms.find((f: any) => String(f.id) === String(linkedId)) : null;
   });
-
-  const hasError = (field: string) => {
-    if (!errors) return false;
-    if (Array.isArray(errors)) return false;
-    return (errors[field] && errors[field].length) || false;
-  };
 </script>
 
 <section class="p-6 max-w-3xl mx-auto">
-      <header class="mb-4">
-        <h1 class="text-2xl font-semibold">Edit client</h1>
-        <p class="text-sm text-muted-foreground">{client?.email}</p>
-      </header>
+  <header class="mb-4">
+    <h1 class="text-2xl font-semibold">Edit client</h1>
+    <p class="text-sm text-muted-foreground">{client?.email}</p>
+  </header>
 
-      {#if has_active_crm_connection && !has_crm_link && client?.email}
-        <CrmMatchBanner clientId={client.id} clientEmail={client.email} />
-      {/if}
+  {#if shouldShowCrmSyncWidget}
+    <CrmMatchBanner clientId={client.id} clientEmail={client.email} clientCompany={client.company_name} />
+  {/if}
 
-      {#if has_active_crm_connection && has_crm_link}
-        <div class="mb-4 p-4 border rounded bg-muted/20 flex justify-between items-center">
-          <div class="text-sm">
-            <span class="font-medium text-blue-600">CRM Link Active</span>
-            <p class="text-muted-foreground italic">You can fill missing fields with data from your CRM.</p>
-          </div>
-          <Button variant="outline" size="sm" onclick={fetchCrmDetails}>Complete with CRM data</Button>
+  {#if shouldShowCrmPrefillBox}
+    <div class="mb-4 p-4 border rounded bg-muted/20 flex justify-between items-center">
+      <div class="text-sm">
+        <span class="font-medium text-blue-600">CRM Data are linked</span>
+        <p class="text-muted-foreground italic">You can fill missing fields with data from your CRM.</p>
+      </div>
+      <button type="button" class="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-3 py-1.5 text-sm rounded-md font-medium transition-colors" onclick={() => fetchCrmDetails()}>Complete with CRM data</button>
+    </div>
+  {/if}
+
+  {#if flashToast}
+    <Toast message={flashToast.message ?? confirm_message ?? 'Confirmed'} type={flashToast.type ?? 'notice'} />
+  {/if}
+
+  {#if Array.isArray(errors) && errors.length}
+    <div class="mb-4 text-rose-600">
+      <ul>
+        {#each errors as err}
+          <li>{err}</li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
+
+  {#if !Array.isArray(errors) && Object.keys(errors || {}).length}
+    <div class="mb-4 text-rose-600">
+      <ul>
+        {#each Object.entries(errors) as [field, msgs]}
+          {#each msgs as msg}
+            <li>{field}: {msg}</li>
+          {/each}
+        {/each}
+      </ul>
+    </div>
+  {/if}
+
+  <InertiaForm id="client-edit-form" method="patch" action={`/clients/${client?.id}`}>
+    <div class="space-y-6 max-w-2xl">
+      <!-- Section 1: Integration & Linked Form -->
+      <section class="border rounded-lg overflow-hidden shadow-sm bg-muted/5">
+        <div class="bg-muted/20 px-4 py-2 border-b">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">1. Integration & Form</h2>
         </div>
-      {/if}
+        <div class="p-4 space-y-4">
+          {#if shouldShowCrmSyncWidget}
+            <div class="mb-4">
+              {#if CrmSyncWidgetComponent}
+                <CrmSyncWidgetComponent onSyncDataChanged={handleCrmSync} companyName={formData.companyName} allowSkip={false} />
+              {/if}
+              <input type="hidden" name="crm[strategy]" value={crmSyncData.strategy} />
+              {#if crmSyncData.external_contact_id}
+                <input type="hidden" name="crm[external_contact_id]" value={crmSyncData.external_contact_id} />
+              {/if}
+              {#if crmSyncData.external_company_id}
+                <input type="hidden" name="crm[external_company_id]" value={crmSyncData.external_company_id} />
+              {/if}
+              <input type="hidden" name="crm[sync_address_to_contact]" value={crmSyncData.sync_address_to_contact ? 'true' : 'false'} />
+            </div>
+          {/if}
 
-      {#if flashToast}
-        <Toast message={flashToast.message ?? confirm_message ?? 'Confirmed'} type={flashToast.type ?? 'notice'} />
-      {/if}
-
-      {#if Array.isArray(errors) && errors.length}
-        <div class="mb-4 text-rose-600">
-          <ul>
-            {#each errors as err}
-              <li>{err}</li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-
-      {#if !Array.isArray(errors) && Object.keys(errors || {}).length}
-        <div class="mb-4 text-rose-600">
-          <ul>
-            {#each Object.entries(errors) as [field, msgs]}
-              {#each msgs as msg}
-                <li>{field}: {msg}</li>
-              {/each}
-            {/each}
-          </ul>
-        </div>
-      {/if}
-
-      <InertiaForm id="client-edit-form" method="patch" action={`/clients/${client?.id}`}>
-        <!-- form mapping: show current linked form and allow changing via a dropdown (replaces previous Change button) -->
-        {#if forms && forms.length}
-          <div class="mt-4">
-            <Label for="client-form" class="block text-sm font-medium">Linked form</Label>
-            <div class="mt-1">
-              {#if client?.status === "validated"}
-                {#if currentLinkedForm}
-                  <span class="text-sm text-muted-foreground">{currentLinkedForm?.name} <span class="ml-2 text-xs px-2 py-0.5 rounded bg-green-100 text-green-800">validated</span></span>
-                  <input type="hidden" name="client_form[form_id]" value={currentLinkedForm?.id ?? ''} />
+          <!-- form mapping: show current linked form and allow changing via a dropdown (replaces previous Change button) -->
+          {#if forms && forms.length}
+            <div>
+              <Label for="client-form" class="block text-sm font-medium">Linked form</Label>
+              <div class="mt-1">
+                {#if client?.status === "validated"}
+                  {#if currentLinkedForm}
+                    <span class="text-sm text-muted-foreground">{currentLinkedForm?.name} <span class="ml-2 text-xs px-2 py-0.5 rounded bg-green-100 text-green-800">validated</span></span>
+                    <input type="hidden" name="client_form[form_id]" value={currentLinkedForm?.id ?? ''} />
+                  {:else}
+                    <span class="text-sm text-muted-foreground"><em>None</em></span>
+                  {/if}
                 {:else}
-                  <span class="text-sm text-muted-foreground"><em>None</em></span>
+                  <select id="client-form" data-testid="client-form" name="client_form[form_id]" bind:value={selectedForm}
+                    onpointerdown={handleFormSelectPointerDown}
+                    onkeydown={handleFormSelectKeyDown}
+                    class={`mt-1 block w-full rounded border px-3 py-2 bg-background ${hasError(errors, 'form_id') ? 'border-rose-600' : ''}`}>
+                    <option value="">-- None --</option>
+                    {#each forms as f}
+                      <option value={f.id}>{f.name}</option>
+                    {/each}
+                  </select>
+                  {#if hasError(errors, 'form_id')}
+                    <div class="text-rose-600 text-sm mt-1">{errors['form_id']?.[0]}</div>
+                  {/if}
                 {/if}
-              {:else}
-                <select id="client-form" data-testid="client-form" name="client_form[form_id]" bind:value={selectedForm}
-                  onpointerdown={handleFormSelectPointerDown}
-                  onkeydown={handleFormSelectKeyDown}
-                  class="mt-2 block w-full rounded border px-2 py-1">
-                  <option value="">-- None --</option>
-                  {#each forms as f}
-                    <option value={f.id}>{f.name}</option>
-                  {/each}
-                </select>
-              {/if}
-            </div>
-          </div>
-        {/if}
-
-        <input type="hidden" name="client_form[confirm_replace]" value={confirmedReplace ? 'true' : 'false'} />
-        <div class="space-y-4 max-w-2xl">
-          <div>
-            <Label for="client-name" class="block text-sm font-medium">Name</Label>
-            <Input id="client-name" name="client[name]" value={client?.name} class={`w-full ${hasError('name') ? 'border-rose-600' : ''}`} />
-            {#if hasError('name')}
-              <div class="text-rose-600 text-sm mt-1">{errors['name']?.[0]}</div>
-            {/if}
-          </div>
-
-          <div>
-            <Label for="client-company" class="block text-sm font-medium">Company name</Label>
-            <Input id="client-company" name="client[company_name]" value={client?.company_name} class={`w-full ${hasError('company_name') ? 'border-rose-600' : ''}`} />
-            {#if hasError('company_name')}
-              <div class="text-rose-600 text-sm mt-1">{errors['company_name']?.[0]}</div>
-            {/if}
-          </div>
-
-          <div>
-            <Label for="client-company-id" class="block text-sm font-medium">Company ID</Label>
-            <Input id="client-company-id" name="client[company_id]" value={client?.company_id} class={`w-full ${hasError('company_id') ? 'border-rose-600' : ''}`} />
-            {#if hasError('company_id')}
-              <div class="text-rose-600 text-sm mt-1">{errors['company_id']?.[0]}</div>
-            {/if}
-          </div>
-
-          <div>
-            <Label for="client-email" class="block text-sm font-medium">Email</Label>
-            <Input id="client-email" name="client[email]" type="email" value={client?.email} class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
-            {#if hasError('email')}
-              <div class="text-rose-600 text-sm mt-1">{errors['email']?.[0]}</div>
-            {/if}
-          </div>
-
-          <div>
-            <Label for="client-phone" class="block text-sm font-medium">Phone</Label>
-            <Input id="client-phone" name="client[phone]" value={client?.phone} class={`w-full ${hasError('phone') ? 'border-rose-600' : ''}`} />
-            {#if hasError('phone')}
-              <div class="text-rose-600 text-sm mt-1">{errors['phone']?.[0]}</div>
-            {/if}
-          </div>
-
-          <div>
-            <Label for="client-country" class="block text-sm font-medium">Company's country</Label>
-            <select id="client-country" name="client[country]" bind:value={selectedCountry} class={`w-full border rounded px-3 py-2 bg-background ${hasError('country') ? 'border-rose-600' : ''}`} disabled={countriesLoading}>
-              {#if countriesLoading}
-                <option>Loading countries...</option>
-              {:else}
-                <option value="">Select a country</option>
-                {#each countryOptions as opt}
-                  <option value={opt.value}>{opt.flag} {opt.label}</option>
-                {/each}
-              {/if}
-            </select>
-            {#if countriesError}
-              <div class="text-rose-600 text-sm mt-1">Error loading countries: {countriesError} <button class="ml-2 underline" onclick={fetchCountries}>Retry</button></div>
-            {/if}
-            {#if hasError('country')}
-              <div class="text-rose-600 text-sm mt-1">{errors['country']?.[0]}</div>
-            {/if}
-          </div>
-
-          <fieldset class="mt-4 border p-3 rounded">
-            <legend class="text-sm font-medium">Company's Address (optional)</legend>
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 mt-2">
-              <div>
-                <Label for="client-street" class="block text-sm">Street</Label>
-                <Input id="client-street" name="client[address][street]" value={client?.address?.street} />
-              </div>
-              <div>
-                <Label for="client-city" class="block text-sm">City</Label>
-                <Input id="client-city" name="client[address][city]" value={client?.address?.city} />
-              </div>
-              <div>
-                <Label for="client-postal" class="block text-sm">Postal code</Label>
-                <Input id="client-postal" name="client[address][postal_code]" value={client?.address?.postal_code} />
               </div>
             </div>
-          </fieldset>
+          {/if}
         </div>
+      </section>
 
-        <div class="mt-6 flex gap-2 items-center">
-          <Button type="submit" class="btn">Update client</Button>
-          <Button href={client_path(client?.id)} class="btn btn-ghost">Cancel</Button>
-        </div>
-      </InertiaForm>
+      <input type="hidden" name="client_form[confirm_replace]" value={confirmedReplace ? 'true' : 'false'} />
+      
+      <ClientFormFields 
+        bind:formData={formData} 
+        {errors} 
+        {countries} 
+        countriesLoading={countriesLoading} 
+        countriesError={countriesError}
+        onFetchCountries={fetchCountries}
+      />
+    </div>
 
-      {#if showConfirm?.open && !showConfirm?.continue && client?.status === "active"}
-        <div class="fixed inset-0 z-[999] flex items-center justify-center">
-          <div class="absolute inset-0 bg-black/50" onclick={modalOpen} aria-hidden="true"></div>
-          <div bind:this={confirmDialog} class="relative z-[1000] bg-white rounded p-6 max-w-lg w-full shadow-lg" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1">
-            <h2 id="confirm-title" class="text-lg font-semibold mb-2">Please confirm</h2>
-            <p class="mb-4">{confirm_message || "Are you sure you want to replace the client's linked form? This will delete existing form responses."}</p>
-            <div class="flex gap-2 justify-end">
-              <button type="button" class="px-4 py-2 border rounded" onclick={modalOpen}>Cancel</button>
-              <button type="button" class="px-4 py-2 bg-rose-600 text-white rounded" onclick={modalContinue}>
-                Continue
-              </button>
-            </div>
-          </div>
+    <div class="mt-8 pt-6 border-t flex gap-3 items-center">
+      <Button type="submit" class="btn px-8">Update Client Profile</Button>
+      <Button href={client_path(client?.id)} variant="outline" class="text-muted-foreground">Cancel</Button>
+    </div>
+    {#if crmSyncNotice}
+      <div class={`mt-3 rounded-lg border px-4 py-3 text-xs leading-relaxed ${crmSyncNotice.className}`}>
+        {crmSyncNotice.text}
+      </div>
+    {/if}
+  </InertiaForm>
+
+  <Modal
+    bind:showModal={showCrmLinkedNotice}
+    title="CRM-linked client"
+    description={`Fetching data from ${crmProviderName} is manual. Saving this client updates the linked CRM profile automatically.`}
+    confirmText="Understood"
+    confirmTone="default"
+    onClose={dismissCrmLinkedNotice}
+    onConfirm={dismissCrmLinkedNotice}
+  >
+    {#snippet children()}
+      <p class="text-sm text-muted-foreground">
+        Use “Complete with CRM data” when you want to pull fresh values from {crmProviderName}. When you save this edit form, Quick KYB pushes the current client and company information back to the linked CRM record.
+      </p>
+    {/snippet}
+  </Modal>
+
+  {#if showConfirm?.open && !showConfirm?.continue && client?.status === "active"}
+    <div class="fixed inset-0 z-[999] flex items-center justify-center">
+      <div class="absolute inset-0 bg-black/50" onclick={modalOpen} aria-hidden="true"></div>
+      <div bind:this={confirmDialog} class="relative z-[1000] bg-white rounded p-6 max-w-lg w-full shadow-lg" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1">
+        <h2 id="confirm-title" class="text-lg font-semibold mb-2">Please confirm</h2>
+        <p class="mb-4">{confirm_message || "Are you sure you want to replace the client's linked form? This will delete existing form responses."}</p>
+        <div class="flex gap-2 justify-end">
+          <button type="button" class="px-4 py-2 border rounded" onclick={modalOpen}>Cancel</button>
+          <button type="button" class="px-4 py-2 bg-rose-600 text-white rounded" onclick={modalContinue}>
+            Continue
+          </button>
         </div>
-      {/if}
+      </div>
+    </div>
+  {/if}
 </section>

@@ -52,8 +52,8 @@ module Crm
       end
       results[:contact] = contact_result
 
-      # 2. Create/update company if company_data is present
-      if company_data.present?
+      # 2. Create/update company if company_data or company_name is present
+      if company_data.present? || client.company_name.present?
         company_id = link&.respond_to?(:external_company_id) ? link&.external_company_id : nil
 
         if company_id.blank?
@@ -62,7 +62,7 @@ module Crm
         end
 
         if company_id.present?
-          company_result = update_existing_company(company_id, company_data)
+          company_result = update_existing_company(client, company_id, company_data)
         else
           company_result = create_company(client, company_data)
           company_id = company_result[:id]
@@ -130,6 +130,17 @@ module Crm
       Crm::Hubspot::DataFetcher.new(hubspot_client).search_contact_by_email(email)
     end
 
+    # Search companies by query
+    def search_companies(query)
+      ensure_valid_token!
+      Crm::Hubspot::DataFetcher.new(hubspot_client).search_companies(query)
+    end
+
+    def fetch_company(external_id)
+      ensure_valid_token!
+      Crm::Hubspot::DataFetcher.new(hubspot_client).fetch_company(external_id)
+    end
+
     def fetch_contact(external_id)
       ensure_valid_token!
       Crm::Hubspot::DataFetcher.new(hubspot_client).fetch_contact(external_id)
@@ -145,10 +156,13 @@ module Crm
       @hubspot_client ||= Crm::Hubspot::Client.new(connection)
     end
 
-    def create_contact(client)
-      mapper = Crm::Hubspot::ContactMapper.new(client, {})
+    def create_contact(client, sync_address_to_contact: false)
+      mapper = Crm::Hubspot::ContactMapper.new(client, { sync_address_to_contact: sync_address_to_contact })
       properties = mapper.to_hubspot_properties
       ensure_properties("contacts", properties)
+      
+      return nil if properties.empty?
+      
       formatted_props = properties.map { |k, v| { property: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }
 
       res = hubspot_client.api_request(
@@ -169,6 +183,9 @@ module Crm
       mapper = Crm::Hubspot::ContactMapper.new(client, data)
       properties = mapper.to_hubspot_properties
       ensure_properties("contacts", properties)
+
+      return { id: external_id, action: :skipped } if properties.empty?
+
       formatted_props = properties.map { |k, v| { property: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }
 
       res = hubspot_client.api_request(
@@ -189,6 +206,8 @@ module Crm
       properties = mapper.to_hubspot_properties
       ensure_properties("companies", properties)
 
+      return nil if properties.empty?
+
       body = { properties: properties.transform_keys { |k| k.to_s.downcase.gsub(/[^a-z0-9]/, "_") }.transform_values(&:to_s) }
 
       res = hubspot_client.api_request(
@@ -205,14 +224,17 @@ module Crm
       end
     end
 
-    def update_existing_company(company_id, company_data)
-      properties = company_data.transform_keys { |k| k.to_s.downcase.gsub(/[^a-z0-9]/, "_") }.transform_values(&:to_s)
+    def update_existing_company(client, company_id, company_data = {})
+      mapper = Crm::Hubspot::CompanyMapper.new(client, company_data)
+      properties = mapper.to_hubspot_properties
       ensure_properties("companies", properties)
+
+      return { id: company_id, action: :skipped } if properties.empty?
 
       res = hubspot_client.api_request(
         method: "PATCH",
         path: "/crm/v3/objects/companies/#{company_id}",
-        body: { properties: properties }
+        body: { properties: properties.transform_keys { |k| k.to_s.downcase.gsub(/[^a-z0-9]/, "_") }.transform_values(&:to_s) }
       )
 
       if res.code.to_i < 300

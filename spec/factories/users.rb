@@ -2,6 +2,7 @@ FactoryBot.define do
   factory :user do
     sequence(:email) { |n| "user#{n}@example.com" }
     password { 'a_secure_password_123' }
+    crm_auto_sync_on_portal_submit { true }
     verified { false }
     subscription_status { 'incomplete' }
     onboarding_completed { false }

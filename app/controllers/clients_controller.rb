@@ -56,55 +56,31 @@ class ClientsController < ApplicationController
   end
 
   def export_to_crm
-    selected_providers = params[:crms] || []
+    selected_providers = Array(params[:crms]).map(&:to_s).reject(&:blank?).uniq
     if selected_providers.empty?
       render json: { error: "No CRM selected" }, status: :unprocessable_entity
       return
     end
 
-    connections = current_user.crm_connections.where(status: "active", provider: selected_providers)
+    connections = Crm::ConnectionManager.active_connections_for(current_user).where(provider: selected_providers)
     if connections.empty?
       render json: { error: "No active connections for selected CRMs" }, status: :unprocessable_entity
       return
     end
 
-    client_form = @client.client_forms.includes(:form_responses, :form).order(created_at: :desc).first
-    data = {}
-    if client_form && client_form.form_responses.any?
-      response_data = client_form.form_responses.order(:created_at).last.data || {}
-      client_form.form.form_fields.each do |f|
-        type = f.field_type.to_s
-        next if type.start_with?("lay_") || type.start_with?("section") || type == "layout" || type == "title"
-        val = response_data[f.id.to_s]
-        key = f.metadata&.dig("export_key").presence || f.label
-        data[key] = val if val.present?
-      end
-    end
+    Crm::DataExporter.new(@client).export_to_selected!(selected_providers)
 
-    files = @client.uploaded_files.available.to_a
-    success = true
-    errors = []
-
-    connections.each do |conn|
-      service = Crm::ConnectionManager.service_for(conn)
-      result = service.export_data(@client, data, files)
-      unless result[:success]
-        success = false
-        errors << "#{conn.provider.titleize}: #{result[:error]}"
-      end
-    end
-
-    if success
-      render json: { success: true }, status: :ok
-    else
-      render json: { error: errors.join(", ") }, status: :unprocessable_entity
-    end
+    render json: {
+      success: true,
+      message: "Manual CRM export queued. Selected CRM transfers will run in the background and may take a moment to complete."
+    }, status: :ok
   end
 
   def new
     render inertia: "Clients/New", props: default_inertia_props.merge(
       client: {},
-      forms: forms_for_select
+      forms: forms_for_select,
+      has_active_crm_connection: current_user.crm_connections.active.exists?
     )
   end
 
@@ -112,7 +88,13 @@ class ClientsController < ApplicationController
     client = current_user.clients.new(client_params)
 
     if client.save
-      CrmSyncService.call(client, crm_sync_params[:strategy], external_contact_id: crm_sync_params[:external_contact_id])
+      CrmSyncService.call(
+        client,
+        crm_sync_params[:strategy],
+        external_contact_id: crm_sync_params[:external_contact_id],
+        external_company_id: crm_sync_params[:external_company_id],
+        sync_address_to_contact: crm_sync_params[:sync_address_to_contact]
+      )
 
       form_id = client_form_params[:form_id]
 
@@ -145,13 +127,7 @@ class ClientsController < ApplicationController
   end
 
   def edit
-    render inertia: "Clients/Edit", props: {
-      client: ClientSerializer.new(@client).as_json,
-      forms: forms_for_select,
-      current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id,
-      has_crm_link: !!@client.crm_client_link,
-      has_active_crm_connection: current_user.crm_connections.active.exists?
-    }
+    render inertia: "Clients/Edit", props: edit_inertia_props
   end
 
   def update
@@ -173,27 +149,39 @@ class ClientsController < ApplicationController
       expires_in: client_form_params[:expires_in] || 7.days
     )
 
+    if result.action == :success
+      # Handle CRM Sync if requested
+      if crm_sync_params[:strategy].present? && crm_sync_params[:strategy] != "skip"
+        CrmSyncService.call(
+          @client,
+          crm_sync_params[:strategy],
+          external_contact_id: crm_sync_params[:external_contact_id],
+          external_company_id: crm_sync_params[:external_company_id],
+          sync_address_to_contact: crm_sync_params[:sync_address_to_contact]
+        )
+      end
+
+      sync_linked_client_profile_to_crm if crm_sync_params[:strategy].blank?
+
+      redirect_to client_path(@client), notice: "Client updated"
+      return
+    end
+
     case result.action
     when :password_reveal
       store_client_form_one_time_password(result.client_form, result.password)
       redirect_to password_reveal_client_form_path(result.client_form), status: :see_other
     when :confirm_replace
-      render inertia: "Clients/Edit", props: {
-        client: ClientSerializer.new(@client).as_json,
+      render inertia: "Clients/Edit", props: edit_inertia_props(
         confirm_replace_required: true,
         confirm_message: result.message,
-        forms: forms_for_select,
         attempted_form_id: result.attempted_form_id
-      }, status: :unprocessable_entity
-    when :success
-      redirect_to client_path(@client), notice: "Client updated"
+      ), status: :unprocessable_entity
     end
   rescue ActiveRecord::RecordInvalid => e
-    render inertia: "Clients/Edit", props: {
-      client: ClientSerializer.new(@client).as_json,
-      errors: e.record.errors.full_messages,
-      forms: forms_for_select
-    }, status: :unprocessable_entity
+    render inertia: "Clients/Edit", props: edit_inertia_props(
+      errors: e.record.errors.full_messages
+    ), status: :unprocessable_entity
   end
 
   def destroy
@@ -224,7 +212,7 @@ class ClientsController < ApplicationController
 
   def crm_contact_details
     external_id = params[:external_contact_id] || @client.crm_client_link&.external_contact_id
-    
+
     unless external_id
       render json: { error: "No external contact ID provided" }, status: :bad_request
       return
@@ -237,7 +225,28 @@ class ClientsController < ApplicationController
     end
 
     service = Crm::ConnectionManager.service_for(connection)
+    external_company_id = @client.crm_client_link&.external_company_id
     contact = service.fetch_contact(external_id)
+
+    if contact && external_company_id.present?
+      begin
+        company = service.fetch_company(external_company_id)
+        if company
+          contact[:company_name] = company[:company_name] if company[:company_name].present?
+          contact[:company_id]   = company[:company_id]   if company[:company_id].present?
+          contact[:domain]       = company[:domain]        if company[:domain].present?
+          contact[:phone]        = company[:phone]         if company[:phone].present?
+
+          if company.dig(:address, :city).present? || company.dig(:address, :street).present? ||
+             company.dig(:address, :postal_code).present?
+            contact[:address] = company[:address]
+          end
+          contact[:country] = company[:country] if company[:country].present?
+        end
+      rescue => e
+        Rails.logger.warn("Failed to fetch CRM company #{external_company_id}: #{e.message}")
+      end
+    end
 
     if contact
       render json: contact
@@ -304,7 +313,7 @@ class ClientsController < ApplicationController
   end
 
   def crm_sync_params
-    params.fetch(:crm, {}).permit(:strategy, :external_contact_id)
+    params.fetch(:crm, {}).permit(:strategy, :external_contact_id, :external_company_id, :sync_address_to_contact)
   end
 
   def client_form_params
@@ -325,15 +334,62 @@ class ClientsController < ApplicationController
     current_user.forms.find_by(id: form_id)
   end
 
+  def edit_inertia_props(extra_props = {})
+    {
+      client: ClientSerializer.new(@client).as_json,
+      forms: forms_for_select,
+      current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id,
+      has_crm_link: @client.crm_client_link.present?,
+      has_active_crm_connection: current_user.crm_connections.active.exists?,
+      crm_sync_status: crm_sync_status_for(@client)
+    }.merge(extra_props)
+  end
+
   def render_form_not_found(view:, client:, include_user: false)
-    props = {
-      client: client ? ClientSerializer.new(client).as_json : nil,
-      errors: { form_id: [ "Form not found" ] },
-      forms: forms_for_select
-    }
+    props = if view == "Clients/Edit"
+      edit_inertia_props(errors: { form_id: [ "Form not found" ] })
+    else
+      {
+        client: client ? ClientSerializer.new(client).as_json : nil,
+        errors: { form_id: [ "Form not found" ] },
+        forms: forms_for_select
+      }
+    end
 
     props[:user] = user_props if include_user
 
     render inertia: view, props: props, status: :unprocessable_entity
   end
+
+  def sync_linked_client_profile_to_crm
+    Crm::ClientProfileSyncService.call(@client)
+  end
+
+  def crm_sync_status_for(client)
+    link = client.crm_client_link
+    connection = link&.crm_connection
+    connection_active = connection&.status == "active"
+
+    {
+      linked: link.present?,
+      connection_active: connection_active,
+      auto_updates_on_edit: link.present? && connection_active,
+      provider: connection&.provider,
+      provider_name: crm_provider_name(connection&.provider)
+    }
+  end
+
+  def crm_provider_name(provider)
+    case provider
+    when "hubspot"
+      "HubSpot"
+    when "salesforce"
+      "Salesforce"
+    when "zoho"
+      "Zoho CRM"
+    else
+      provider&.humanize
+    end
+  end
+
 end

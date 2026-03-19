@@ -1,24 +1,55 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { untrack } from 'svelte';
   import { Input } from '/components/ui/input/index.js';
   import { Label } from '/components/ui/label/index.js';
 
-  let { onSyncDataChanged } = $props<{ onSyncDataChanged: (data: any) => void }>();
+  type CrmSyncStrategy = '' | 'skip' | 'create' | 'link';
+  type CrmSearchContact = { external_contact_id: string, name: string, email: string };
+  type CrmSyncData = {
+    strategy: CrmSyncStrategy;
+    external_contact_id: string | null;
+    external_company_id: string | null;
+    prefillData: { name: string, email: string } | null;
+    sync_address_to_contact: boolean;
+  };
 
-  let strategy = $state('skip');
+  let {
+    onSyncDataChanged,
+    companyName = '',
+    allowSkip = true
+  } = $props<{ onSyncDataChanged: (data: CrmSyncData) => void, companyName?: string, allowSkip?: boolean }>();
+
+  let strategy = $state<CrmSyncStrategy>(untrack(() => allowSkip ? 'skip' : ''));
+  let syncAddressToContact = $state(false);
+
+  // Contact search state
   let searchQuery = $state('');
-  let searchResults = $state<{ external_contact_id: string, name: string, email: string }[]>([]);
+  let searchResults = $state<CrmSearchContact[]>([]);
   let isSearching = $state(false);
   let selectedContactId = $state<string | null>(null);
   let selectedContactData = $state<{ name: string, email: string } | null>(null);
 
+  // Company match state
+  let isSearchingCompany = $state(false);
+  let companyMatch = $state<{ hubspot_id: string, company_name: string } | null>(null);
+  let linkExistingCompany = $state(true); // default to true if match found
+
   let searchTimeout: ReturnType<typeof setTimeout>;
+  let companySearchTimeout: ReturnType<typeof setTimeout>;
+
+  $effect(() => {
+    if (!allowSkip && strategy === 'skip') {
+      strategy = '';
+    }
+  });
 
   $effect(() => {
     onSyncDataChanged({
       strategy,
-      external_contact_id: selectedContactId,
-      prefillData: selectedContactData
+      external_contact_id: strategy === 'link' ? selectedContactId : null,
+      external_company_id: (strategy === 'create' && linkExistingCompany && companyMatch) ? companyMatch.hubspot_id : null,
+      prefillData: strategy === 'link' ? selectedContactData : null,
+      sync_address_to_contact: syncAddressToContact
     });
   });
 
@@ -28,6 +59,18 @@
       searchTimeout = setTimeout(() => {
         searchCrm();
       }, 700);
+    }
+  });
+
+  // Watch companyName to check for existence
+  $effect(() => {
+    if (strategy === 'create' && companyName && companyName.length >= 3) {
+      clearTimeout(companySearchTimeout);
+      companySearchTimeout = setTimeout(() => {
+        checkCompanyExists(companyName);
+      }, 1000);
+    } else {
+      companyMatch = null;
     }
   });
 
@@ -44,7 +87,26 @@
     }
   }
 
-  function selectContact(contact: { external_contact_id: string, name: string, email: string }) {
+  async function checkCompanyExists(name: string) {
+    isSearchingCompany = true;
+    try {
+      const resp = await fetch(`/crm/imports?type=companies&q=${encodeURIComponent(name)}`);
+      const results = await resp.json();
+      if (results && results.length > 0) {
+        // find exact or close match
+        const match = results.find((c: any) => c.company_name.toLowerCase() === name.toLowerCase());
+        companyMatch = match || results[0];
+      } else {
+        companyMatch = null;
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      isSearchingCompany = false;
+    }
+  }
+
+  function selectContact(contact: CrmSearchContact) {
     selectedContactId = contact.external_contact_id;
     selectedContactData = contact;
     strategy = 'link';
@@ -55,10 +117,12 @@
   <h3 class="font-medium mb-3">CRM Integration</h3>
   
   <div class="space-y-3">
-    <div class="flex items-center space-x-2">
-      <input type="radio" id="crm-skip" bind:group={strategy} value="skip" />
-      <Label for="crm-skip">Do not sync with CRM</Label>
-    </div>
+    {#if allowSkip}
+      <div class="flex items-center space-x-2">
+        <input type="radio" id="crm-skip" bind:group={strategy} value="skip" />
+        <Label for="crm-skip">Do not sync with CRM yet</Label>
+      </div>
+    {/if}
 
     <div class="flex items-center space-x-2">
       <input type="radio" id="crm-create" bind:group={strategy} value="create" />
@@ -71,6 +135,35 @@
     </div>
   </div>
 
+  {#if strategy === 'create' || (strategy === 'link' && selectedContactId)}
+    <div class="mt-4 p-3 border-t bg-background rounded-b-md">
+      <label class="flex items-center gap-2 cursor-pointer text-sm font-medium">
+        <input type="checkbox" bind:checked={syncAddressToContact} class="rounded border-gray-300 h-4 w-4" />
+        <span>Use the company address for the client contact in CRM</span>
+      </label>
+      <p class="text-xs text-muted-foreground ml-6 mt-1">
+        The database in this app will only ever store the company's address.
+        Checking this will copy that address to the individual contact record in your CRM.
+      </p>
+    </div>
+  {/if}
+
+  {#if strategy === 'create'}
+    {#if isSearchingCompany}
+      <div class="mt-4 text-sm text-muted-foreground flex items-center">
+        <span class="animate-spin mr-2">⟳</span> Checking CRM for company...
+      </div>
+    {:else if companyMatch}
+      <div class="mt-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-md p-3">
+        <div class="font-medium text-sm mb-2">Company "{companyMatch.company_name}" already exists in the CRM.</div>
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="link-existing-company" bind:checked={linkExistingCompany} />
+          <Label for="link-existing-company" class="text-sm font-normal">Link contact to this existing company</Label>
+        </div>
+      </div>
+    {/if}
+  {/if}
+
   {#if strategy === 'link'}
     <div class="mt-4 border-t pt-4">
       {#if !selectedContactId}
@@ -78,7 +171,7 @@
           <Input 
             bind:value={searchQuery} 
             placeholder="Search by email or name..." 
-            onkeydown={(e) => e.key === 'Enter' && searchQuery && (e.preventDefault(), searchCrm())}
+            onkeydown={(e) => e.key === 'Enter' && searchQuery && (e.preventDefault(), searchCrm())} 
           />
           <button type="button" class="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm" onclick={searchCrm} disabled={isSearching}>
             {isSearching ? 'Searching...' : 'Search'}

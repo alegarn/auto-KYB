@@ -13,7 +13,7 @@ RSpec.describe 'CRM Mapping Property Empty Bug', type: :system, js: true do
   end
 
   it 'does not show No properties available if properties are provided' do
-    user = User.create!(email: "test@example.com", password: "password")
+    user = create(:user, :subscribed, onboarding_completed: true)
     user.crm_connections.create!(provider: 'hubspot', status: 'active', access_token: 'fake', refresh_token: 'fake')
 
     form = user.forms.create!(name: 'Bug Form', structure: { 'description' => 'Test' })
@@ -23,7 +23,7 @@ RSpec.describe 'CRM Mapping Property Empty Bug', type: :system, js: true do
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([])
     allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
 
-    login_as(user, scope: :user) # assuming devourise
+    sign_in_user(user)
     visit edit_form_path(form)
     
     # Wait for things...

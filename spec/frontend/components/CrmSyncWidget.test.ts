@@ -14,7 +14,7 @@ describe('CrmSyncWidget', () => {
     const onSyncDataChanged = vi.fn();
     const { getByLabelText } = render(CrmSyncWidget, { onSyncDataChanged });
 
-    const skipRadio = getByLabelText('Do not sync with CRM') as HTMLInputElement;
+    const skipRadio = getByLabelText('Do not sync with CRM yet') as HTMLInputElement;
     expect(skipRadio.checked).toBe(true);
     // Component sets default on mount
   });
@@ -69,11 +69,12 @@ describe('CrmSyncWidget', () => {
     await waitFor(() => {
       expect(queryByPlaceholderText('Search by email or name...')).toBeNull();
       expect(getByText('Linked Contact')).toBeInTheDocument();
-      expect(onSyncDataChanged).toHaveBeenCalledWith({
+      expect(onSyncDataChanged).toHaveBeenLastCalledWith(expect.objectContaining({
         strategy: 'link',
         external_contact_id: '123',
-        prefillData: mockContacts[0]
-      });
+        prefillData: mockContacts[0],
+        sync_address_to_contact: false
+      }));
     });
   });
 
@@ -89,6 +90,26 @@ describe('CrmSyncWidget', () => {
 
     await waitFor(() => {
       expect(getByText('No contacts found.')).toBeInTheDocument();
+    });
+  });
+
+  it('hides the skip choice and starts unselected when skip is not allowed', async () => {
+    const onSyncDataChanged = vi.fn();
+    const { queryByLabelText, getByLabelText } = render(CrmSyncWidget, {
+      onSyncDataChanged,
+      allowSkip: false
+    });
+
+    expect(queryByLabelText('Do not sync with CRM yet')).toBeNull();
+
+    const createRadio = getByLabelText('Create new contact in CRM') as HTMLInputElement;
+    const linkRadio = getByLabelText('Link existing CRM contact') as HTMLInputElement;
+
+    expect(createRadio.checked).toBe(false);
+    expect(linkRadio.checked).toBe(false);
+
+    await waitFor(() => {
+      expect(onSyncDataChanged).toHaveBeenCalledWith(expect.objectContaining({ strategy: '' }));
     });
   });
 });

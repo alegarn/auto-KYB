@@ -12,7 +12,7 @@ module Crm
       def to_hubspot_properties
         # Companies have slightly different property names in HubSpot than Contacts
         # but for simplicity we reuse the FieldMapper logic and adjust if needed.
-        props = Crm::Hubspot::FieldMapper.map_to_hubspot(@client, @data)
+        props = Crm::Hubspot::FieldMapper.map_to_hubspot(@client, @data.merge(is_company: true))
         
         # Adjust property name differences for companies if any (HubSpot Company properties use 'name' instead of 'firstname'/'lastname')
         props[:name] = @client.company_name if @client.company_name.present?

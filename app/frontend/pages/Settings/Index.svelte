@@ -12,6 +12,9 @@
   let deletingAccount = $state(false);
   let billingLoading = $state(false);
   let billingError = $state<string | null>(null);
+  let crmAutoSyncOnPortalSubmit = $state(false);
+  let crmPreferenceSaving = $state(false);
+  let crmPreferenceError = $state<string | null>(null);
   let oauthLoading = $state(false);
   const csrfToken =
     typeof document === 'undefined'
@@ -77,6 +80,10 @@
     });
   });
 
+  $effect(() => {
+    crmAutoSyncOnPortalSubmit = !!user?.crm_auto_sync_on_portal_submit;
+  });
+
 
   function submitAccountDeletion() {
     if (!canDeleteAccount || deletingAccount) return;
@@ -130,6 +137,35 @@
       preserveScroll: true,
       onFinish: () => { oauthLoading = false; },
     });
+  }
+
+  function toggleCrmAutoSyncOnPortalSubmit() {
+    if (crmPreferenceSaving) return;
+
+    const nextValue = !crmAutoSyncOnPortalSubmit;
+    crmAutoSyncOnPortalSubmit = nextValue;
+    crmPreferenceError = null;
+    crmPreferenceSaving = true;
+
+    router.patch(
+      '/settings/crm_preferences',
+      {
+        settings: {
+          crm_auto_sync_on_portal_submit: nextValue,
+        },
+      },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onError: () => {
+          crmAutoSyncOnPortalSubmit = !!user?.crm_auto_sync_on_portal_submit;
+          crmPreferenceError = 'Unable to update CRM sync preference.';
+        },
+        onFinish: () => {
+          crmPreferenceSaving = false;
+        },
+      }
+    );
   }
 
   function toggleCrmConnection(provider: string) {
@@ -312,6 +348,54 @@
             </div>
           </div>
         {/each}
+      </Card.Content>
+    </Card.Root>
+
+    <Card.Root>
+      <Card.Header>
+        <Card.Title>CRM sync behavior</Card.Title>
+        <Card.Description>Choose how validated client portal submissions reach your CRM.</Card.Description>
+      </Card.Header>
+      <Card.Content class="space-y-4">
+        <div class="flex items-start justify-between gap-4 rounded-lg border bg-background p-4">
+          <div class="space-y-1">
+            <p class="text-sm font-medium">Automatic sync after client portal submission</p>
+            <p class="text-xs text-muted-foreground">
+              When enabled, validated submissions export automatically. When disabled, you can still push linked clients manually from the client page.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={crmAutoSyncOnPortalSubmit}
+            aria-label="Toggle CRM automatic sync after client portal submission"
+            class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${crmAutoSyncOnPortalSubmit ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'} ${crmPreferenceSaving ? 'cursor-wait opacity-70' : ''}`}
+            onclick={toggleCrmAutoSyncOnPortalSubmit}
+            disabled={crmPreferenceSaving}
+          >
+            <span
+              class={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform ${crmAutoSyncOnPortalSubmit ? 'translate-x-5' : 'translate-x-0'}`}
+            ></span>
+          </button>
+        </div>
+
+        <div class="rounded-lg border border-dashed p-4 text-sm">
+          {#if crmAutoSyncOnPortalSubmit}
+            <p class="font-medium text-foreground">Validated portal submissions sync automatically.</p>
+            <p class="mt-1 text-muted-foreground">
+              Manual CRM export remains available from the client page. Editing a CRM-linked client from the back office still pushes profile changes automatically.
+            </p>
+          {:else}
+            <p class="font-medium text-foreground">Portal submissions stay local until you trigger a manual CRM update.</p>
+            <p class="mt-1 text-muted-foreground">
+              Use the CRM export button on the client page when you want to push the latest linked-client data yourself.
+            </p>
+          {/if}
+        </div>
+
+        {#if crmPreferenceError}
+          <p class="text-sm text-destructive">{crmPreferenceError}</p>
+        {/if}
       </Card.Content>
     </Card.Root>
 

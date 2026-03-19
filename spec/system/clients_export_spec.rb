@@ -1,6 +1,9 @@
 require 'rails_helper'
 
 RSpec.describe 'Client export (GDPR)', type: :system do
+  before do
+    driven_by(:rack_test)
+  end
   it 'allows a user to export their client data as JSON and CSV' do
     user = sign_in_user
 
@@ -14,7 +17,7 @@ RSpec.describe 'Client export (GDPR)', type: :system do
 
     # JSON export - visit JSON endpoint
     visit "/clients/#{client.id}/export.json"
-    json = JSON.parse(page.body)
+    json = page.has_css?('pre') ? JSON.parse(page.find('pre').text) : JSON.parse(page.body)
 
     expect(json['name']).to eq('Acme')
     expect(json['company_name']).to eq('Acme Co')
@@ -22,7 +25,7 @@ RSpec.describe 'Client export (GDPR)', type: :system do
 
     # CSV export - visit CSV endpoint and verify header + values
     visit "/clients/#{client.id}/export.csv"
-    expect(page.body).to include('name,company_name,email,phone,address,created_at,updated_at')
+    expect(page.body).to include('name,company_name,company_id,country,email,phone,address,created_at,updated_at')
     expect(page.body).to include('Acme')
     expect(page.body).to include('info@acme.test')
   end

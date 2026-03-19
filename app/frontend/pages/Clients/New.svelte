@@ -2,58 +2,62 @@
   import { Form as InertiaForm } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
-  import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
-  import CrmSyncWidget from '@/components/CrmSyncWidget.svelte';
+  import ClientFormFields from '@/components/ClientFormFields.svelte';
   import { fetchCountriesData } from '/lib/countries';
+  import { mapCrmPrefillToForm, type ClientFormData } from '@/lib/crm_domain';
+  import { hasError } from '@/lib/utils';
 
-  let { user, errors = {}, forms = [] } = $props();
+  type CrmSyncWidgetComponentType = typeof import('/components/CrmSyncWidget.svelte').default;
+  type CrmSyncNoticeComponentType = typeof import('/components/CrmSyncNotice.svelte').default;
+
+  let { user, errors = {}, forms = [], has_active_crm_connection = false } = $props();
 
   let countries = $state([{ name: 'United States', code: 'US', flag: '🇺🇸' }]);
   let countryOptions = $derived((countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag })));
-  let selectedCountry = $state('');
   let countriesLoading = $state(false);
   let countriesError = $state(null);
 
-  let crmSyncData = $state({ strategy: 'skip', external_contact_id: null, prefillData: null });
+  let formData = $state<ClientFormData>({
+    name: '',
+    email: '',
+    phone: '',
+    companyName: '',
+    companyId: '',
+    selectedCountry: '',
+    street: '',
+    city: '',
+    postal: ''
+  });
+
+  let crmSyncData = $state({
+    strategy: 'skip',
+    external_contact_id: null,
+    external_company_id: null,
+    prefillData: null,
+    sync_address_to_contact: false
+  });
   let prefilled = $state(false);
+  let CrmSyncWidgetComponent = $state<CrmSyncWidgetComponentType | null>(null);
+  let CrmSyncNoticeComponent = $state<CrmSyncNoticeComponentType | null>(null);
+
+  const shouldShowCrmSection = $derived(has_active_crm_connection);
 
   function handleCrmSync(data: any) {
+    // Always update the base data including sync_address_to_contact
+    crmSyncData = data;
+
     if (!data.prefillData) {
-      crmSyncData = { ...data, strategy: data.strategy };
       return;
     }
 
-    // Always update the base data
-    crmSyncData = data;
-
     // Prefill logic
-    const nameInput = document.querySelector<HTMLInputElement>('input[name="client[name]"]');
-    if (nameInput && data.prefillData.name) nameInput.value = data.prefillData.name;
-    
-    const emailInput = document.querySelector<HTMLInputElement>('input[name="client[email]"]');
-    if (emailInput && data.prefillData.email) emailInput.value = data.prefillData.email;
-    
-    const companyInput = document.querySelector<HTMLInputElement>('input[name="client[company_name]"]');
-    if (companyInput && data.prefillData.company_name) companyInput.value = data.prefillData.company_name;
-
-    const phoneInput = document.querySelector<HTMLInputElement>('input[name="client[phone]"]');
-    if (phoneInput && data.prefillData.phone) phoneInput.value = data.prefillData.phone;
-
-    if (data.prefillData.country) {
-      selectedCountry = data.prefillData.country;
-    }
-
-    if (data.prefillData.address) {
-      const streetInput = document.querySelector<HTMLInputElement>('input[name="client[address][street]"]');
-      if (streetInput && data.prefillData.address.street) streetInput.value = data.prefillData.address.street;
-
-      const cityInput = document.querySelector<HTMLInputElement>('input[name="client[address][city]"]');
-      if (cityInput && data.prefillData.address.city) cityInput.value = data.prefillData.address.city;
-
-      const postalInput = document.querySelector<HTMLInputElement>('input[name="client[address][postal_code]"]');
-      if (postalInput && data.prefillData.address.postal_code) postalInput.value = data.prefillData.address.postal_code;
-    }
+    const prefills = mapCrmPrefillToForm(data.prefillData);
+    Object.entries(prefills).forEach(([key, value]) => {
+      if (value !== undefined) {
+        formData[key as keyof ClientFormData] = value;
+      }
+    });
   }
 
   async function fetchCountries() {
@@ -70,15 +74,44 @@
     }
   }
 
+  $effect(() => {
+    if (!shouldShowCrmSection) {
+      CrmSyncWidgetComponent = null;
+      CrmSyncNoticeComponent = null;
+      crmSyncData = {
+        strategy: 'skip',
+        external_contact_id: null,
+        external_company_id: null,
+        prefillData: null,
+        sync_address_to_contact: false
+      };
+      return;
+    }
+
+    let active = true;
+
+    Promise.all([
+      import('/components/CrmSyncWidget.svelte'),
+      import('/components/CrmSyncNotice.svelte')
+    ])
+      .then(([crmSyncWidgetModule, crmSyncNoticeModule]) => {
+        if (!active) return;
+
+        CrmSyncWidgetComponent = crmSyncWidgetModule.default;
+        CrmSyncNoticeComponent = crmSyncNoticeModule.default;
+      })
+      .catch((error) => {
+        console.error('Failed to load CRM components', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  });
+
   onMount(() => {
     fetchCountries();
   });
-
-  const hasError = (field: string) => {
-    if (!errors) return false;
-    if (Array.isArray(errors)) return false;
-    return (errors[field] && errors[field].length) || false;
-  };
 </script>
 
 <section class="p-6 max-w-3xl mx-auto">
@@ -110,119 +143,76 @@
   {/if}
 
   <InertiaForm method="post" action="/clients">
-    <div class="space-y-4 max-w-2xl">
-      <CrmSyncWidget onSyncDataChanged={handleCrmSync} />
-      <input type="hidden" name="crm[strategy]" value={crmSyncData.strategy} />
-      {#if crmSyncData.external_contact_id}
-        <input type="hidden" name="crm[external_contact_id]" value={crmSyncData.external_contact_id} />
-      {/if}
+    <div class="space-y-6 max-w-2xl">
+      <!-- Section 1: CRM & Form -->
+      <section class="border rounded-lg overflow-hidden shadow-sm bg-muted/5">
+        <div class="bg-muted/20 px-4 py-2 border-b">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">1. Integration & Relationship</h2>
+        </div>
+        <div class="p-4 space-y-4">
+          {#if shouldShowCrmSection}
+            {#if CrmSyncWidgetComponent}
+              <CrmSyncWidgetComponent onSyncDataChanged={handleCrmSync} companyName={formData.companyName} />
+            {/if}
+            <input type="hidden" name="crm[strategy]" value={crmSyncData.strategy} />
+            {#if crmSyncData.external_contact_id}
+              <input type="hidden" name="crm[external_contact_id]" value={crmSyncData.external_contact_id} />
+            {/if}
+            {#if crmSyncData.external_company_id}
+              <input type="hidden" name="crm[external_company_id]" value={crmSyncData.external_company_id} />
+            {/if}
+            <input type="hidden" name="crm[sync_address_to_contact]" value={crmSyncData.sync_address_to_contact ? 'true' : 'false'} />
+          {/if}
 
-      <div>
-        <Label for="client-form" class="block text-sm font-medium">Form to link</Label>
-        <select
-          id="client-form"
-          name="client_form[form_id]"
-          class={`w-full border rounded px-3 py-2 bg-background ${hasError('form_id') ? 'border-rose-600' : ''}`}
-          required={forms && forms.length > 0}
-          disabled={!forms || forms.length === 0}
-        >
-          <option value="">Select a form</option>
-          {#each forms as form}
-            <option value={form.id}>{form.name}</option>
-          {/each}
-        </select>
-        {#if hasError('form_id')}
-          <div class="text-rose-600 text-sm mt-1">{errors['form_id']?.[0]}</div>
-        {/if}
-        {#if !forms || forms.length === 0}
-          <p class="text-sm text-muted-foreground mt-1">No forms available yet. Create a form first to enable subspace access.</p>
-        {/if}
-      </div>
-
-      <div>
-        <Label for="client-name" class="block text-sm font-medium">Name</Label>
-        <Input id="client-name" name="client[name]" class={`w-full ${hasError('name') ? 'border-rose-600' : ''}`} />
-        {#if hasError('name')}
-          <div class="text-rose-600 text-sm mt-1">{errors['name']?.[0]}</div>
-        {/if}
-      </div>
-
-      <div>
-        <Label for="client-company" class="block text-sm font-medium">Company name</Label>
-        <Input id="client-company" name="client[company_name]" class={`w-full ${hasError('company_name') ? 'border-rose-600' : ''}`} />
-        {#if hasError('company_name')}
-          <div class="text-rose-600 text-sm mt-1">{errors['company_name']?.[0]}</div>
-        {/if}
-      </div>
-
-      <div>
-        <Label for="client-company-id" class="block text-sm font-medium">Company ID</Label>
-        <Input id="client-company-id" name="client[company_id]" class={`w-full ${hasError('company_id') ? 'border-rose-600' : ''}`} />
-        {#if hasError('company_id')}
-          <div class="text-rose-600 text-sm mt-1">{errors['company_id']?.[0]}</div>
-        {/if}
-      </div>
-
-      <div>
-        <Label for="client-email" class="block text-sm font-medium">Email</Label>
-        <Input id="client-email" name="client[email]" type="email" class={`w-full ${hasError('email') ? 'border-rose-600' : ''}`} />
-        {#if hasError('email')}
-          <div class="text-rose-600 text-sm mt-1">{errors['email']?.[0]}</div>
-        {/if}
-      </div>
-
-      <div>
-        <Label for="client-phone" class="block text-sm font-medium">Phone</Label>
-        <Input id="client-phone" name="client[phone]" class={`w-full ${hasError('phone') ? 'border-rose-600' : ''}`} />
-        {#if hasError('phone')}
-          <div class="text-rose-600 text-sm mt-1">{errors['phone']?.[0]}</div>
-        {/if}
-      </div>
-
-      <div>
-        <Label for="client-country" class="block text-sm font-medium">Company's country</Label>
-        {#if countriesLoading}
-          <select id="client-country" name="client[country]" disabled class="w-full border rounded px-3 py-2 bg-muted/10">
-            <option>Loading countries...</option>
-          </select>
-        {:else}
-          <select id="client-country" name="client[country]" bind:value={selectedCountry} class={`w-full border rounded px-3 py-2 bg-background ${hasError('country') ? 'border-rose-600' : ''}`}>
-            <option value="">Select a country</option>
-            {#each countryOptions as opt}
-              <option value={opt?.value}>{opt?.flag} {opt?.label}</option>
-            {/each}
-          </select>
-        {/if}
-        {#if countriesError}
-          <div class="text-rose-600 text-sm mt-1">Error loading countries: {countriesError} <button class="ml-2 underline" onclick={fetchCountries}>Retry</button></div>
-        {/if}
-        {#if hasError('country')}
-          <div class="text-rose-600 text-sm mt-1">{errors['country']?.[0]}</div>
-        {/if}
-      </div>
-
-      <fieldset class="mt-4 border p-3 rounded">
-        <legend class="text-sm font-medium">Company's Address (optional)</legend>
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 mt-2">
           <div>
-            <Label for="client-street" class="block text-sm">Street</Label>
-            <Input id="client-street" name="client[address][street]" />
-          </div>
-          <div>
-            <Label for="client-city" class="block text-sm">City</Label>
-            <Input id="client-city" name="client[address][city]" />
-          </div>
-          <div>
-            <Label for="client-postal" class="block text-sm">Postal code</Label>
-            <Input id="client-postal" name="client[address][postal_code]" />
+            <Label for="client-form" class="block text-sm font-medium">Form to link</Label>
+            <select
+              id="client-form"
+              name="client_form[form_id]"
+              class={`w-full border rounded px-3 py-2 bg-background ${hasError(errors, 'form_id') ? 'border-rose-600' : ''}`}
+              required={forms && forms.length > 0}
+              disabled={!forms || forms.length === 0}
+            >
+              <option value="">Select a form</option>
+              {#each forms as form}
+                <option value={form.id}>{form.name}</option>
+              {/each}
+            </select>
+            {#if hasError(errors, 'form_id')}
+              <div class="text-rose-600 text-sm mt-1">{errors['form_id']?.[0]}</div>
+            {/if}
+            {#if !forms || forms.length === 0}
+              <p class="text-sm text-muted-foreground mt-1">No forms available yet. Create a form first to enable subspace access.</p>
+            {/if}
           </div>
         </div>
-      </fieldset>
+      </section>
+
+      <ClientFormFields 
+        bind:formData={formData} 
+        {errors} 
+        {countries} 
+        countriesLoading={countriesLoading} 
+        countriesError={countriesError}
+        onFetchCountries={fetchCountries}
+      />
+
+      {#if shouldShowCrmSection && CrmSyncNoticeComponent}
+        <section class="border rounded-lg overflow-hidden shadow-sm">
+          <div class="p-4">
+            <CrmSyncNoticeComponent 
+              strategy={crmSyncData.strategy} 
+              companyName={formData.companyName} 
+              companyId={formData.companyId} 
+            />
+          </div>
+        </section>
+      {/if}
     </div>
 
-    <div class="mt-6 flex gap-2 items-center">
-      <Button type="submit" class="btn">Create client</Button>
-      <Button href="/clients" class="btn btn-ghost">Cancel</Button>
+    <div class="mt-8 pt-6 border-t flex gap-3 items-center">
+      <Button type="submit" class="btn px-8">Create Client Profile</Button>
+      <Button href="/clients" variant="outline" class="text-muted-foreground">Cancel</Button>
     </div>
   </InertiaForm>
 </section>

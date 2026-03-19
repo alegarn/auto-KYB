@@ -40,6 +40,12 @@ module Crm
         # This allows form submission data to override stored client data during export
         country = extra_data[:country] || client.country
         
+        # sync_address_to_contact: If true (e.g. checkbox checked), 
+        # we sync the address to the Contact object in HubSpot.
+        # is_company: If true (e.g. from CompanyMapper),
+        # we always sync the address to the Company object in HubSpot.
+        sync_address = (extra_data[:sync_address_to_contact].to_s == "true") || (extra_data[:is_company] == true)
+        
         # Basic fields
         props[:email] = client.email if client.email.present?
         props[:phone] = client.phone if client.phone.present?
@@ -53,17 +59,20 @@ module Crm
         end
 
         # Address fields (assuming client.address is a Hash)
-        if client.address.is_a?(Hash)
-          address_data = client.address.with_indifferent_access
-          props[:address] = address_data[:street] if address_data[:street].present?
-          props[:city] = address_data[:city] if address_data[:city].present?
-          props[:zip] = address_data[:postal_code] if address_data[:postal_code].present?
-          props[:state] = address_data[:state] if address_data[:state].present?
-        elsif client.address.is_a?(String)
-          props[:address] = client.address
-        end
+        # Only sync if sync_address is true (differentiates company vs personal)
+        if sync_address
+          if client.address.is_a?(Hash)
+            address_data = client.address.with_indifferent_access
+            props[:address] = address_data[:street] if address_data[:street].present?
+            props[:city] = address_data[:city] if address_data[:city].present?
+            props[:zip] = address_data[:postal_code] if address_data[:postal_code].present?
+            props[:state] = address_data[:state] if address_data[:state].present?
+          elsif client.address.is_a?(String)
+            props[:address] = client.address
+          end
 
-        props[:country] = country if country.present?
+          props[:country] = country if country.present?
+        end
 
         props.compact
       end

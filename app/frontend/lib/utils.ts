@@ -19,6 +19,15 @@ export type WithElementRef<T = Record<string, any>, E = Element | null> = T & Re
   ref?: E | null | ((el: E | null) => void)
 }
 
+/**
+ * Checks if a specific field has errors in the standard rails-inertia error object.
+ */
+export function hasError(errors: any, field: string): boolean {
+  if (!errors) return false;
+  if (Array.isArray(errors)) return false;
+  return (errors[field] && errors[field].length) > 0;
+}
+
 // Generic alias allowing unknown extra props/events to be passed through.
 export type ElementProps<T = Record<string, any>, E = Element | null> = WithElementRef<T, E> & Record<string, any>
 
