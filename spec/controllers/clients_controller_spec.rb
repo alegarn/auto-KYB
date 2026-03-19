@@ -236,6 +236,23 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       end
     end
 
+    context "with a linked CRM client" do
+      let!(:crm_connection) { create(:crm_connection, user: user, provider: "hubspot", status: "active") }
+      let(:client) { create(:client, user: user) }
+
+      before do
+        create(:crm_client_link, client: client, crm_connection: crm_connection)
+      end
+
+      it "triggers linked profile sync after a successful update" do
+        expect(Crm::ClientProfileSyncService).to receive(:call).with(instance_of(Client))
+
+        patch :update, params: { id: client.id, client: { phone: "+33 1 23 45 67 89" } }
+
+        expect(response).to redirect_to(client_path(client))
+      end
+    end
+
     context 'remapping linked forms' do
       let(:form_a) { create(:form, user: user) }
       let(:form_b) { create(:form, user: user) }

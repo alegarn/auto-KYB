@@ -189,7 +189,7 @@
       </section>
 
       <ClientFormFields 
-        formData={formData} 
+        bind:formData={formData} 
         {errors} 
         {countries} 
         countriesLoading={countriesLoading} 

@@ -13,8 +13,8 @@
     onFetchCountries?: () => Promise<void>;
   }
 
-  let { 
-    formData, 
+  let {
+    formData = $bindable(),
     errors = {}, 
     countries = [], 
     countriesLoading = false,

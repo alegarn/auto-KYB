@@ -50,4 +50,24 @@ RSpec.describe SettingsController, type: :controller, inertia: true do
       end
     end
   end
+
+  describe "PATCH #update_crm_preferences" do
+    let(:session) { user.sessions.create! }
+
+    before do
+      cookies.signed[:session_token] = session.id
+    end
+
+    it "updates the CRM portal auto-sync preference" do
+      patch :update_crm_preferences, params: {
+        settings: {
+          crm_auto_sync_on_portal_submit: false
+        }
+      }
+
+      expect(response).to redirect_to(settings_path)
+      expect(response).to have_http_status(:see_other)
+      expect(user.reload.crm_auto_sync_on_portal_submit).to be(false)
+    end
+  end
 end

@@ -4,7 +4,7 @@ class CrmSyncService
     return unless strategy
     return if strategy == "skip"
 
-    connection = client.user.crm_connections.active.first
+    connection = connection_for(client, strategy)
     return unless connection
 
     case strategy
@@ -57,10 +57,47 @@ class CrmSyncService
         link.external_company_id = new_external_company_id if new_external_company_id.present?
         link.save!
       end
+    when "update"
+      service = Crm::ConnectionManager.service_for(connection)
+      result = service.export_data(
+        client,
+        { sync_address_to_contact: sync_address_to_contact },
+        [],
+        company_data: profile_company_data(client)
+      )
+      persist_link_from_export!(client, connection, result)
     end
   rescue => e
     Rails.logger.fatal("CrmSyncService Error: #{e.message}\n#{e.backtrace.join(%Q(\n))}")
     Rails.logger.error("CrmSyncService Error: #{e.message}")
   end
+
+  def self.connection_for(client, strategy)
+    linked_connection = client.crm_client_link&.crm_connection
+    return linked_connection if strategy == "update" && linked_connection&.status == "active"
+
+    client.user.crm_connections.active.first
+  end
+
+  def self.profile_company_data(client)
+    data = {}
+    data[:company_id] = client.company_id if client.company_id.present?
+    data
+  end
+
+  def self.persist_link_from_export!(client, connection, result)
+    return unless result.is_a?(Hash) && result[:success]
+
+    external_contact_id = result[:external_id].presence || result.dig(:details, :contact, :id).presence
+    external_company_id = result.dig(:details, :company, :id).presence
+    return if external_contact_id.blank? && external_company_id.blank?
+
+    link = CrmClientLink.find_or_initialize_by(client: client, crm_connection: connection)
+    link.external_contact_id = external_contact_id if external_contact_id.present?
+    link.external_company_id = external_company_id if external_company_id.present?
+    link.save!
+  end
+
+  private_class_method :connection_for, :profile_company_data, :persist_link_from_export!
 
 end

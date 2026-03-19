@@ -10,7 +10,14 @@
     children = undefined,
     confirmText = 'Delete',
     confirmDisabled = false,
+    confirmTone = 'destructive',
   } = $props();
+
+  const confirmButtonClass = $derived.by(() =>
+    confirmTone === 'default'
+      ? 'px-3 py-1 rounded bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed'
+      : 'px-3 py-1 rounded bg-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+  );
 
   // Keep backward compatibility with `open` prop if provided.
   $effect(() => {
@@ -46,7 +53,7 @@
 
       <div class="mt-4 flex justify-end gap-2">
         <button class="px-3 py-1 rounded bg-gray-200" onclick={close} type="button" aria-label="Cancel">Cancel</button>
-        <button class="px-3 py-1 rounded bg-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed" onclick={confirm} type="button" aria-label="Confirm" disabled={confirmDisabled}>{confirmText}</button>
+        <button class={confirmButtonClass} onclick={confirm} type="button" aria-label="Confirm" disabled={confirmDisabled}>{confirmText}</button>
       </div>
     </div>
   </div>

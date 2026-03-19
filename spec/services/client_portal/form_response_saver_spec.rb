@@ -39,4 +39,20 @@ RSpec.describe ClientPortal::FormResponseSaver, type: :service do
       saver.save
     }.to have_enqueued_job(CrmDataExportJob)
   end
+
+  it "does not enqueue CRM export when portal auto-sync is disabled" do
+    create(:crm_connection, user: client.user, status: "active")
+    client.user.update!(crm_auto_sync_on_portal_submit: false)
+
+    saver = described_class.new(
+      client_form: client_form,
+      data: { a: 1 },
+      validate: true,
+      partial: false
+    )
+
+    expect {
+      saver.save
+    }.not_to have_enqueued_job(CrmDataExportJob)
+  end
 end

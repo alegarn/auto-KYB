@@ -3,6 +3,7 @@
   import { onMount, untrack } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
   import { Label } from '/components/ui/label/index.js';
+  import Modal from '@/components/ui/modal.svelte';
   import Toast from '@/components/customs/Toast.svelte';
   import CrmMatchBanner from '/components/CrmMatchBanner.svelte';
   import ClientFormFields from '@/components/ClientFormFields.svelte';
@@ -22,10 +23,14 @@
     attempted_form_id = null,
     has_crm_link = false,
     has_active_crm_connection = false,
+    crm_sync_status = { linked: false, connection_active: false, auto_updates_on_edit: false, provider: null, provider_name: null },
     confirm_replace_required = false } = $props();
+
+  const CRM_LINKED_NOTICE_STORAGE_KEY = 'quick-kyb.crm-linked-edit-notice.v1';
 
   // modal and form state
   let showConfirm = $state({ open: false, continue: false });
+  let showCrmLinkedNotice = $state(false);
   let confirmDialog: HTMLElement | null = $state(null);
   let previouslyFocused: HTMLElement | null = $state(null);
 
@@ -104,6 +109,22 @@
 
   const shouldShowCrmSyncWidget = $derived(has_active_crm_connection && !has_crm_link);
   const shouldShowCrmPrefillBox = $derived(has_active_crm_connection && has_crm_link);
+  const crmProviderName = $derived(crm_sync_status?.provider_name || 'your CRM');
+  const crmSyncNotice = $derived.by(() => {
+    if (!crm_sync_status?.linked) return null;
+
+    if (crm_sync_status?.auto_updates_on_edit) {
+      return {
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+        text: `Linked to ${crmProviderName}. Fetching data is manual, but saving this page automatically pushes profile and company changes back to the CRM.`
+      };
+    }
+
+    return {
+      className: 'border-amber-200 bg-amber-50 text-amber-950',
+      text: 'This client is linked to CRM, but the connection is not active right now. Changes here stay local until the CRM connection is restored.'
+    };
+  });
 
   function handleCrmSync(data: any) {
     crmSyncData = data;
@@ -157,7 +178,19 @@
 
   onMount(() => {
     fetchCountries();
+
+    if (!shouldShowCrmPrefillBox || !crm_sync_status?.auto_updates_on_edit) return;
+
+    const dismissedNotice = window.localStorage.getItem(CRM_LINKED_NOTICE_STORAGE_KEY);
+    if (!dismissedNotice) {
+      showCrmLinkedNotice = true;
+    }
   });
+
+  function dismissCrmLinkedNotice() {
+    showCrmLinkedNotice = false;
+    window.localStorage.setItem(CRM_LINKED_NOTICE_STORAGE_KEY, 'dismissed');
+  }
 
   // Mutable form state – $state (not $derived) so bind:value works reactively
   let formData = $state<ClientFormData>(untrack(() => ({
@@ -309,7 +342,7 @@
       <input type="hidden" name="client_form[confirm_replace]" value={confirmedReplace ? 'true' : 'false'} />
       
       <ClientFormFields 
-        formData={formData} 
+        bind:formData={formData} 
         {errors} 
         {countries} 
         countriesLoading={countriesLoading} 
@@ -322,7 +355,28 @@
       <Button type="submit" class="btn px-8">Update Client Profile</Button>
       <Button href={client_path(client?.id)} variant="outline" class="text-muted-foreground">Cancel</Button>
     </div>
+    {#if crmSyncNotice}
+      <div class={`mt-3 rounded-lg border px-4 py-3 text-xs leading-relaxed ${crmSyncNotice.className}`}>
+        {crmSyncNotice.text}
+      </div>
+    {/if}
   </InertiaForm>
+
+  <Modal
+    bind:showModal={showCrmLinkedNotice}
+    title="CRM-linked client"
+    description={`Fetching data from ${crmProviderName} is manual. Saving this client updates the linked CRM profile automatically.`}
+    confirmText="Understood"
+    confirmTone="default"
+    onClose={dismissCrmLinkedNotice}
+    onConfirm={dismissCrmLinkedNotice}
+  >
+    {#snippet children()}
+      <p class="text-sm text-muted-foreground">
+        Use “Complete with CRM data” when you want to pull fresh values from {crmProviderName}. When you save this edit form, Quick KYB pushes the current client and company information back to the linked CRM record.
+      </p>
+    {/snippet}
+  </Modal>
 
   {#if showConfirm?.open && !showConfirm?.continue && client?.status === "active"}
     <div class="fixed inset-0 z-[999] flex items-center justify-center">
