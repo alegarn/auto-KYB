@@ -22,6 +22,19 @@ RSpec.describe 'CrmTransfers', type: :request do
     clear_performed_jobs
   end
 
+  def stub_crm_transfer_signals_query(expected_payload, &block)
+    query_class = class_double('CrmTransferSignalsQuery').as_stubbed_const
+
+    allow(query_class).to receive(:new) do |*args, **kwargs|
+      params = kwargs.empty? ? args.fetch(0) : kwargs
+      user = params.fetch(:user)
+      toast_seen_at = params[:toast_seen_at]
+
+      block&.call(user:, toast_seen_at:)
+      instance_double('CrmTransferSignalsQuery', call: expected_payload)
+    end
+  end
+
   describe 'GET /crm_transfers' do
     it 'renders UI-safe transfer payloads for the current user' do
       transfer = create(
@@ -160,7 +173,7 @@ RSpec.describe 'CrmTransfers', type: :request do
           crm_connection: connection,
           created_at: index.minutes.ago
         ).id
-      end.reverse
+      end
 
       get crm_transfers_path(page: 2), headers: inertia_headers
 
@@ -173,6 +186,52 @@ RSpec.describe 'CrmTransfers', type: :request do
         'total_count' => 12
       )
       expect(ids).to eq(ordered_ids.last(2))
+    end
+
+    it 'marks transfer signals seen and advances the session toast marker before shared props are built' do
+      create(
+        :crm_transfer,
+        :retryable_failed,
+        client: create(:client, user: user),
+        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active')
+      )
+
+      observed_toast_seen_at = nil
+      expected_user = user
+
+      stub_crm_transfer_signals_query(
+        {
+          unread_failed_count: 0,
+          unread_retryable_count: 0,
+          latest_unread_failure_at: nil,
+          toast: nil
+        }
+      ) do |user:, toast_seen_at:|
+        expect(user).to eq(expected_user)
+        observed_toast_seen_at = toast_seen_at
+      end
+
+      allow_any_instance_of(User).to receive(:has_attribute?).with(:crm_transfers_last_seen_at).and_return(true)
+      expect_any_instance_of(User).to receive(:update_column) do |record, attribute, value|
+        expect(attribute).to eq(:crm_transfers_last_seen_at)
+        expect(value).to be_a(Time)
+        true
+      end
+
+      get crm_transfers_path, headers: inertia_headers
+
+      expect(response).to have_http_status(:ok)
+      expect(observed_toast_seen_at).to be_present
+      expect(Time.zone.parse(observed_toast_seen_at)).to be_within(5.seconds).of(Time.current)
+      expect(session[:crm_transfer_failure_toast_seen_at]).to eq(observed_toast_seen_at)
+
+      payload = JSON.parse(response.body)
+      expect(payload.dig('props', 'crm_transfer_signals')).to eq(
+        'unread_failed_count' => 0,
+        'unread_retryable_count' => 0,
+        'latest_unread_failure_at' => nil,
+        'toast' => nil
+      )
     end
   end
 

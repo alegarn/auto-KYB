@@ -71,7 +71,9 @@ class User < ApplicationRecord
   end
 
   def crm_transfers_seen_at
-    crm_transfers_last_seen_at || Time.at(0).in_time_zone
+    return Time.at(0).in_time_zone unless has_attribute?(:crm_transfers_last_seen_at)
+
+    self[:crm_transfers_last_seen_at] || Time.at(0).in_time_zone
   end
 
   private

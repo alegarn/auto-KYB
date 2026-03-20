@@ -57,6 +57,10 @@
     return currentPath === url || currentPath.startsWith(`${url}/`);
   };
 
+  const crmSignals = $derived(($page?.props as any)?.crm_transfer_signals);
+  const unreadFailedCount = $derived(crmSignals?.unread_failed_count ?? 0);
+  const badgeLabel = $derived(unreadFailedCount > 99 ? '99+' : `${unreadFailedCount}`);
+
   let { session_id } = $props();
 </script>
  
@@ -76,6 +80,9 @@
                   </Link>
                 {/snippet}
               </Sidebar.MenuButton>
+              {#if item.title === 'CRM Transfers' && unreadFailedCount > 0}
+                <Sidebar.MenuBadge>{badgeLabel}</Sidebar.MenuBadge>
+              {/if}
             </Sidebar.MenuItem>
           {/each}
           <Sidebar.MenuItem>
