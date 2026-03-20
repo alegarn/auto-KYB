@@ -2,6 +2,7 @@
   import { router } from '@inertiajs/svelte';
   import Button from '/components/ui/button/button.svelte';
   import * as Table from '/components/ui/table';
+  import * as Sheet from '/components/ui/sheet';
   import { CheckCircle2, Clock3, LoaderCircle, RotateCcw, XCircle } from '@lucide/svelte';
 
   type TransferRow = {
@@ -56,6 +57,13 @@
   let provider = $state('');
   let trigger = $state('');
   let retryingTransferId = $state<string | null>(null);
+  let selectedTransfer = $state<TransferRow | null>(null);
+  let sheetOpen = $state(false);
+
+  function openDetail(transfer: TransferRow) {
+    selectedTransfer = transfer;
+    sheetOpen = true;
+  }
 
   $effect(() => {
     status = filters.status ?? '';
@@ -171,7 +179,7 @@
     </header>
 
     <div class="mb-6 rounded-md border bg-background p-4">
-      <div class="grid gap-4 md:grid-cols-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
         <label class="grid gap-2 text-sm font-medium" for="status-filter">
           Status
           <select id="status-filter" bind:value={status} class="h-10 rounded-md border bg-background px-3 text-sm">
@@ -209,78 +217,113 @@
       </div>
     </div>
 
-    <div class="rounded-md border bg-background">
-      {#if transfers.length === 0}
-        <div class="p-10 text-center" role="status" aria-live="polite">
-          {#if hasActiveFilters}
-            <p class="text-sm font-medium">No transfers match the current filters</p>
-            <p class="mt-1 text-sm text-muted-foreground">Adjust the filters or clear them to see the full 3-day operational history.</p>
-          {:else}
-            <p class="text-sm font-medium">No CRM transfers in the last {retention_days} days</p>
-            <p class="mt-1 text-sm text-muted-foreground">Manual exports, portal submit syncs, and other transfer activity will appear here.</p>
-          {/if}
-        </div>
-      {:else}
-        <Table.Root>
-          <Table.Header>
-            <Table.Row>
-              <Table.Head>Date</Table.Head>
-              <Table.Head>Client</Table.Head>
-              <Table.Head>Provider</Table.Head>
-              <Table.Head>Trigger</Table.Head>
-              <Table.Head>Status</Table.Head>
-              <Table.Head>Attempts</Table.Head>
-              <Table.Head>Details</Table.Head>
-              <Table.Head class="text-right">Actions</Table.Head>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {#each transfers as transfer}
+    <div class="rounded-md border bg-background overflow-hidden w-full">
+      <div class="overflow-x-auto">
+        {#if transfers.length === 0}
+          <div class="p-10 text-center" role="status" aria-live="polite">
+            {#if hasActiveFilters}
+              <p class="text-sm font-medium">No transfers match the current filters</p>
+              <p class="mt-1 text-sm text-muted-foreground">Adjust the filters or clear them to see the full 3-day operational history.</p>
+            {:else}
+              <p class="text-sm font-medium">No CRM transfers in the last {retention_days} days</p>
+              <p class="mt-1 text-sm text-muted-foreground">Manual exports, portal submit syncs, and other transfer activity will appear here.</p>
+            {/if}
+          </div>
+        {:else}
+          <Table.Root class="w-full table-fixed">
+            <colgroup>
+              <col class="w-[155px]" />
+              <col class="w-[130px]" />
+              <col class="w-[90px]" />
+              <col class="w-[130px] hidden md:table-column" />
+              <col class="w-[105px]" />
+              <col class="w-[75px] hidden md:table-column" />
+              <col />
+              <col class="w-[85px]" />
+            </colgroup>
+            <Table.Header>
               <Table.Row>
-                <Table.Cell class="font-medium">{transfer.created_at ? formatDate(transfer.created_at) : '-'}</Table.Cell>
-                <Table.Cell>{transfer.client?.company_name || transfer.client?.name || '-'}</Table.Cell>
-                <Table.Cell>{providerLabel(transfer.provider)}</Table.Cell>
-                <Table.Cell>{triggerLabel(transfer.trigger)}</Table.Cell>
-                <Table.Cell>
-                  <div class="flex items-center gap-1.5">
-                    {#if transfer.status === 'success'}
-                      <CheckCircle2 class="size-4 text-emerald-500" />
-                      <span class="text-sm font-medium text-emerald-700">Success</span>
-                    {:else if transfer.status === 'failed'}
-                      <XCircle class="size-4 text-destructive" />
-                      <span class="text-sm font-medium text-destructive">Failed</span>
-                    {:else if transfer.status === 'processing'}
-                      <LoaderCircle class="size-4 animate-spin text-blue-600" />
-                      <span class="text-sm font-medium text-blue-700">Processing</span>
-                    {:else}
-                      <Clock3 class="size-4 text-amber-500" />
-                      <span class="text-sm font-medium text-amber-700">Queued</span>
-                    {/if}
-                  </div>
-                </Table.Cell>
-                <Table.Cell>{transfer.attempts_count}</Table.Cell>
-                <Table.Cell class="text-sm text-muted-foreground">{detailText(transfer)}</Table.Cell>
-                <Table.Cell class="text-right">
-                  {#if transfer.status === 'failed' && transfer.retryable}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onclick={() => retryTransfer(transfer.id)}
-                      disabled={retryingTransferId === transfer.id}
-                    >
-                      <RotateCcw class="mr-1 size-4" />
-                      {retryingTransferId === transfer.id ? 'Retrying...' : 'Retry'}
-                    </Button>
-                  {:else}
-                    <span class="text-sm text-muted-foreground">-</span>
-                  {/if}
-                </Table.Cell>
+                <Table.Head>Date</Table.Head>
+                <Table.Head>Client</Table.Head>
+                <Table.Head>Provider</Table.Head>
+                <Table.Head class="hidden md:table-cell">Trigger</Table.Head>
+                <Table.Head>Status</Table.Head>
+                <Table.Head class="hidden md:table-cell">Attempts</Table.Head>
+                <Table.Head>Details</Table.Head>
+                <Table.Head class="text-right">Actions</Table.Head>
               </Table.Row>
-            {/each}
-          </Table.Body>
-        </Table.Root>
-      {/if}
+            </Table.Header>
+            <Table.Body>
+              {#each transfers as transfer}
+                <Table.Row
+                  class="cursor-pointer hover:bg-muted/50"
+                  onclick={() => openDetail(transfer)}
+                >
+                  <Table.Cell class="font-medium">
+                    <span class="block truncate" title={transfer.created_at ? formatDate(transfer.created_at) : '-'}>
+                      {transfer.created_at ? formatDate(transfer.created_at) : '-'}
+                    </span>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <span class="block truncate" title={transfer.client?.company_name || transfer.client?.name || '-'}>
+                      {transfer.client?.company_name || transfer.client?.name || '-'}
+                    </span>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <span class="block truncate" title={providerLabel(transfer.provider)}>
+                      {providerLabel(transfer.provider)}
+                    </span>
+                  </Table.Cell>
+                  <Table.Cell class="hidden md:table-cell">
+                    <span class="block truncate" title={triggerLabel(transfer.trigger)}>
+                      {triggerLabel(transfer.trigger)}
+                    </span>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <div class="flex items-center gap-1.5">
+                      {#if transfer.status === 'success'}
+                        <CheckCircle2 class="size-4 shrink-0 text-emerald-500" />
+                        <span class="text-sm font-medium text-emerald-700 truncate">Success</span>
+                      {:else if transfer.status === 'failed'}
+                        <XCircle class="size-4 shrink-0 text-destructive" />
+                        <span class="text-sm font-medium text-destructive truncate">Failed</span>
+                      {:else if transfer.status === 'processing'}
+                        <LoaderCircle class="size-4 shrink-0 animate-spin text-blue-600" />
+                        <span class="text-sm font-medium text-blue-700 truncate">Processing</span>
+                      {:else}
+                        <Clock3 class="size-4 shrink-0 text-amber-500" />
+                        <span class="text-sm font-medium text-amber-700 truncate">Queued</span>
+                      {/if}
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell class="hidden md:table-cell">{transfer.attempts_count}</Table.Cell>
+                  <Table.Cell class="text-sm text-muted-foreground">
+                    <span class="block truncate" title={detailText(transfer)}>
+                      {detailText(transfer)}
+                    </span>
+                  </Table.Cell>
+                  <Table.Cell class="text-right" onclick={(e) => e.stopPropagation()}>
+                    {#if transfer.status === 'failed' && transfer.retryable}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onclick={() => retryTransfer(transfer.id)}
+                        disabled={retryingTransferId === transfer.id}
+                      >
+                        <RotateCcw class="mr-1 size-4" />
+                        {retryingTransferId === transfer.id ? 'Retrying...' : 'Retry'}
+                      </Button>
+                    {:else}
+                      <span class="text-sm text-muted-foreground">-</span>
+                    {/if}
+                  </Table.Cell>
+                </Table.Row>
+              {/each}
+            </Table.Body>
+          </Table.Root>
+        {/if}
+      </div>
     </div>
 
     {#if transfers.length > 0 && totalPages > 1}
@@ -302,3 +345,72 @@
     {/if}
   </div>
 </section>
+
+<Sheet.Root bind:open={sheetOpen} onOpenChange={(open) => { if (!open) selectedTransfer = null; }}>
+  <Sheet.Content side="right" class="w-full sm:max-w-md overflow-y-auto">
+    {#if selectedTransfer}
+      <Sheet.Header class="mb-4">
+        <Sheet.Title>Transfer Details</Sheet.Title>
+        <Sheet.Description>
+          {selectedTransfer.created_at ? formatDate(selectedTransfer.created_at) : 'Unknown date'}
+        </Sheet.Description>
+      </Sheet.Header>
+
+      <dl class="grid gap-4">
+        <div class="grid gap-1">
+          <dt class="text-xs font-medium uppercase text-muted-foreground">Client</dt>
+          <dd class="text-sm">{selectedTransfer.client?.company_name || selectedTransfer.client?.name || '-'}</dd>
+        </div>
+        <div class="grid gap-1">
+          <dt class="text-xs font-medium uppercase text-muted-foreground">Provider</dt>
+          <dd class="text-sm">{providerLabel(selectedTransfer.provider)}</dd>
+        </div>
+        <div class="grid gap-1">
+          <dt class="text-xs font-medium uppercase text-muted-foreground">Trigger</dt>
+          <dd class="text-sm">{triggerLabel(selectedTransfer.trigger)}</dd>
+        </div>
+        <div class="grid gap-1">
+          <dt class="text-xs font-medium uppercase text-muted-foreground">Status</dt>
+          <dd class="flex items-center gap-1.5 text-sm">
+            {#if selectedTransfer.status === 'success'}
+              <CheckCircle2 class="size-4 text-emerald-500" />
+              <span class="font-medium text-emerald-700">Success</span>
+            {:else if selectedTransfer.status === 'failed'}
+              <XCircle class="size-4 text-destructive" />
+              <span class="font-medium text-destructive">Failed</span>
+            {:else if selectedTransfer.status === 'processing'}
+              <LoaderCircle class="size-4 animate-spin text-blue-600" />
+              <span class="font-medium text-blue-700">Processing</span>
+            {:else}
+              <Clock3 class="size-4 text-amber-500" />
+              <span class="font-medium text-amber-700">Queued</span>
+            {/if}
+          </dd>
+        </div>
+        <div class="grid gap-1">
+          <dt class="text-xs font-medium uppercase text-muted-foreground">Attempts</dt>
+          <dd class="text-sm">{selectedTransfer.attempts_count}</dd>
+        </div>
+        <div class="grid gap-1">
+          <dt class="text-xs font-medium uppercase text-muted-foreground">Details</dt>
+          <dd class="text-sm break-words">{detailText(selectedTransfer)}</dd>
+        </div>
+      </dl>
+
+      {#if selectedTransfer.status === 'failed' && selectedTransfer.retryable}
+        <div class="mt-6">
+          <Button
+            type="button"
+            variant="secondary"
+            class="w-full"
+            onclick={() => { retryTransfer(selectedTransfer!.id); sheetOpen = false; }}
+            disabled={retryingTransferId === selectedTransfer.id}
+          >
+            <RotateCcw class="mr-2 size-4" />
+            {retryingTransferId === selectedTransfer.id ? 'Retrying...' : 'Retry Transfer'}
+          </Button>
+        </div>
+      {/if}
+    {/if}
+  </Sheet.Content>
+</Sheet.Root>
