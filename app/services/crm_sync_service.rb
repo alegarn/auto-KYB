@@ -1,6 +1,6 @@
 class CrmSyncService
 
-  def self.call(client, strategy, external_contact_id: nil, external_company_id: nil, sync_address_to_contact: false)
+  def self.call(client, strategy, external_contact_id: nil, external_company_id: nil, sync_address_to_contact: false, source: nil)
     return unless strategy
     return if strategy == "skip"
 
@@ -19,44 +19,19 @@ class CrmSyncService
         end
       end
     when "create"
-      service = Crm::ConnectionManager.service_for(connection)
+      # Schedule an async CRM transfer instead of calling provider inline
+      request_context = {
+        source: source,
+        sync_address_to_contact: ActiveRecord::Type::Boolean.new.cast(sync_address_to_contact),
+        external_company_id: external_company_id.presence
+      }.compact
 
-      # 1. Create contact
-      contact_result = service.create_contact(client, sync_address_to_contact: sync_address_to_contact)
-
-      new_external_company_id = external_company_id
-
-      # 2. Manage Company
-      if new_external_company_id.blank? && client.company_name.present?
-        # Check if service supports searching companies (graceful degradation)
-        if service.respond_to?(:search_companies)
-          # Try to find exactly matching company first
-          found_companies = service.search_companies(client.company_name)
-          if found_companies.any?
-            # exact match by name ignoring case
-            exact_match = found_companies.find { |c| c[:company_name].to_s.casecmp?(client.company_name) }
-            new_external_company_id = exact_match[:hubspot_id] if exact_match
-          end
-        end
-
-        # If still blank, create the company
-        if new_external_company_id.blank? && service.respond_to?(:create_company)
-          company_result = service.create_company(client, {})
-          new_external_company_id = company_result[:id] if company_result
-        end
-      end
-
-      # 3. Associate if both exist
-      if contact_result[:id].present? && new_external_company_id.present? && service.respond_to?(:associate_contact_to_company)
-        service.associate_contact_to_company(contact_result[:id], new_external_company_id)
-      end
-
-      if contact_result[:id] || new_external_company_id
-        link = CrmClientLink.find_or_initialize_by(client: client, crm_connection: connection)
-        link.external_contact_id = contact_result[:id] if contact_result[:id].present?
-        link.external_company_id = new_external_company_id if new_external_company_id.present?
-        link.save!
-      end
+      Crm::TransferScheduler.new(
+        client: client,
+        connection: connection,
+        trigger: CrmTransfer::TRIGGER_CLIENT_CREATE_SYNC,
+        request_context: request_context
+      ).schedule_export!
     when "update"
       service = Crm::ConnectionManager.service_for(connection)
       result = service.export_data(

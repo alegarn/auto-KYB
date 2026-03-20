@@ -41,10 +41,14 @@ class CrmDataImportJob < ApplicationJob
       CrmTransfer.create!(
         client: client,
         crm_connection: connection,
-        status: "success",
+        status: CrmTransfer::STATUS_SUCCESS,
+        trigger: CrmTransfer::TRIGGER_DATA_IMPORT,
         direction: "import",
         external_id: data[:hubspot_id],
         external_type: "contact",
+        attempts_count: 1,
+        last_attempt_at: Time.current,
+        request_context: { source: "crm_import" },
         transferred_at: Time.current
       )
     end

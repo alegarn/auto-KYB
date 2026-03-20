@@ -41,7 +41,13 @@ module ClientPortal
     def enqueue_crm_exports(client)
       return unless client.user.crm_auto_sync_on_portal_submit
 
-      Crm::DataExporter.new(client).export_to_all_active!
+      Crm::DataExporter.new(client).export_to_all_active!(
+        trigger: CrmTransfer::TRIGGER_PORTAL_SUBMIT,
+        request_context: {
+          source: "client_portal",
+          client_form_id: @client_form.id
+        }
+      )
     rescue StandardError => e
       Rails.logger.error("Failed to enqueue CRM export: #{e.message}")
     end

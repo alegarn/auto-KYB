@@ -11,6 +11,7 @@ Rails.application.routes.draw do
 
   get "dashboard", to: "dashboard#index"
   get "quickstart", to: "quickstart#index"
+  get "privacy", to: "privacy#show"
   get "auth/loading", to: "auth_loading#show", as: :auth_loading
 
   resources :forms do
@@ -32,7 +33,11 @@ Rails.application.routes.draw do
     end
   end
 
-  resources :crm_transfers, only: [:index]
+  resources :crm_transfers, only: [:index] do
+    member do
+      post :retry
+    end
+  end
   
   namespace :crm do
     resources :imports, only: [:index]

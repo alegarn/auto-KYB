@@ -1,4 +1,5 @@
 class ApplicationController < ActionController::Base
+  CRM_TRANSFER_TOAST_SEEN_AT_SESSION_KEY = :crm_transfer_failure_toast_seen_at
 
   include Pagy::Backend
   include Pundit::Authorization
@@ -17,6 +18,7 @@ class ApplicationController < ActionController::Base
 
   inertia_share flash: -> { flash.to_hash },
                session_id: -> { current_session_id },
+               crm_transfer_signals: -> { crm_transfer_signals_props },
                auth: -> {
                  user = current_user
                  next nil unless user
@@ -86,6 +88,51 @@ class ApplicationController < ActionController::Base
       # Prefer request headers but fall back to common test env keys so controller specs work
       Current.user_agent = request.env["HTTP_USER_AGENT"] || request.headers["User-Agent"] || request.user_agent
       Current.ip_address = request.env["REMOTE_ADDR"] || request.remote_ip || request.ip
+    end
+
+    def crm_transfer_signals_props
+      return nil unless current_user
+
+      payload = CrmTransferSignalsQuery.new(
+        user: current_user,
+        toast_seen_at: crm_transfer_toast_seen_at
+      ).call
+
+      advance_crm_transfer_toast_marker_from_payload!(payload)
+
+      payload
+    end
+
+    def crm_transfer_toast_seen_at
+      session[CRM_TRANSFER_TOAST_SEEN_AT_SESSION_KEY]
+    end
+
+    def advance_crm_transfer_toast_marker!(timestamp)
+      normalized_timestamp = normalize_crm_transfer_timestamp(timestamp)
+      return if normalized_timestamp.blank?
+
+      session[CRM_TRANSFER_TOAST_SEEN_AT_SESSION_KEY] = normalized_timestamp
+    end
+
+    def advance_crm_transfer_toast_marker_from_payload!(payload)
+      return if crm_transfer_signals_value(payload, :toast).blank?
+
+      advance_crm_transfer_toast_marker!(crm_transfer_signals_value(payload, :latest_unread_failure_at))
+    end
+
+    def crm_transfer_signals_value(payload, key)
+      return nil unless payload.respond_to?(:[])
+
+      payload[key] || payload[key.to_s]
+    end
+
+    def normalize_crm_transfer_timestamp(timestamp)
+      case timestamp
+      when ActiveSupport::TimeWithZone, Time, DateTime
+        timestamp.iso8601
+      when String
+        timestamp
+      end
     end
 
     def inertia_page_expired_error

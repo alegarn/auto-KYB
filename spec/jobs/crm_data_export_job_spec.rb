@@ -10,7 +10,7 @@ RSpec.describe CrmDataExportJob, type: :job do
     let!(:mapped_field) { create(:form_field, form: form, label: 'Registration Number', field_type: 'text', position: 1, metadata: { 'export_key' => 'registration_number' }) }
     let!(:response) { FormResponse.create!(client_form: client_form, data: { mapped_field.id.to_s => 'REG-123' }) }
     let!(:uploaded_file) { create(:uploaded_file, client: client, form_response: response, field_key: mapped_field.id.to_s) }
-    let!(:transfer) { create(:crm_transfer, client: client, crm_connection: connection, status: 'pending') }
+    let!(:transfer) { create(:crm_transfer, client: client, crm_connection: connection, status: 'pending', trigger: CrmTransfer::TRIGGER_MANUAL_EXPORT) }
 
     it 'marks transfer as success when service returns success' do
       service = double('CrmService')
@@ -29,6 +29,9 @@ RSpec.describe CrmDataExportJob, type: :job do
       expect(transfer.status).to eq('success')
       expect(transfer.transferred_at).not_to be_nil
       expect(transfer.error_message).to be_nil
+      expect(transfer.failure_kind).to be_nil
+      expect(transfer.attempts_count).to eq(1)
+      expect(transfer.last_attempt_at).not_to be_nil
       expect(transfer.payload_snapshot).to eq('registration_number' => 'REG-123')
     end
 
@@ -46,6 +49,18 @@ RSpec.describe CrmDataExportJob, type: :job do
       described_class.perform_now(transfer.id)
     end
 
+    it 'marks the transfer as processing before dispatching provider work' do
+      service = double('CrmService')
+      allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
+
+      expect(service).to receive(:export_data) do
+        expect(transfer.reload.status).to eq(CrmTransfer::STATUS_PROCESSING)
+        { success: true }
+      end
+
+      described_class.perform_now(transfer.id)
+    end
+
     it 'marks transfer as failed when service returns failure' do
       service = double
       allow(service).to receive(:export_data).and_return({ success: false, error: 'remote error' })
@@ -55,6 +70,9 @@ RSpec.describe CrmDataExportJob, type: :job do
 
       transfer.reload
       expect(transfer.status).to eq('failed')
+      expect(transfer.failure_kind).to eq(CrmTransfer::FAILURE_KIND_PROVIDER_ERROR)
+      expect(transfer.attempts_count).to eq(1)
+      expect(transfer.last_attempt_at).not_to be_nil
       expect(transfer.error_message).to match(/remote error/)
     end
 
@@ -67,6 +85,8 @@ RSpec.describe CrmDataExportJob, type: :job do
 
       transfer.reload
       expect(transfer.status).to eq('failed')
+      expect(transfer.failure_kind).to eq(CrmTransfer::FAILURE_KIND_UNKNOWN_ERROR)
+      expect(transfer.attempts_count).to eq(1)
       expect(transfer.error_message).to match(/boom/)
     end
 
@@ -80,7 +100,74 @@ RSpec.describe CrmDataExportJob, type: :job do
       
       transfer.reload
       expect(transfer.status).to eq('failed')
-      expect(transfer.error_message).to include('OAuth error (non-retryable): invalid grant')
+      expect(transfer.failure_kind).to eq(CrmTransfer::FAILURE_KIND_AUTHENTICATION_ERROR)
+      expect(transfer.error_message).to include('invalid grant')
+      expect(transfer.attempts_count).to eq(1)
+    end
+
+    it 'increments retry bookkeeping on each execution attempt' do
+      service = double
+      allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
+      allow(service).to receive(:export_data).and_raise(StandardError.new('boom'))
+
+      expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError)
+      expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError)
+
+      transfer.reload
+      expect(transfer.attempts_count).to eq(2)
+      expect(transfer.last_attempt_at).not_to be_nil
+    end
+
+    it 'dispatches client_create_sync transfers without using the generic export flow' do
+      transfer.update!(
+        trigger: CrmTransfer::TRIGGER_CLIENT_CREATE_SYNC,
+        request_context: {
+          source: 'clients#create',
+          sync_address_to_contact: true,
+          external_company_id: 'comp_existing'
+        }
+      )
+
+      service = double
+      allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
+      allow(service).to receive(:create_contact).and_return({ id: 'ext_123', action: :created })
+      allow(service).to receive(:associate_contact_to_company)
+
+      expect(service).not_to receive(:export_data)
+      expect(service).to receive(:create_contact).with(client, sync_address_to_contact: true)
+      expect(service).to receive(:associate_contact_to_company).with('ext_123', 'comp_existing')
+
+      described_class.perform_now(transfer.id)
+
+      transfer.reload
+      expect(transfer.status).to eq(CrmTransfer::STATUS_SUCCESS)
+      expect(transfer.external_id).to eq('ext_123')
+
+      link = CrmClientLink.find_by!(client: client, crm_connection: connection)
+      expect(link.external_contact_id).to eq('ext_123')
+      expect(link.external_company_id).to eq('comp_existing')
+    end
+
+    it 'persists discovered CRM ids incrementally when client_create_sync later fails' do
+      transfer.update!(trigger: CrmTransfer::TRIGGER_CLIENT_CREATE_SYNC)
+
+      service = double
+      allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
+      allow(service).to receive(:create_contact).and_return({ id: 'ext_123', action: :created })
+      allow(service).to receive(:search_companies).and_return([{ hubspot_id: 'comp_456', company_name: client.company_name }])
+      allow(service).to receive(:associate_contact_to_company).and_raise(StandardError.new('association failed'))
+
+      expect(service).to receive(:create_contact).with(client, sync_address_to_contact: false)
+      expect(service).to receive(:search_companies).with(client.company_name)
+
+      expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError, 'association failed')
+
+      transfer.reload
+      expect(transfer.status).to eq(CrmTransfer::STATUS_FAILED)
+
+      link = CrmClientLink.find_by!(client: client, crm_connection: connection)
+      expect(link.external_contact_id).to eq('ext_123')
+      expect(link.external_company_id).to eq('comp_456')
     end
   end
 end

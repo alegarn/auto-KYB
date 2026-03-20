@@ -38,6 +38,8 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
       transfer = CrmTransfer.order(created_at: :desc).first
 
       expect(transfer.crm_connection).to eq(connection)
+      expect(transfer.trigger).to eq(CrmTransfer::TRIGGER_PORTAL_SUBMIT)
+      expect(transfer.request_context).to include('source' => 'client_portal', 'client_form_id' => @client_form.id)
       expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly([ transfer.id ])
       expect(response).to have_http_status(:see_other)
       expect(response).to redirect_to(client_portal_confirmation_path)
