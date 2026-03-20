@@ -235,7 +235,7 @@
               <col class="w-[155px]" />
               <col class="w-[130px]" />
               <col class="w-[90px]" />
-              <col class="w-[130px] hidden md:table-column" />
+              <col class="w-[130px]  md:table-column" />
               <col class="w-[105px]" />
               <col class="w-[75px] hidden md:table-column" />
               <col />
@@ -356,7 +356,7 @@
         </Sheet.Description>
       </Sheet.Header>
 
-      <dl class="grid gap-4">
+      <dl class="grid gap-4 px-2">
         <div class="grid gap-1">
           <dt class="text-xs font-medium uppercase text-muted-foreground">Client</dt>
           <dd class="text-sm">{selectedTransfer.client?.company_name || selectedTransfer.client?.name || '-'}</dd>
