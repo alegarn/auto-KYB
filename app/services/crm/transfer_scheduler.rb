@@ -17,6 +17,11 @@ module Crm
     end
 
     def schedule_export!
+      if deduplicate_trigger?
+        existing = find_open_transfer
+        return existing if existing
+      end
+
       transfer = CrmTransfer.create!(
         client: @client,
         crm_connection: @connection,
@@ -29,6 +34,21 @@ module Crm
 
       CrmDataExportJob.perform_later(transfer.id)
       transfer
+    end
+
+    private
+
+    def deduplicate_trigger?
+      @trigger == CrmTransfer::TRIGGER_CLIENT_CREATE_SYNC
+    end
+
+    def find_open_transfer
+      CrmTransfer.where(
+        client: @client,
+        crm_connection: @connection,
+        trigger: @trigger,
+        status: [CrmTransfer::STATUS_PENDING, CrmTransfer::STATUS_PROCESSING]
+      ).order(created_at: :desc).first
     end
   end
 end
