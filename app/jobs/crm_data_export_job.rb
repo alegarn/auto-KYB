@@ -17,70 +17,13 @@ class CrmDataExportJob < ApplicationJob
 
     if transfer.trigger == CrmTransfer::TRIGGER_CLIENT_CREATE_SYNC
       begin
-        context = transfer.request_context.to_h
-        sync_address = ActiveRecord::Type::Boolean.new.cast(context['sync_address_to_contact'])
-        external_company_id = context['external_company_id'].presence
-
-        # 1. Create contact
-        contact_result = service.create_contact(client, sync_address_to_contact: sync_address)
-        puts "[CrmDataExportJob] create_contact result: #{contact_result.inspect}"
-        external_contact_id = contact_result && contact_result[:id].presence
-        puts "[CrmDataExportJob] external_contact_id: #{external_contact_id.inspect}"
-
-        if external_contact_id.present?
-          link = CrmClientLink.find_or_initialize_by(client: client, crm_connection: connection)
-          link.external_contact_id = external_contact_id
-          link.save!
-        end
-
-        # 2. Resolve or create company id
-        company_id = external_company_id
-        if company_id.blank? && client.company_name.present?
-          begin
-            found = service.search_companies(client.company_name) || []
-            puts "[CrmDataExportJob] search_companies result: #{found.inspect}"
-            if found.any?
-              exact = found.find { |c| c[:company_name].to_s.casecmp?(client.company_name) }
-              company_id = exact[:hubspot_id] || exact[:id] if exact
-            end
-            puts "[CrmDataExportJob] company_id after search: #{company_id.inspect}"
-          rescue NoMethodError
-            # provider doesn't support searching companies; continue
-          end
-
-          if company_id.blank?
-            begin
-              created = service.create_company(client, {})
-              company_id = created[:id] if created
-            rescue NoMethodError
-              # provider doesn't support create_company; continue
-            end
-          end
-        end
-
-          if company_id.present?
-          link = CrmClientLink.find_or_initialize_by(client: client, crm_connection: connection)
-          link.external_company_id = company_id
-          link.save!
-            puts "[CrmDataExportJob] saved external_company_id=#{company_id.inspect}"
-        end
-
-        # 3. Associate if possible
-        if external_contact_id.present? && company_id.present?
-          puts "[CrmDataExportJob] attempting to associate contact #{external_contact_id} to company #{company_id}"
-          begin
-            assoc_result = service.associate_contact_to_company(external_contact_id, company_id)
-            puts "[CrmDataExportJob] associate returned: #{assoc_result.inspect}"
-          rescue NoMethodError
-            puts "[CrmDataExportJob] provider missing associate_contact_to_company"
-            # provider doesn't support association; ignore
-          rescue => e
-            puts "[CrmDataExportJob] associate raised: #{e.class} #{e.message}"
-            raise
-          end
-        end
-
-        mark_success!(transfer, { external_id: external_contact_id })
+        result = Crm::ClientCreateSyncExecutor.new(
+          client: client,
+          connection: connection,
+          service: service,
+          request_context: transfer.request_context.to_h
+        ).call
+        mark_success!(transfer, { external_id: result[:external_contact_id] })
       rescue Crm::Hubspot::OAuthError => e
         mark_failed!(transfer, failure_kind: CrmTransfer::FAILURE_KIND_AUTHENTICATION_ERROR, error_message: e.message) if transfer
         # do not re-raise OAuth errors; treat as discarded
