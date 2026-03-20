@@ -31,6 +31,13 @@
 - Q: For CRM-linked clients on the back-office edit page, should saving local edits update the CRM automatically? → A: Yes, if the client is linked and the CRM connection is active, saving the edit form automatically updates the linked CRM profile and company data.
 - Q: Should the linked-client edit warning dismissal be shared across devices? → A: No. The informational modal is dismissed once per browser/device, while the inline warning remains visible on the page.
 
+### Session 2026-03-20
+
+- Q: How should unread CRM transfer failures be surfaced? → A: Use a durable user-level last-seen timestamp for the sidebar badge and a session-scoped toast marker for the global alert so users only see new failures.
+- Q: When should CRM transfer failures be marked as seen? → A: Visiting the CRM Transfers page marks current failures as seen and advances the session toast marker.
+- Q: What wording should be shown when `create_crm_contact` schedules work asynchronously? → A: The UI should say the CRM contact creation was queued and point users to CRM Transfers.
+- Q: How should `client_create_sync` retries behave? → A: They must be idempotent, reusing existing CRM identifiers when available and deduplicating open pending/processing transfers for the same client and CRM connection.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Authorize CRM Connection (Priority: P1)
@@ -290,6 +297,41 @@ As a user, I want saving a CRM-linked client from the back-office edit page to u
 
 ---
 
+### User Story 15 - CRM Transfer Failure Signals And Review (Priority: P2)
+
+As a user, I want new CRM transfer failures to appear as a sidebar badge and a one-time global alert, so that I can review fresh failures quickly without seeing the same alert on every page load.
+
+**Why this priority**: Transfer visibility is important for support and recovery. Users need a durable indicator for unread failures plus a lightweight toast for immediate attention, but the alert must not become noisy or repetitive.
+
+**Independent Test**: Can be fully tested by creating a failed CRM transfer, visiting authenticated pages to observe the sidebar badge and toast, then opening CRM Transfers to mark failures as seen and confirming the toast does not repeat on refresh.
+
+**Acceptance Scenarios**:
+
+1. **Given** unread CRM transfer failures exist, **When** the user views an authenticated page, **Then** the CRM Transfers sidebar item shows an unread badge with the current failed count
+2. **Given** a new unread CRM transfer failure exists, **When** the user enters the app on any authenticated page, **Then** a single toast appears linking them to CRM Transfers
+3. **Given** the user opens the CRM Transfers page, **When** the page loads successfully, **Then** the current failures are marked as seen and the toast does not reappear on refresh
+4. **Given** a newer failure occurs after the user has already seen previous failures, **When** shared CRM transfer signals are recomputed, **Then** the badge and toast update for the new failure only
+
+---
+
+### User Story 16 - Idempotent Client Create Sync Retries (Priority: P1)
+
+As a user, I want create-sync CRM transfers to retry safely without creating duplicate contacts or companies, so that failed transfers can recover without corrupting my CRM data.
+
+**Why this priority**: The client-create path is high risk because a partial failure can create a remote record before later steps fail. Retrying must reuse discovered identifiers and avoid duplicate in-flight work.
+
+**Independent Test**: Can be fully tested by forcing a partial client-create sync failure, retrying it, and confirming the CRM reuses the original identifiers without creating duplicate contact/company records.
+
+**Acceptance Scenarios**:
+
+1. **Given** a `client_create_sync` transfer already created a CRM contact, **When** the job retries, **Then** it reuses the stored CRM contact id instead of creating a duplicate contact
+2. **Given** a client has an email match in the CRM but no stored external contact id, **When** the job runs, **Then** it searches by email before creating a new contact and persists the found id
+3. **Given** a pending or processing `client_create_sync` transfer already exists for the same client and CRM connection, **When** the same create-sync action is triggered again, **Then** the scheduler returns the existing transfer instead of creating a duplicate
+4. **Given** the contact-company association already exists in the CRM, **When** the executor associates them again, **Then** the association is treated as success
+5. **Given** the create CRM contact action is accepted from the client page, **When** the request completes, **Then** the user is told the CRM contact creation was queued and can track it in CRM Transfers
+
+---
+
 - What happens when the user has no active CRM connections and a client validates their form? The form validation proceeds normally, but no data transfer occurs. The user is notified that no CRM connection is active.
 - What happens when the user disables automatic CRM sync after portal submission? The form validation still completes, but the submission stays local until the user manually exports the linked client from the client page.
 - What happens when the CRM provider's API is temporarily unavailable during transfer? The system implements retry logic with 3 retries using exponential backoff (30s, 2min, 10min intervals) and notifies the user if all retry attempts fail.
@@ -313,6 +355,7 @@ As a user, I want saving a CRM-linked client from the back-office edit page to u
 - What happens when test data is sent but the CRM creates a duplicate record? The test record is created with unique identifiers (e.g., timestamp) to avoid duplicates, and the user is informed to delete the test record manually.
 - What happens when the user edits a CRM-linked client while the linked connection is inactive? The page warns that changes remain local and no automatic CRM update is attempted.
 - What happens when the same user opens the linked-client edit page in a different browser or after clearing local storage? The informational modal is shown again because dismissal is browser-local rather than account-global.
+
 
 ## Requirements *(mandatory)*
 
@@ -362,7 +405,8 @@ As a user, I want saving a CRM-linked client from the back-office edit page to u
 - **FR-042**: System MUST automatically suggest corresponding CRM properties using fuzzy matching algorithms against form field names
 - **FR-043**: System MUST fall back to a "Create as Custom Property" configuration by default when no matching CRM standard property is found
 - **FR-044**: System MUST automatically create custom properties in the respective CRMs via their APIs when a payload with "custom property" mappings is dispatched
-- **FR-045**: System MUST provide a read-only list in global settings displaying where core application fields (name, company, email) are mapped by default- FR-046: System MUST validate data type compatibility between form fields (text, number, boolean, date, file, json) and CRM property types (string, integer, email, phone, enumeration, datetime, etc.)
+- **FR-045**: System MUST provide a read-only list in global settings displaying where core application fields (name, company, email) are mapped by default
+- **FR-046**: System MUST validate data type compatibility between form fields (text, number, boolean, date, file, json) and CRM property types (string, integer, email, phone, enumeration, datetime, etc.)
 - FR-047: System MUST display persistent warnings in the mapping interface if incompatible data types are selected for mapping
 - FR-048: System MUST provide an "Export Preview" summary indicating the status ('ready', 'warning', 'none') of Contact and Company record creation per CRM provider
 - FR-049: System MUST identify and list missing required identifiers (e.g., 'name' or 'domain' for HubSpot Company) when mapping fields to a CRM object type
