@@ -44,6 +44,7 @@ RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
 
       transfers = pending_transfers.order(:created_at)
       expect(transfers.pluck(:status)).to all(eq('pending'))
+      expect(transfers.pluck(:trigger)).to all(eq(CrmTransfer::TRIGGER_MANUAL_EXPORT))
       expect(transfers.pluck(:crm_connection_id)).to contain_exactly(hubspot_connection.id, salesforce_connection.id)
       expect(enqueued_jobs.count { |job| job[:job] == CrmDataExportJob }).to eq(2)
       expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly(

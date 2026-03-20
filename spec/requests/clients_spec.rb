@@ -1,12 +1,22 @@
 require "rails_helper"
 
 RSpec.describe "Clients API", type: :request do
+  include ActiveJob::TestHelper
+
   let(:user) { create(:user, :subscribed) }
   let(:session) { user.sessions.create! }
   let(:inertia_headers) { { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest } }
 
   before do
     cookies.signed[:session_token] = session.id
+  end
+
+  around do |example|
+    clear_enqueued_jobs
+    clear_performed_jobs
+    example.run
+    clear_enqueued_jobs
+    clear_performed_jobs
   end
 
   describe "GET /clients" do
@@ -136,6 +146,41 @@ RSpec.describe "Clients API", type: :request do
 
       expect(response).to have_http_status(:see_other)
       expect(response).to redirect_to(clients_path)
+    end
+
+    it "queues async CRM creation instead of calling the provider inline" do
+      create(:crm_connection, user: user, provider: "hubspot", status: "active")
+      attrs = attributes_for(:client, company_name: "Acme Corp")
+
+      expect(Crm::ConnectionManager).not_to receive(:service_for)
+
+      expect {
+        post clients_path, params: {
+          client: attrs,
+          crm: {
+            strategy: "create",
+            sync_address_to_contact: "true",
+            external_company_id: "comp_existing"
+          }
+        }
+      }.to change(Client, :count).by(1)
+        .and change(CrmTransfer, :count).by(1)
+
+      expect(response).to have_http_status(:see_other)
+      expect(response).to redirect_to(clients_path)
+      expect(flash[:notice]).to eq("Client created. CRM sync was queued and will continue in the background.")
+
+      transfer = CrmTransfer.order(created_at: :desc).first
+      expect(transfer).to have_attributes(
+        status: CrmTransfer::STATUS_PENDING,
+        trigger: CrmTransfer::TRIGGER_CLIENT_CREATE_SYNC
+      )
+      expect(transfer.request_context).to include(
+        "source" => "clients#create",
+        "sync_address_to_contact" => true,
+        "external_company_id" => "comp_existing"
+      )
+      expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly([transfer.id])
     end
 
     it "renders errors for invalid attributes" do

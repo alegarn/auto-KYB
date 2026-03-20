@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_19_000100) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_19_000200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -106,6 +106,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_19_000100) do
   end
 
   create_table "crm_transfers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "attempts_count", default: 0, null: false
     t.uuid "client_id", null: false
     t.datetime "created_at", null: false
     t.uuid "crm_connection_id", null: false
@@ -113,12 +114,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_19_000100) do
     t.text "error_message"
     t.string "external_id"
     t.string "external_type"
+    t.string "failure_kind"
+    t.datetime "last_attempt_at"
     t.jsonb "payload_snapshot", default: {}
-    t.string "status"
+    t.jsonb "request_context", default: {}, null: false
+    t.string "status", default: "pending"
     t.datetime "transferred_at"
+    t.string "trigger", null: false
     t.datetime "updated_at", null: false
     t.index ["client_id"], name: "index_crm_transfers_on_client_id"
     t.index ["crm_connection_id"], name: "index_crm_transfers_on_crm_connection_id"
+    t.index ["failure_kind"], name: "index_crm_transfers_on_failure_kind"
+    t.index ["status"], name: "index_crm_transfers_on_status"
+    t.index ["trigger"], name: "index_crm_transfers_on_trigger"
   end
 
   create_table "form_fields", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

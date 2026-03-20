@@ -5,6 +5,8 @@ RSpec.describe Crm::DataExporter, type: :service do
 
   let(:user) { create(:user) }
   let(:client) { create(:client, user: user) }
+  let(:scheduler_class) { class_double(Crm::TransferScheduler) }
+  let(:scheduler_instance) { instance_double(Crm::TransferScheduler, schedule_export!: true) }
 
   before { clear_enqueued_jobs }
 
@@ -30,5 +32,22 @@ RSpec.describe Crm::DataExporter, type: :service do
     expect {
       exporter.export_to_all_active!
     }.to change { CrmTransfer.where(status: 'pending').count }.by(2)
+  end
+
+  it 'delegates transfer creation to the scheduler with the manual export trigger' do
+    connection = create(:crm_connection, user: user, status: 'active')
+    allow(scheduler_class).to receive(:new).and_return(scheduler_instance)
+
+    exporter = described_class.new(client, scheduler: scheduler_class)
+
+    exporter.export_to_selected!(['hubspot'])
+
+    expect(scheduler_class).to have_received(:new).with(
+      client: client,
+      connection: connection,
+      trigger: CrmTransfer::TRIGGER_MANUAL_EXPORT,
+      request_context: {}
+    )
+    expect(scheduler_instance).to have_received(:schedule_export!)
   end
 end

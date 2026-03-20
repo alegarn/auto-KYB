@@ -93,7 +93,8 @@ class ClientsController < ApplicationController
         crm_sync_params[:strategy],
         external_contact_id: crm_sync_params[:external_contact_id],
         external_company_id: crm_sync_params[:external_company_id],
-        sync_address_to_contact: crm_sync_params[:sync_address_to_contact]
+        sync_address_to_contact: crm_sync_params[:sync_address_to_contact],
+        source: 'clients#create'
       )
 
       form_id = client_form_params[:form_id]
@@ -157,7 +158,8 @@ class ClientsController < ApplicationController
           crm_sync_params[:strategy],
           external_contact_id: crm_sync_params[:external_contact_id],
           external_company_id: crm_sync_params[:external_company_id],
-          sync_address_to_contact: crm_sync_params[:sync_address_to_contact]
+          sync_address_to_contact: crm_sync_params[:sync_address_to_contact],
+          source: 'clients#update'
         )
       end
 
@@ -298,7 +300,7 @@ class ClientsController < ApplicationController
   end
 
   def create_crm_contact
-    CrmSyncService.call(@client, "create")
+    CrmSyncService.call(@client, "create", source: 'clients#create_crm_contact')
     redirect_to edit_client_path(@client), notice: "Client created in CRM successfully."
   end
 

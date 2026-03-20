@@ -38,6 +38,11 @@ RSpec.describe ClientPortal::FormResponseSaver, type: :service do
     expect {
       saver.save
     }.to have_enqueued_job(CrmDataExportJob)
+
+    transfer = CrmTransfer.order(created_at: :desc).first
+    expect(transfer.crm_connection).to eq(connection)
+    expect(transfer.trigger).to eq(CrmTransfer::TRIGGER_PORTAL_SUBMIT)
+    expect(transfer.request_context).to include('source' => 'client_portal', 'client_form_id' => client_form.id)
   end
 
   it "does not enqueue CRM export when portal auto-sync is disabled" do
