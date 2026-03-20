@@ -59,6 +59,16 @@ class CrmTransfer < ApplicationRecord
   validates :attempts_count, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 
   scope :newest_first, -> { order(created_at: :desc) }
+  scope :for_user, ->(user) {
+    if user.present?
+      where(
+        client_id: user.clients.select(:id),
+        crm_connection_id: user.crm_connections.select(:id)
+      )
+    else
+      none
+    end
+  }
   scope :by_status, ->(status) { status.present? ? where(status: status) : all }
   scope :by_provider, ->(provider) {
     provider.present? ? joins(:crm_connection).where(crm_connections: { provider: provider }) : all

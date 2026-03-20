@@ -70,6 +70,10 @@ class User < ApplicationRecord
     canceled? && subscription_canceled_at.present? && subscription_canceled_at > 1.year.ago
   end
 
+  def crm_transfers_seen_at
+    crm_transfers_last_seen_at || Time.at(0).in_time_zone
+  end
+
   private
 
   def assign_random_password
