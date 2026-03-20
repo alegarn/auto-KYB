@@ -10,6 +10,7 @@ RSpec.describe CrmTransferSignalsQuery do
   subject(:signals) { described_class.new(user: user, toast_seen_at: toast_seen_at).call }
 
   let(:user) { create(:user, :subscribed) }
+  let(:connection) { create(:crm_connection, user: user, provider: 'hubspot', status: 'active') }
   let(:toast_seen_at) { nil }
 
   describe '#call' do
@@ -18,7 +19,7 @@ RSpec.describe CrmTransferSignalsQuery do
         :crm_transfer,
         :success,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active')
+        crm_connection: connection
       )
 
       expect(signals).to eq(
@@ -34,15 +35,16 @@ RSpec.describe CrmTransferSignalsQuery do
         :crm_transfer,
         :retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active')
+        crm_connection: connection
       )
 
       other_user = create(:user, :subscribed)
+      other_connection = create(:crm_connection, user: other_user, provider: 'hubspot', status: 'active')
       create(
         :crm_transfer,
         :retryable_failed,
         client: create(:client, user: other_user),
-        crm_connection: create(:crm_connection, user: other_user, provider: 'hubspot', status: 'active')
+        crm_connection: other_connection
       )
       create(
         :crm_transfer,
@@ -63,14 +65,14 @@ RSpec.describe CrmTransferSignalsQuery do
         :crm_transfer,
         :retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active'),
+        crm_connection: connection,
         created_at: 2.days.ago
       )
       create(
         :crm_transfer,
         :retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active'),
+        crm_connection: connection,
         created_at: 4.days.ago
       )
 
@@ -88,14 +90,14 @@ RSpec.describe CrmTransferSignalsQuery do
         :crm_transfer,
         :retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active'),
+        crm_connection: connection,
         created_at: 4.hours.ago
       )
       unread_transfer = create(
         :crm_transfer,
         :retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active'),
+        crm_connection: connection,
         created_at: 2.hours.ago
       )
 
@@ -113,14 +115,14 @@ RSpec.describe CrmTransferSignalsQuery do
         :crm_transfer,
         :retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active'),
+        crm_connection: connection,
         created_at: 2.hours.ago
       )
       create(
         :crm_transfer,
         :non_retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active'),
+        crm_connection: connection,
         created_at: 1.hour.ago
       )
 
@@ -135,14 +137,14 @@ RSpec.describe CrmTransferSignalsQuery do
         :crm_transfer,
         :retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active'),
+        crm_connection: connection,
         created_at: 2.hours.ago
       )
       latest_failure = create(
         :crm_transfer,
         :non_retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active'),
+        crm_connection: connection,
         created_at: 1.hour.ago
       )
 
@@ -165,7 +167,7 @@ RSpec.describe CrmTransferSignalsQuery do
         :crm_transfer,
         :retryable_failed,
         client: create(:client, user: user),
-        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active'),
+        crm_connection: connection,
         created_at: 1.hour.ago
       )
 
