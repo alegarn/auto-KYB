@@ -81,7 +81,10 @@
                 {/snippet}
               </Sidebar.MenuButton>
               {#if item.title === 'CRM Transfers' && unreadFailedCount > 0}
-                <Sidebar.MenuBadge>{badgeLabel}</Sidebar.MenuBadge>
+                <Sidebar.MenuBadge
+                  class="bg-destructive text-white ring-1 ring-destructive/30 shadow-sm"
+                  aria-label={`${badgeLabel} failed CRM transfers`}
+                >{badgeLabel}</Sidebar.MenuBadge>
               {/if}
             </Sidebar.MenuItem>
           {/each}
