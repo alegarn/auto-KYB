@@ -15,17 +15,20 @@ RSpec.describe "CRM Synchronization during Client workflows", type: :request do
   end
 
   describe "POST /clients (Create Client)" do
+    include ActiveJob::TestHelper
+
     it "creates a new CRM contact when strategy is 'create'" do
-      allow(hubspot_service).to receive(:create_contact).and_return({ id: "12345", action: :created })
-      
       expect {
         post clients_path, params: {
           client: { name: "John", company_name: "Doe Inc", email: "john@example.com", internal_company_id: "123" },
           crm: { strategy: 'create' }
         }
-      }.to change(Client, :count).by(1).and change(CrmClientLink, :count).by(1)
+      }.to change(Client, :count).by(1).and change(CrmTransfer, :count).by(1)
 
-      expect(CrmClientLink.last.external_contact_id).to eq("12345")
+      transfer = CrmTransfer.last
+      expect(transfer.status).to eq("pending")
+      expect(transfer.trigger).to eq("client_create_sync")
+      expect(enqueued_jobs.count { |job| job[:job] == CrmDataExportJob }).to eq(1)
     end
 
     it "links an existing contact when strategy is 'link'" do

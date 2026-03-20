@@ -301,7 +301,7 @@ class ClientsController < ApplicationController
 
   def create_crm_contact
     CrmSyncService.call(@client, "create", source: 'clients#create_crm_contact')
-    redirect_to edit_client_path(@client), notice: "Client created in CRM successfully."
+    redirect_to edit_client_path(@client), notice: "CRM contact creation queued. Track progress in CRM Transfers."
   end
 
   private
