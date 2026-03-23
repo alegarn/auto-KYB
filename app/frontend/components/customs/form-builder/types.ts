@@ -141,7 +141,7 @@ export function effectiveExportKey(field: FormField, fallbackIndex = 0): string 
 }
 
 export function duplicateExportKeys(fields: FormField[]): string[] {
-  const seen = new Set<string>();
+  const seenByScope = new Map<string, Set<string>>();
   const duplicates = new Set<string>();
 
   fields.forEach((field, index) => {
@@ -151,6 +151,19 @@ export function duplicateExportKeys(fields: FormField[]): string[] {
     if (!key) return;
 
     const normalized = key.toLowerCase();
+
+    // Scope uniqueness by CRM object_type — same key allowed across different objects
+    const crmMapping = field.metadata?.crm_mapping ?? {};
+    const objectTypes = Object.values(crmMapping)
+      .map((m: any) => m?.object_type || 'contact')
+      .filter((v, i, a) => a.indexOf(v) === i);
+    const scope = objectTypes[0] || 'contact';
+
+    if (!seenByScope.has(scope)) {
+      seenByScope.set(scope, new Set());
+    }
+    const seen = seenByScope.get(scope)!;
+
     if (seen.has(normalized)) {
       duplicates.add(key);
       return;

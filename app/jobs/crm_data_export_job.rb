@@ -32,11 +32,11 @@ class CrmDataExportJob < ApplicationJob
         raise e
       end
     else
-      payload = Crm::ExportPayloadBuilder.new(client).build
+      payload = Crm::ExportPayloadBuilder.new(client, provider: connection.provider).build
 
-      transfer.update!(payload_snapshot: payload.data)
+      transfer.update!(payload_snapshot: { contact_data: payload.contact_data, company_data: payload.company_data })
 
-      result = service.export_data(client, payload.data, payload.files)
+      result = service.export_data(client, payload.contact_data, payload.files, company_data: payload.company_data)
 
       if result[:success]
         mark_success!(transfer, result)

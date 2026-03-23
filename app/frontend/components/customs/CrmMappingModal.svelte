@@ -19,18 +19,26 @@
   } = $props();
 
   // Local state for mapping
-  // maps field.id -> { provider: { type: 'existing' | 'custom', property_name: string } }
+  // Maps a stable per-row modal key to provider mappings so unsaved fields do not collide on undefined ids.
   let mappings = $state<Record<string, Record<string, any>>>({});
+  let exportKeyOverrides = $state<Record<string, string>>({});
   let fieldSearch = $state<Record<string, string>>({});
+  const dataFields = $derived(fields.map((field, index) => ({ field, index })).filter(({ field }) => !isLayoutField(field.field_type)));
+
+  function getFieldStateKey(field: any, index: number) {
+    return field.id ? `id:${field.id}` : `draft:${index}`;
+  }
 
   // Initialize mappings from fields metadata if it exists
   $effect(() => {
     if (open) {
       const newMappings: Record<string, Record<string, any>> = {};
-      fields.forEach(field => {
-        newMappings[field.id] = field.metadata?.crm_mapping || {};
+      dataFields.forEach(({ field, index }) => {
+        newMappings[getFieldStateKey(field, index)] = field.metadata?.crm_mapping ? { ...field.metadata.crm_mapping } : {};
       });
       mappings = newMappings;
+      exportKeyOverrides = {};
+      fieldSearch = {};
     }
   });
 
@@ -49,12 +57,19 @@
   }
 
   function getUpdatedFields() {
-    return fields.map(field => {
-      const fieldMapping = mappings[field.id];
+    return fields.map((field, index) => {
+      const fieldKey = getFieldStateKey(field, index);
+      const fieldMapping = mappings[fieldKey];
       const metadata = { ...field.metadata };
       
       if (fieldMapping && Object.keys(fieldMapping).length > 0) {
         metadata.crm_mapping = fieldMapping;
+      } else {
+        delete metadata.crm_mapping;
+      }
+
+      if (exportKeyOverrides[fieldKey]) {
+        metadata.export_key = exportKeyOverrides[fieldKey];
       }
       
       return {
@@ -72,32 +87,36 @@
     open = false;
   }
 
+  function getExportKey(field: any, index: number) {
+    return exportKeyOverrides[getFieldStateKey(field, index)] ?? field.metadata?.export_key;
+  }
+
   // Helper to update mapping for a specific field and provider
-  function updateMapping(fieldId: string, provider: string, value: string) {
-    if (!mappings[fieldId]) {
-      mappings[fieldId] = {};
+  function updateMapping(fieldKey: string, provider: string, value: string) {
+    if (!mappings[fieldKey]) {
+      mappings[fieldKey] = {};
     }
     
     if (value === '__custom_contact__') {
-      mappings[fieldId][provider] = {
+      mappings[fieldKey][provider] = {
         type: 'custom',
         object_type: 'contact',
         property_name: '' // Will be generated or asked later, keeping it simple here
       };
     } else if (value === '__custom_company__') {
-      mappings[fieldId][provider] = {
+      mappings[fieldKey][provider] = {
         type: 'custom',
         object_type: 'company',
         property_name: ''
       };
     } else if (value === '') {
-      delete mappings[fieldId][provider];
+      delete mappings[fieldKey][provider];
     } else {
       // Format is "object_type:property_name"
       const [object_type, ...rest] = value.split(':');
       const property_name = rest.join(':');
       
-      mappings[fieldId][provider] = {
+      mappings[fieldKey][provider] = {
         type: 'existing',
         object_type,
         property_name,
@@ -106,20 +125,13 @@
     }
   }
 
-  function syncExportKey(fieldId: string, provider: string) {
-    const mapping = mappings[fieldId]?.[provider];
+  function syncExportKey(fieldKey: string, provider: string) {
+    const mapping = mappings[fieldKey]?.[provider];
     if (mapping?.property_name) {
-      // Find the field in the current fields list and update its temporary metadata
-      // Since 'fields' is a prop, we should ideally handle this in the parent
-      // but to allow immediate visual feedback in the modal we update a local copy
-      // or simply rely on the fact that we'll 'onsave' later.
-      const fieldIdx = fields.findIndex(f => f.id === fieldId);
-      if (fieldIdx !== -1) {
-        fields[fieldIdx].metadata = {
-          ...fields[fieldIdx].metadata,
-          export_key: mapping.property_name
-        };
-      }
+      exportKeyOverrides = {
+        ...exportKeyOverrides,
+        [fieldKey]: mapping.property_name,
+      };
     }
   }
 
@@ -149,7 +161,9 @@
               const autoMapped = autoMapFields(fields, crmProperties);
               
               // Merge auto-mappings with user's current ones, preferring existing if already set
-              const merged = { ...mappings };
+              const merged = Object.fromEntries(
+                Object.entries(mappings).map(([fieldId, providerMap]) => [fieldId, { ...providerMap }])
+              );
               for (const [fieldId, providerMap] of Object.entries(autoMapped)) {
                 if (!merged[fieldId]) merged[fieldId] = {};
                 for (const [provider, mapping] of Object.entries(providerMap)) {
@@ -259,22 +273,23 @@
                       </tr>
                     </thead>
                     <tbody class="divide-y">
-                      {#each fields.filter(f => !isLayoutField(f.field_type)) as field}
+                      {#each dataFields as { field, index }}
                         <tr class="hover:bg-gray-50">
                           <td class="px-4 py-3 font-medium text-gray-900">
                             <div class="flex flex-col">
                               <span>{field.label || field.id || 'Unnamed Field'}</span>
                               <div class="flex items-center gap-1.5 mt-0.5">
                                 <span class="text-[10px] text-gray-500 uppercase font-semibold">Type: {getFieldDataType(field.field_type)}</span>
-                                {#if field.metadata?.export_key}
-                                  <span class="text-[10px] text-indigo-100 bg-indigo-600 px-1 rounded-sm font-mono tracking-tight" title="Data Export Key: {field.metadata.export_key}">Key: {field.metadata.export_key}</span>
+                                {#if getExportKey(field, index)}
+                                  <span class="text-[10px] text-indigo-100 bg-indigo-600 px-1 rounded-sm font-mono tracking-tight" title="Data Export Key: {getExportKey(field, index)}">Key: {getExportKey(field, index)}</span>
                                 {/if}
                               </div>
                             </div>
                           </td>
                           <td class="px-4 py-3">
                             {#if true}
-                              {@const mapping = mappings[field.id]?.[provider]}
+                              {@const fieldKey = getFieldStateKey(field, index)}
+                              {@const mapping = mappings[fieldKey]?.[provider]}
                               {@const currentValue = mapping?.type === 'custom' 
                                 ? `__custom_${mapping.object_type}__` 
                                 : mapping?.property_name ? `${mapping.object_type}:${mapping.property_name}` : ''}
@@ -289,15 +304,15 @@
                               <div class="space-y-1">
                                 <Select.Root 
                                   type="single"
-                                  bind:value={() => currentValue, (v) => updateMapping(field.id, provider, v)}
-                                  onOpenChange={(isOpen: boolean) => { if (!isOpen) fieldSearch[`${field.id}-${provider}`] = ''; }}
+                                  bind:value={() => currentValue, (v) => updateMapping(fieldKey, provider, v)}
+                                  onOpenChange={(isOpen: boolean) => { if (!isOpen) fieldSearch[`${fieldKey}-${provider}`] = ''; }}
                                 >
                                   <Select.Trigger
                                     class={cn(
                                       "flex h-9 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500",
                                       !isCompatible && "border-red-300 ring-1 ring-red-300"
                                     )}
-                                    data-testid={`crm-mapping-select-${field.id}-${provider}`}
+                                    data-testid={`crm-mapping-select-${fieldKey}-${provider}`}
                                   >
                                     {#if currentValue === "__custom_contact__"}
                                       + Create as Custom Contact Property
@@ -317,8 +332,8 @@
                                       <input 
                                         class="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
                                         placeholder={`Filter ${provider} properties...`}
-                                        value={fieldSearch[`${field.id}-${provider}`] || ''}
-                                        oninput={(e) => fieldSearch[`${field.id}-${provider}`] = e.currentTarget.value}
+                                        value={fieldSearch[`${fieldKey}-${provider}`] || ''}
+                                        oninput={(e) => fieldSearch[`${fieldKey}-${provider}`] = e.currentTarget.value}
                                         onkeydown={(e) => {
                                           if (e.key === 'Space') e.stopPropagation();
                                         }}
@@ -354,7 +369,7 @@
                                       {/if}
 
                                       <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Contact Properties</div>
-                                      {#each getFilteredProperties(properties.contact || [], fieldSearch[`${field.id}-${provider}`]) as prop}
+                                      {#each getFilteredProperties(properties.contact || [], fieldSearch[`${fieldKey}-${provider}`]) as prop}
                                         <Select.Item
                                           value={`contact:${prop.name}`}
                                           disabled={prop.read_only}
@@ -367,7 +382,7 @@
                                       {/each}
 
                                       <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Company Properties</div>
-                                      {#each getFilteredProperties(properties.company || [], fieldSearch[`${field.id}-${provider}`]) as prop}
+                                      {#each getFilteredProperties(properties.company || [], fieldSearch[`${fieldKey}-${provider}`]) as prop}
                                         <Select.Item
                                           value={`company:${prop.name}`}
                                           disabled={prop.read_only}
@@ -388,14 +403,14 @@
                                   </p>
                                 {/if}
 
-                                {#if selectedProp && field.metadata?.export_key !== selectedProp.name}
+                                {#if selectedProp && getExportKey(field, index) !== selectedProp.name}
                                   <div class="flex items-center justify-between">
                                     <p class="text-[10px] text-amber-600 font-medium">
-                                      Key mismatch: export key ({field.metadata?.export_key || 'label'}) != {selectedProp.name}
+                                      Key mismatch: export key ({getExportKey(field, index) || 'label'}) != {selectedProp.name}
                                     </p>
                                     <button 
                                       type="button"
-                                      onclick={() => syncExportKey(field.id, provider)}
+                                      onclick={() => syncExportKey(fieldKey, provider)}
                                       class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors"
                                       title="Update Data Export Key to match CRM property name"
                                     >

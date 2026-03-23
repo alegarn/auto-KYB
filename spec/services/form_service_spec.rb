@@ -29,6 +29,29 @@ RSpec.describe FormService do
         FormService.create_form(user, params)
       }.to raise_error(FormService::DuplicateExportKeysError)
     end
+
+    it 'allows same export key when fields map to different CRM object types' do
+      user = User.create!(email: 'svc1_obj@example.com', password: 'securepassword123')
+      params = {
+        name: 'Cross Object Keys',
+        structure: {
+          fields: [
+            { label: 'Contact Name', field_type: 'text', metadata: {
+              export_key: 'name',
+              crm_mapping: { 'hubspot' => { 'object_type' => 'contact', 'property_name' => 'firstname' } }
+            } },
+            { label: 'Company Name', field_type: 'text', metadata: {
+              export_key: 'name',
+              crm_mapping: { 'hubspot' => { 'object_type' => 'company', 'property_name' => 'name' } }
+            } }
+          ]
+        }
+      }
+
+      expect {
+        FormService.create_form(user, params)
+      }.not_to raise_error
+    end
   end
 
   describe '.update_form' do

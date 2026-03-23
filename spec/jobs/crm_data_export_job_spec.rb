@@ -18,7 +18,8 @@ RSpec.describe CrmDataExportJob, type: :job do
       expect(service).to receive(:export_data).with(
         client,
         { 'registration_number' => 'REG-123' },
-        [uploaded_file]
+        [uploaded_file],
+        company_data: {}
       ).and_return({ success: true, external_id: 'ext_123' })
 
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
@@ -32,7 +33,7 @@ RSpec.describe CrmDataExportJob, type: :job do
       expect(transfer.failure_kind).to be_nil
       expect(transfer.attempts_count).to eq(1)
       expect(transfer.last_attempt_at).not_to be_nil
-      expect(transfer.payload_snapshot).to eq('registration_number' => 'REG-123')
+      expect(transfer.payload_snapshot).to eq('contact_data' => { 'registration_number' => 'REG-123' }, 'company_data' => {})
     end
 
     it 'uses the same latest client form payload as the manual export flow' do
@@ -41,7 +42,8 @@ RSpec.describe CrmDataExportJob, type: :job do
       expect(service).to receive(:export_data).with(
         client,
         { 'registration_number' => 'REG-123' },
-        [uploaded_file]
+        [uploaded_file],
+        company_data: {}
       ).and_return({ success: true })
 
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
@@ -53,7 +55,7 @@ RSpec.describe CrmDataExportJob, type: :job do
       service = double('CrmService')
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
 
-      expect(service).to receive(:export_data) do
+      expect(service).to receive(:export_data).with(anything, anything, anything, company_data: anything) do
         expect(transfer.reload.status).to eq(CrmTransfer::STATUS_PROCESSING)
         { success: true }
       end
@@ -63,7 +65,7 @@ RSpec.describe CrmDataExportJob, type: :job do
 
     it 'marks transfer as failed when service returns failure' do
       service = double
-      allow(service).to receive(:export_data).and_return({ success: false, error: 'remote error' })
+      allow(service).to receive(:export_data).with(anything, anything, anything, company_data: anything).and_return({ success: false, error: 'remote error' })
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
 
       described_class.perform_now(transfer.id)
@@ -79,7 +81,7 @@ RSpec.describe CrmDataExportJob, type: :job do
     it 'marks transfer failed and re-raises when service raises' do
       service = double
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
-      allow(service).to receive(:export_data).and_raise(StandardError.new('boom'))
+      allow(service).to receive(:export_data) { raise StandardError, 'boom' }
 
       expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError)
 
@@ -93,7 +95,7 @@ RSpec.describe CrmDataExportJob, type: :job do
     it 'discards on Crm::Hubspot::OAuthError and updates transfer status' do
       service = double
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
-      allow(service).to receive(:export_data).and_raise(Crm::Hubspot::OAuthError.new('invalid grant'))
+      allow(service).to receive(:export_data).with(anything, anything, anything, company_data: anything).and_raise(Crm::Hubspot::OAuthError.new('invalid grant'))
 
       # Job discards the error so perform_now should not raise
       described_class.perform_now(transfer.id)
@@ -108,7 +110,7 @@ RSpec.describe CrmDataExportJob, type: :job do
     it 'increments retry bookkeeping on each execution attempt' do
       service = double
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
-      allow(service).to receive(:export_data).and_raise(StandardError.new('boom'))
+      allow(service).to receive(:export_data) { raise StandardError, 'boom' }
 
       expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError)
       expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError)
