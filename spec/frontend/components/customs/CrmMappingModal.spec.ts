@@ -80,7 +80,9 @@ describe('CrmMappingModal', () => {
     fields: [
       { id: 'f1', label: 'Company Name', field_type: 'text', required: false, position: 0, metadata: {} },
       { id: 'f2', label: 'Is Active', field_type: 'checkbox', required: false, position: 1, metadata: {} }
-    ]
+    ],
+    onsave: vi.fn(),
+    ontestcrm: vi.fn(),
   };
 
   it('renders the form field label and data type', () => {
@@ -139,5 +141,132 @@ describe('CrmMappingModal', () => {
 
     expect(screen.getByText(/hubspot Integration/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save mapping/i })).toBeInTheDocument();
+  });
+
+  it('keeps the incoming fields prop immutable when aligning a key and applies the change on save', async () => {
+    const user = userEvent.setup();
+    const onsave = vi.fn();
+    const fields = [
+      {
+        id: 'f1',
+        label: 'Company Name',
+        field_type: 'text',
+        required: false,
+        position: 0,
+        metadata: {
+          export_key: 'company_name',
+          crm_mapping: {
+            hubspot: {
+              type: 'existing',
+              object_type: 'contact',
+              property_name: 'company'
+            }
+          }
+        }
+      }
+    ];
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        fields,
+        onsave,
+      }
+    });
+
+    expect(screen.getByText(/Key mismatch: export key \(company_name\) != company/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /align key/i }));
+
+    expect(fields[0].metadata.export_key).toBe('company_name');
+    expect(screen.queryByText(/Key mismatch:/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /save mapping/i }));
+
+    expect(onsave).toHaveBeenCalledTimes(1);
+
+    const savedFields = onsave.mock.calls[0][0].fields;
+
+    expect(savedFields).not.toBe(fields);
+    expect(savedFields[0]).not.toBe(fields[0]);
+    expect(savedFields[0]).toEqual(
+      expect.objectContaining({
+        id: 'f1',
+        metadata: expect.objectContaining({
+          export_key: 'company',
+          crm_mapping: {
+            hubspot: expect.objectContaining({
+              type: 'existing',
+              object_type: 'contact',
+              property_name: 'company'
+            })
+          }
+        })
+      })
+    );
+    expect(fields[0].metadata.export_key).toBe('company_name');
+  });
+
+  it('keeps unsaved fields isolated when aligning a key for one of them', async () => {
+    const user = userEvent.setup();
+    const onsave = vi.fn();
+    const fields = [
+      {
+        label: 'Company Name',
+        field_type: 'text',
+        required: false,
+        position: 0,
+        metadata: {
+          export_key: 'company_name',
+          crm_mapping: {
+            hubspot: {
+              type: 'existing',
+              object_type: 'contact',
+              property_name: 'company'
+            }
+          }
+        }
+      },
+      {
+        label: 'Age',
+        field_type: 'number',
+        required: false,
+        position: 1,
+        metadata: {
+          export_key: 'years_old',
+          crm_mapping: {
+            hubspot: {
+              type: 'existing',
+              object_type: 'contact',
+              property_name: 'age'
+            }
+          }
+        }
+      }
+    ];
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        fields,
+        onsave,
+      }
+    });
+
+    expect(screen.getByText(/Key mismatch: export key \(company_name\) != company/i)).toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch: export key \(years_old\) != age/i)).toBeInTheDocument();
+
+    const alignButtons = screen.getAllByRole('button', { name: /align key/i });
+    await user.click(alignButtons[0]);
+
+    expect(screen.queryByText(/Key mismatch: export key \(company_name\) != company/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch: export key \(years_old\) != age/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /save mapping/i }));
+
+    const savedFields = onsave.mock.calls[0][0].fields;
+
+    expect(savedFields[0].metadata.export_key).toBe('company');
+    expect(savedFields[1].metadata.export_key).toBe('years_old');
   });
 });

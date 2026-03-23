@@ -1,21 +1,23 @@
 module Crm
   class ExportPayloadBuilder
-    Payload = Struct.new(:data, :files, keyword_init: true)
+    Payload = Struct.new(:contact_data, :company_data, :files, keyword_init: true)
 
-    def initialize(client)
+    def initialize(client, provider: nil)
       @client = client
+      @provider = provider
     end
 
     def build
       Payload.new(
-        data: build_data,
+        contact_data: build_object_data("contact"),
+        company_data: build_object_data("company"),
         files: @client.uploaded_files.available.to_a
       )
     end
 
     private
 
-    def build_data
+    def build_object_data(target_object_type)
       return {} unless latest_response && latest_client_form
 
       response_data = latest_response.data || {}
@@ -26,7 +28,13 @@ module Crm
         value = response_data[field.id.to_s] || response_data[field.id]
         next if value.blank?
 
-        key = field.metadata&.dig("export_key").presence || field.label
+        provider_mapping = @provider && field.metadata&.dig("crm_mapping", @provider)
+        object_type = provider_mapping&.dig("object_type") || "contact"
+        next unless object_type == target_object_type
+
+        key = provider_mapping&.dig("property_name").presence ||
+              field.metadata&.dig("export_key").presence ||
+              field.label
         payload[key] = value
       end
     end
