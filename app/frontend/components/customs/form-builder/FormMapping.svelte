@@ -5,6 +5,7 @@
   import { Info, AlertCircle } from "@lucide/svelte";
   import Modal from "@/components/ui/modal.svelte";
   import { isLayoutField, type FormField } from "./types";
+  import { fromCrmKey } from "@/lib/crm-utils";
 
   interface Props {
     fields: FormField[];
@@ -71,10 +72,11 @@
         // Find first provider that has a property name and is NOT read-only
         const firstActiveMapping: any = Object.values(crmMapping).find((m: any) => m.property_name && !m.read_only);
         if (firstActiveMapping?.property_name && firstActiveMapping.type === 'existing') {
+          // Strip compound key prefix — export_key is user-facing (CSV/JSON)
           onupdate(index, { 
             metadata: { 
               ...field.metadata, 
-              export_key: firstActiveMapping.property_name 
+              export_key: fromCrmKey(firstActiveMapping.property_name).propertyName 
             } 
           });
         }

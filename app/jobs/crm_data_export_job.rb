@@ -32,7 +32,8 @@ class CrmDataExportJob < ApplicationJob
         raise e
       end
     else
-      payload = Crm::ExportPayloadBuilder.new(client, provider: connection.provider).build
+      client_form_id = transfer.request_context["client_form_id"]
+      payload = Crm::ExportPayloadBuilder.new(client, provider: connection.provider, client_form_id: client_form_id).build
 
       transfer.update!(payload_snapshot: { contact_data: payload.contact_data, company_data: payload.company_data })
 

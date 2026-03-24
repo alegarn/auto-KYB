@@ -159,11 +159,11 @@ module Crm
     def create_contact(client, sync_address_to_contact: false)
       mapper = Crm::Hubspot::ContactMapper.new(client, { sync_address_to_contact: sync_address_to_contact })
       properties = mapper.to_hubspot_properties
-      ensure_properties("contacts", properties)
+      type_lookup = ensure_properties("contacts", properties)
       
       return nil if properties.empty?
       
-      formatted_props = properties.map { |k, v| { property: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }
+      formatted_props = coerce_and_format_v1(properties, type_lookup)
 
       res = hubspot_client.api_request(
         method: "POST",
@@ -182,11 +182,11 @@ module Crm
     def update_existing_contact(client, external_id, data)
       mapper = Crm::Hubspot::ContactMapper.new(client, data)
       properties = mapper.to_hubspot_properties
-      ensure_properties("contacts", properties)
+      type_lookup = ensure_properties("contacts", properties)
 
       return { id: external_id, action: :skipped } if properties.empty?
 
-      formatted_props = properties.map { |k, v| { property: k.to_s.downcase.gsub(/[^a-z0-9]/, "_"), value: v.to_s } }
+      formatted_props = coerce_and_format_v1(properties, type_lookup)
 
       res = hubspot_client.api_request(
         method: "POST",
@@ -204,11 +204,11 @@ module Crm
     def create_company(client, company_data = {})
       mapper = Crm::Hubspot::CompanyMapper.new(client, company_data)
       properties = mapper.to_hubspot_properties
-      ensure_properties("companies", properties)
+      type_lookup = ensure_properties("companies", properties)
 
       return nil if properties.empty?
 
-      body = { properties: properties.transform_keys { |k| k.to_s.downcase.gsub(/[^a-z0-9]/, "_") }.transform_values(&:to_s) }
+      body = { properties: coerce_and_format_v3(properties, type_lookup) }
 
       res = hubspot_client.api_request(
         method: "POST",
@@ -227,14 +227,14 @@ module Crm
     def update_existing_company(client, company_id, company_data = {})
       mapper = Crm::Hubspot::CompanyMapper.new(client, company_data)
       properties = mapper.to_hubspot_properties
-      ensure_properties("companies", properties)
+      type_lookup = ensure_properties("companies", properties)
 
       return { id: company_id, action: :skipped } if properties.empty?
 
       res = hubspot_client.api_request(
         method: "PATCH",
         path: "/crm/v3/objects/companies/#{company_id}",
-        body: { properties: properties.transform_keys { |k| k.to_s.downcase.gsub(/[^a-z0-9]/, "_") }.transform_values(&:to_s) }
+        body: { properties: coerce_and_format_v3(properties, type_lookup) }
       )
 
       if res.code.to_i < 300
@@ -245,17 +245,21 @@ module Crm
     end
 
 
+    # Ensures all properties exist in HubSpot (creates missing ones),
+    # removes read-only properties from the hash, and returns a type lookup
+    # hash: { "prop_name" => "datetime", ... } used for value coercion.
     def ensure_properties(object_type, properties_hash)
-      return if properties_hash.empty?
+      return {} if properties_hash.empty?
 
       res = hubspot_client.api_request(method: "GET", path: "/properties/v1/#{object_type}/properties")
-      return unless res.code.to_i == 200
+      return {} unless res.code.to_i == 200
 
       all_props = JSON.parse(res.body)
       all_props = [] unless all_props.is_a?(Array)
 
       existing = all_props.map { |p| p["name"] }
       read_only_props = all_props.select { |p| p["readOnlyValue"] || p["calculated"] }.map { |p| p["name"] }
+      type_lookup = all_props.each_with_object({}) { |p, h| h[p["name"]] = p["type"] }
 
       properties_hash.keys.each do |k|
         prop_name = k.to_s.downcase.gsub(/[^a-z0-9]/, "_")
@@ -283,8 +287,13 @@ module Crm
 
         if create_res.code.to_i >= 400
           Rails.logger.info("[HubSpot Property] Could not create #{prop_name}: #{create_res.body}")
+        else
+          # Newly created properties are always string type
+          type_lookup[prop_name] = "string"
         end
       end
+
+      type_lookup
     end
 
     def search_company(client)
@@ -326,6 +335,25 @@ module Crm
       )
     rescue => e
       Rails.logger.warn("[HubSpot Association] #{e.message}")
+    end
+
+    # Format properties for HubSpot Contacts v1 API (array of {property, value}).
+    # Applies type coercion before stringifying.
+    def coerce_and_format_v1(properties, type_lookup)
+      properties.map do |k, v|
+        prop_name = k.to_s.downcase.gsub(/[^a-z0-9]/, "_")
+        coerced  = Crm::Hubspot::ValueCoercer.coerce(v, type_lookup[prop_name])
+        { property: prop_name, value: coerced }
+      end
+    end
+
+    # Format properties for HubSpot v3 API (flat hash {prop_name => value}).
+    # Applies type coercion before stringifying.
+    def coerce_and_format_v3(properties, type_lookup)
+      properties.each_with_object({}) do |(k, v), h|
+        prop_name = k.to_s.downcase.gsub(/[^a-z0-9]/, "_")
+        h[prop_name] = Crm::Hubspot::ValueCoercer.coerce(v, type_lookup[prop_name])
+      end
     end
 
     def upload_files(files, contact_id: nil, company_id: nil)

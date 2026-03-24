@@ -198,7 +198,7 @@ describe('CrmMappingModal', () => {
             hubspot: expect.objectContaining({
               type: 'existing',
               object_type: 'contact',
-              property_name: 'company'
+              property_name: 'contact::company'
             })
           }
         })

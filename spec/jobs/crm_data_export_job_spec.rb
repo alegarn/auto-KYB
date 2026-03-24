@@ -171,6 +171,27 @@ RSpec.describe CrmDataExportJob, type: :job do
       expect(link.external_contact_id).to eq('ext_123')
       expect(link.external_company_id).to eq('comp_456')
     end
+
+    it 'uses client_form_id from request_context to scope the export payload, not the latest form' do
+      form_b = create(:form, user: user)
+      form_field_b = create(:form_field, form: form_b, label: 'Alt Field', field_type: 'text', position: 1, metadata: { 'export_key' => 'alt_field' })
+      client_form_b = create(:client_form, client: client, form: form_b)
+      FormResponse.create!(client_form: client_form_b, data: { form_field_b.id.to_s => 'ALT-VALUE' })
+
+      transfer.update!(request_context: { 'client_form_id' => client_form.id })
+
+      service = double('CrmService')
+      allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
+
+      expect(service).to receive(:export_data).with(
+        client,
+        { 'registration_number' => 'REG-123' },
+        [uploaded_file],
+        company_data: {}
+      ).and_return({ success: true })
+
+      described_class.perform_now(transfer.id)
+    end
   end
 end
 

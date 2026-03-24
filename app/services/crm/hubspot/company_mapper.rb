@@ -26,7 +26,6 @@ module Crm
         known_keys = %w[company_id kyc_status]
         @data.each do |k, v|
           next if known_keys.include?(k.to_s)
-          next if Crm::Hubspot::FieldMapper::HUBSPOT_CONTACT_MAP.keys.include?(k.to_sym)
           props[k.to_sym] = v if v.present?
         end
 
