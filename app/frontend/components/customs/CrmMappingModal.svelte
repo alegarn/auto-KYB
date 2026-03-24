@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { areTypesCompatible, getFieldDataType, analyzeMappings, getProviderFileActions, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
+  import { areTypesCompatible, getFieldDataType, analyzeMappings, getProviderFileActions, toCrmKey, fromCrmKey, CRM_KEY_SEP, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
   import { isLayoutField } from './form-builder/types';
   import { Select } from "bits-ui";
   import { Check, ChevronsUpDown, Search, Loader2 } from "@lucide/svelte";
@@ -34,7 +34,18 @@
     if (open) {
       const newMappings: Record<string, Record<string, any>> = {};
       dataFields.forEach(({ field, index }) => {
-        newMappings[getFieldStateKey(field, index)] = field.metadata?.crm_mapping ? { ...field.metadata.crm_mapping } : {};
+        const providerMap: Record<string, any> = {};
+        if (field.metadata?.crm_mapping) {
+          for (const [prov, rawMapping] of Object.entries(field.metadata.crm_mapping as Record<string, any>)) {
+            const m = { ...rawMapping };
+            // Normalize legacy data: add compound key prefix if missing
+            if (m.property_name && m.object_type && !m.property_name.includes(CRM_KEY_SEP)) {
+              m.property_name = toCrmKey(m.object_type, m.property_name);
+            }
+            providerMap[prov] = m;
+          }
+        }
+        newMappings[getFieldStateKey(field, index)] = providerMap;
       });
       mappings = newMappings;
       exportKeyOverrides = {};
@@ -112,15 +123,15 @@
     } else if (value === '') {
       delete mappings[fieldKey][provider];
     } else {
-      // Format is "object_type:property_name"
+      // Format from Select is "object_type:property_name" (single colon)
       const [object_type, ...rest] = value.split(':');
-      const property_name = rest.join(':');
+      const rawPropertyName = rest.join(':');
       
       mappings[fieldKey][provider] = {
         type: 'existing',
         object_type,
-        property_name,
-        read_only: (crmProperties[provider][object_type] || []).find((p: any) => p.name === property_name)?.read_only || false
+        property_name: toCrmKey(object_type, rawPropertyName),
+        read_only: (crmProperties[provider][object_type] || []).find((p: any) => p.name === rawPropertyName)?.read_only || false
       };
     }
   }
@@ -128,9 +139,10 @@
   function syncExportKey(fieldKey: string, provider: string) {
     const mapping = mappings[fieldKey]?.[provider];
     if (mapping?.property_name) {
+      // Strip compound key prefix — export_key is user-facing (CSV/JSON)
       exportKeyOverrides = {
         ...exportKeyOverrides,
-        [fieldKey]: mapping.property_name,
+        [fieldKey]: fromCrmKey(mapping.property_name).propertyName,
       };
     }
   }
@@ -160,15 +172,22 @@
               const { autoMapFields } = await import('../../lib/crm-utils');
               const autoMapped = autoMapFields(fields, crmProperties);
               
+              // Build a lookup from raw field.id to modal state key
+              const fieldIdToStateKey: Record<string, string> = {};
+              dataFields.forEach(({ field, index }) => {
+                if (field.id) fieldIdToStateKey[field.id] = getFieldStateKey(field, index);
+              });
+              
               // Merge auto-mappings with user's current ones, preferring existing if already set
               const merged = Object.fromEntries(
                 Object.entries(mappings).map(([fieldId, providerMap]) => [fieldId, { ...providerMap }])
               );
-              for (const [fieldId, providerMap] of Object.entries(autoMapped)) {
-                if (!merged[fieldId]) merged[fieldId] = {};
+              for (const [rawFieldId, providerMap] of Object.entries(autoMapped)) {
+                const stateKey = fieldIdToStateKey[rawFieldId] || rawFieldId;
+                if (!merged[stateKey]) merged[stateKey] = {};
                 for (const [provider, mapping] of Object.entries(providerMap)) {
-                  if (!merged[fieldId][provider]) {
-                    merged[fieldId][provider] = mapping;
+                  if (!merged[stateKey][provider]) {
+                    merged[stateKey][provider] = mapping;
                   }
                 }
               }
@@ -290,12 +309,13 @@
                             {#if true}
                               {@const fieldKey = getFieldStateKey(field, index)}
                               {@const mapping = mappings[fieldKey]?.[provider]}
+                              {@const rawPropName = mapping?.property_name ? fromCrmKey(mapping.property_name).propertyName : ''}
                               {@const currentValue = mapping?.type === 'custom' 
                                 ? `__custom_${mapping.object_type}__` 
-                                : mapping?.property_name ? `${mapping.object_type}:${mapping.property_name}` : ''}
+                                : rawPropName ? `${mapping.object_type}:${rawPropName}` : ''}
                               
                               {@const selectedProp = mapping?.type === 'existing' 
-                                ? (properties[mapping.object_type] || []).find((p: any) => p.name === mapping.property_name) 
+                                ? (properties[mapping.object_type] || []).find((p: any) => p.name === rawPropName) 
                                 : null}
                               {@const isCompatible = !selectedProp || areTypesCompatible(field.field_type, selectedProp.type)}
                               {@const providerFileActions = getProviderFileActions(provider)}

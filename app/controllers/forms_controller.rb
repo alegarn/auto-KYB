@@ -100,12 +100,22 @@ class FormsController < ApplicationController
       next if [ "layout", "title" ].include?(type) || type.start_with?("lay_", "section")
 
       provider_mapping = f.dig("metadata", "crm_mapping", conn.provider)
-      key = provider_mapping&.dig("property_name").presence ||
+      raw_property_name = provider_mapping&.dig("property_name")
+
+      # Parse compound key for routing + clean CRM property name
+      if raw_property_name.present? && Crm::KeyParser.compound?(raw_property_name)
+        parsed_object_type, clean_key = Crm::KeyParser.parse(raw_property_name)
+        object_type = parsed_object_type
+      else
+        object_type = provider_mapping&.dig("object_type") || "contact"
+        clean_key = raw_property_name
+      end
+
+      key = clean_key.presence ||
             f.dig("metadata", "export_key").presence ||
             f["label"]
 
       value = type == "number" ? rand(1..100) : "Test #{f['label']}"
-      object_type = provider_mapping&.dig("object_type") || "contact"
 
       case object_type
       when "company"
@@ -160,14 +170,18 @@ def duplicate
       crm_mapping.each do |provider, mapping|
         if mapping["type"] == "custom"
           # Generate a safe property name if blank
-          prop_name = mapping["property_name"].presence || (f["label"] || f[:label]).to_s.downcase.gsub(/[^a-z0-9_]/, "_")
-          # Update the form definition to set the implicit property name
-          mapping["property_name"] = prop_name
+          raw_prop_name = mapping["property_name"].presence
+          # Strip compound key prefix if present, then fall back to label
+          raw_prop_name = Crm::KeyParser.property_name(raw_prop_name) if raw_prop_name.present? && Crm::KeyParser.compound?(raw_prop_name)
+          prop_name = raw_prop_name.presence || (f["label"] || f[:label]).to_s.downcase.gsub(/[^a-z0-9_]/, "_")
+          obj_type = mapping["object_type"] || "contact"
+          # Store compound key as property_name for disambiguation
+          mapping["property_name"] = Crm::KeyParser.build(obj_type, prop_name)
           custom_mappings << { 
             provider: provider, 
             label: (f["label"] || f[:label]), 
             property_name: prop_name,
-            object_type: mapping["object_type"] || "contact",
+            object_type: obj_type,
             field_type: (f["field_type"] || f[:field_type]).to_s
           }
         end

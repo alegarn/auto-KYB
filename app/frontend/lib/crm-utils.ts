@@ -1,5 +1,31 @@
 export type DataType = 'string' | 'number' | 'boolean' | 'date' | 'file' | 'json' | 'unknown';
 
+// ── Compound Key Helpers ────────────────────────────────────────────
+// A compound key encodes both CRM object type and raw property name
+// into a single string: "company::address", "contact::email", etc.
+// This ensures disambiguation is never lost across save/load/export.
+
+export const CRM_KEY_SEP = '::';
+
+/** Build a compound key: toCrmKey('company','address') → 'company::address' */
+export function toCrmKey(objectType: string, propertyName: string): string {
+  if (!objectType || !propertyName) return propertyName || '';
+  return `${objectType}${CRM_KEY_SEP}${propertyName}`;
+}
+
+/** Parse a compound key: fromCrmKey('company::address') → { objectType:'company', propertyName:'address' } */
+export function fromCrmKey(crmKey: string | undefined | null): { objectType: string; propertyName: string } {
+  if (!crmKey) return { objectType: 'contact', propertyName: '' };
+  const idx = crmKey.indexOf(CRM_KEY_SEP);
+  if (idx === -1) return { objectType: 'contact', propertyName: crmKey };
+  return { objectType: crmKey.slice(0, idx), propertyName: crmKey.slice(idx + CRM_KEY_SEP.length) };
+}
+
+/** Is this already a compound key? */
+export function isCompoundKey(key: string | undefined | null): boolean {
+  return !!key && key.includes(CRM_KEY_SEP);
+}
+
 export function getFieldDataType(field_type: string): DataType {
   switch (field_type) {
     case 'text':
@@ -103,7 +129,7 @@ export function analyzeMappings(
     if (objType === 'company') {
       companyCount++;
       if (providerMapping.property_name) {
-        mappedCompanyProps.push(providerMapping.property_name);
+        mappedCompanyProps.push(fromCrmKey(providerMapping.property_name).propertyName);
       }
     }
   }
@@ -234,7 +260,7 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
           newMappings[fieldId][provider] = {
             type: 'existing',
             object_type: objType,
-            property_name: exactMatch.name
+            property_name: toCrmKey(objType, exactMatch.name)
           };
           break; // Stop looking in other object types once matched for this provider
         }
@@ -277,7 +303,7 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
           newMappings[fieldId][provider] = {
             type: 'existing',
             object_type: objType,
-            property_name: best.prop.name
+            property_name: toCrmKey(objType, best.prop.name)
           };
           break;
         }

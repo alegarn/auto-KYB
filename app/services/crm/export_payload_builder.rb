@@ -2,9 +2,10 @@ module Crm
   class ExportPayloadBuilder
     Payload = Struct.new(:contact_data, :company_data, :files, keyword_init: true)
 
-    def initialize(client, provider: nil)
+    def initialize(client, provider: nil, client_form_id: nil)
       @client = client
       @provider = provider
+      @client_form_id = client_form_id
     end
 
     def build
@@ -29,10 +30,21 @@ module Crm
         next if value.blank?
 
         provider_mapping = @provider && field.metadata&.dig("crm_mapping", @provider)
-        object_type = provider_mapping&.dig("object_type") || "contact"
+        raw_property_name = provider_mapping&.dig("property_name")
+
+        # Compound key is the single source of truth for object routing.
+        # Fall back to the explicit object_type field for legacy data.
+        if raw_property_name.present? && Crm::KeyParser.compound?(raw_property_name)
+          parsed_object_type, clean_key = Crm::KeyParser.parse(raw_property_name)
+          object_type = parsed_object_type
+        else
+          object_type = provider_mapping&.dig("object_type") || "contact"
+          clean_key = raw_property_name
+        end
+
         next unless object_type == target_object_type
 
-        key = provider_mapping&.dig("property_name").presence ||
+        key = clean_key.presence ||
               field.metadata&.dig("export_key").presence ||
               field.label
         payload[key] = value
@@ -40,11 +52,15 @@ module Crm
     end
 
     def latest_client_form
-      @latest_client_form ||= @client.client_forms.includes(form: :form_fields, form_responses: []).order(created_at: :desc).first
+      @latest_client_form ||= if @client_form_id.present?
+        @client.client_forms.includes(form: :form_fields, form_responses: []).find_by(id: @client_form_id)
+      else
+        @client.client_forms.includes(form: :form_fields, form_responses: []).order(created_at: :desc).first
+      end
     end
 
     def latest_response
-      @latest_response ||= latest_client_form&.form_responses&.order(created_at: :desc)&.last
+      @latest_response ||= latest_client_form&.form_responses&.order(created_at: :desc)&.first
     end
 
     def layout_field?(field_type)
