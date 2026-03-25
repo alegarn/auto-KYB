@@ -11,6 +11,7 @@ class CrmTransfer < ApplicationRecord
   TRIGGER_PORTAL_SUBMIT = "portal_submit"
   TRIGGER_CLIENT_CREATE_SYNC = "client_create_sync"
   TRIGGER_DATA_IMPORT = "data_import"
+  TRIGGER_CLIENT_EDIT_SYNC = "client_edit_sync"
 
   FAILURE_KIND_AUTHENTICATION_ERROR = "authentication_error"
   FAILURE_KIND_PROVIDER_ERROR = "provider_error"
@@ -28,6 +29,7 @@ class CrmTransfer < ApplicationRecord
     TRIGGER_MANUAL_EXPORT,
     TRIGGER_PORTAL_SUBMIT,
     TRIGGER_CLIENT_CREATE_SYNC,
+    TRIGGER_CLIENT_EDIT_SYNC,
     TRIGGER_DATA_IMPORT
   ].freeze
 

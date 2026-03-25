@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Form as InertiaForm, router, page } from '@inertiajs/svelte';
+  import { router, page } from '@inertiajs/svelte';
   import { onMount, untrack } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
   import { Label } from '/components/ui/label/index.js';
@@ -85,8 +85,13 @@
     setTimeout(() => confirmDialog?.focus(), 0);
   }
 
-  // selected form the user may pick (local state so we can bind and update)
-  let selectedForm = $derived(attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null));
+  // selected form – $state so bind:value on the <select> is writable
+  let selectedForm = $state<string | null>(
+    untrack(() => attempted_form_id || current_form_id || (forms && forms.length ? forms[0]?.id : null))
+  );
+
+  // When the server sends back a confirm-replace response it may change attempted_form_id
+  $effect(() => { if (attempted_form_id) selectedForm = attempted_form_id; });
 
   let countries = $state<Array<{ name: string; code: string; flag: string }>>([]);
   let countryOptions = $derived(
@@ -226,6 +231,52 @@
 
   // form submission state
   let confirmedReplace = $state(false);
+  let saving = $state(false);
+
+  function buildPayload() {
+    const formId = client?.status === 'validated'
+      ? (currentLinkedForm?.id ?? '')
+      : (selectedForm ?? '');
+
+    return {
+      client: {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        company_name: formData.companyName,
+        company_id: formData.companyId,
+        country: formData.selectedCountry,
+        address: {
+          street: formData.street,
+          city: formData.city,
+          country: formData.selectedCountry,
+          postal_code: formData.postal
+        }
+      },
+      client_form: {
+        form_id: formId,
+        confirm_replace: confirmedReplace
+      },
+      crm: {
+        strategy: crmSyncData.strategy,
+        external_contact_id: crmSyncData.external_contact_id,
+        external_company_id: crmSyncData.external_company_id,
+        sync_address_to_contact: crmSyncData.sync_address_to_contact
+      }
+    };
+  }
+
+  function handleSubmit(event: SubmitEvent) {
+    event.preventDefault();
+    if (saving) return;
+
+    router.patch(client_path(client?.id), buildPayload(), {
+      preserveScroll: true,
+      preserveState: true,
+      onStart: () => { saving = true; },
+      onFinish: () => { saving = false; }
+    });
+  }
 
   // @ts-ignore: Property 'toast' does not exist on type 'FlashData'
   const flashToast: { message?: string; type?: string } | null = $derived($page?.flash?.toast ?? null)
@@ -248,12 +299,12 @@
   {/if}
 
   {#if shouldShowCrmPrefillBox}
-    <div class="mb-4 p-4 border rounded bg-muted/20 flex justify-between items-center">
+    <div class="mb-4 p-4 border border-blue-200 rounded bg-blue-50 flex justify-between items-center gap-4">
       <div class="text-sm">
-        <span class="font-medium text-blue-600">CRM Data are linked</span>
-        <p class="text-muted-foreground italic">You can fill missing fields with data from your CRM.</p>
+        <span class="font-medium text-blue-700">Linked to {crmProviderName}</span>
+        <p class="text-blue-600 mt-0.5">Saving this client will automatically push updated information back to your CRM. You can also pull the latest CRM data below.</p>
       </div>
-      <button type="button" class="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-3 py-1.5 text-sm rounded-md font-medium transition-colors" onclick={() => fetchCrmDetails()}>Complete with CRM data</button>
+      <button type="button" class="shrink-0 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-3 py-1.5 text-sm rounded-md font-medium transition-colors" onclick={() => fetchCrmDetails()}>Complete with CRM data</button>
     </div>
   {/if}
 
@@ -283,7 +334,7 @@
     </div>
   {/if}
 
-  <InertiaForm id="client-edit-form" method="patch" action={`/clients/${client?.id}`}>
+  <form id="client-edit-form" onsubmit={handleSubmit}>
     <div class="space-y-6 max-w-2xl">
       <!-- Section 1: Integration & Linked Form -->
       <section class="border rounded-lg overflow-hidden shadow-sm bg-muted/5">
@@ -296,14 +347,6 @@
               {#if CrmSyncWidgetComponent}
                 <CrmSyncWidgetComponent onSyncDataChanged={handleCrmSync} companyName={formData.companyName} allowSkip={false} />
               {/if}
-              <input type="hidden" name="crm[strategy]" value={crmSyncData.strategy} />
-              {#if crmSyncData.external_contact_id}
-                <input type="hidden" name="crm[external_contact_id]" value={crmSyncData.external_contact_id} />
-              {/if}
-              {#if crmSyncData.external_company_id}
-                <input type="hidden" name="crm[external_company_id]" value={crmSyncData.external_company_id} />
-              {/if}
-              <input type="hidden" name="crm[sync_address_to_contact]" value={crmSyncData.sync_address_to_contact ? 'true' : 'false'} />
             </div>
           {/if}
 
@@ -339,8 +382,6 @@
         </div>
       </section>
 
-      <input type="hidden" name="client_form[confirm_replace]" value={confirmedReplace ? 'true' : 'false'} />
-      
       <ClientFormFields 
         bind:formData={formData} 
         {errors} 
@@ -351,16 +392,19 @@
       />
     </div>
 
-    <div class="mt-8 pt-6 border-t flex gap-3 items-center">
-      <Button type="submit" class="btn px-8">Update Client Profile</Button>
-      <Button href={client_path(client?.id)} variant="outline" class="text-muted-foreground">Cancel</Button>
-    </div>
-    {#if crmSyncNotice}
-      <div class={`mt-3 rounded-lg border px-4 py-3 text-xs leading-relaxed ${crmSyncNotice.className}`}>
+    {#if crmSyncNotice && !shouldShowCrmPrefillBox}
+      <div class={`mt-6 rounded-lg border px-4 py-3 text-sm leading-relaxed ${crmSyncNotice.className}`}>
         {crmSyncNotice.text}
       </div>
     {/if}
-  </InertiaForm>
+
+    <div class="mt-6 pt-6 border-t flex gap-3 items-center">
+      <Button type="submit" class="btn px-8" disabled={saving}>
+        {saving ? 'Saving…' : 'Update Client Profile'}
+      </Button>
+      <Button href={client_path(client?.id)} variant="outline" class="text-muted-foreground">Cancel</Button>
+    </div>
+  </form>
 
   <Modal
     bind:showModal={showCrmLinkedNotice}

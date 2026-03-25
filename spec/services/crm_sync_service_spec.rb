@@ -80,32 +80,23 @@ RSpec.describe CrmSyncService do
       expect(CrmClientLink.count).to eq(1)
     end
 
-    it 'updates a linked CRM profile through export_data and refreshes stored external ids' do
-      client.update!(company_id: 'REG-42')
-      link = create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: nil, external_company_id: nil)
+    it 'schedules an async export via TransferScheduler for the update strategy' do
+      create(:crm_client_link, client: client, crm_connection: connection)
+      scheduler_instance2 = instance_double(Crm::TransferScheduler, schedule_export!: nil)
+      allow(Crm::TransferScheduler).to receive(:new).and_return(scheduler_instance2)
 
-      allow(service).to receive(:export_data).and_return(
-        {
-          success: true,
-          external_id: 'ext999',
-          details: {
-            contact: { id: 'ext999' },
-            company: { id: 'comp999' }
-          }
-        }
+      described_class.call(client, 'update', sync_address_to_contact: true, source: 'clients#update')
+
+      expect(Crm::TransferScheduler).to have_received(:new).with(
+        client: client,
+        connection: connection,
+        trigger: CrmTransfer::TRIGGER_CLIENT_EDIT_SYNC,
+        request_context: hash_including(
+          source: 'clients#update',
+          sync_address_to_contact: true
+        )
       )
-
-      expect(service).to receive(:export_data).with(
-        client,
-        hash_including(sync_address_to_contact: false),
-        [],
-        company_data: hash_including(company_id: 'REG-42')
-      )
-
-      described_class.call(client, 'update')
-
-      expect(link.reload.external_contact_id).to eq('ext999')
-      expect(link.external_company_id).to eq('comp999')
+      expect(scheduler_instance2).to have_received(:schedule_export!)
     end
   end
 end

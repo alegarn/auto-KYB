@@ -263,6 +263,68 @@ RSpec.describe "Clients API", type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
       expect(response.body).to include("Clients/Edit")
     end
+
+    it "enqueues ClientProfileSyncJob in the background when no CRM strategy is provided" do
+      client = create(:client, user: user)
+
+      patch client_path(client), params: { client: { name: "Updated" } }
+
+      expect(response).to redirect_to(client_path(client))
+      expect(response).to have_http_status(:found)
+      expect(enqueued_jobs.map { |j| j[:job] }).to include(ClientProfileSyncJob)
+    end
+
+    it "does not enqueue ClientProfileSyncJob when a CRM strategy is provided" do
+      client = create(:client, user: user)
+      allow(CrmSyncService).to receive(:call)
+
+      patch client_path(client), params: { client: { name: "Updated" }, crm: { strategy: "update" } }
+
+      expect(response).to redirect_to(client_path(client))
+      expect(enqueued_jobs.map { |j| j[:job] }).not_to include(ClientProfileSyncJob)
+    end
+
+    it "calls CrmSyncService inline when a CRM strategy is present" do
+      client = create(:client, user: user)
+
+      expect(CrmSyncService).to receive(:call)
+
+      patch client_path(client), params: { client: { name: "Updated" }, crm: { strategy: "update", external_contact_id: "ext_001" } }
+
+      expect(response).to redirect_to(client_path(client))
+    end
+
+    it "renders confirm_replace_required in edit props when form swap needs confirmation" do
+      client = create(:client, user: user)
+      form_a = create(:form, user: user)
+      ClientInvitationService.create_invitation(client: client, form: form_a)
+      ClientForm.last.save_response!(data: { a: 1 })
+      client.reload
+
+      form_b = create(:form, user: user)
+
+      patch client_path(client), params: {
+        client: { name: client.name },
+        client_form: { form_id: form_b.id, confirm_replace: "false" }
+      }, headers: inertia_headers
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      payload = JSON.parse(response.body)
+      expect(payload.dig("props", "confirm_replace_required")).to eq(true)
+    end
+
+    it "redirects to password_reveal when linking a new form creates a credential" do
+      client = create(:client, user: user)
+      form = create(:form, user: user)
+
+      patch client_path(client), params: {
+        client: { name: client.name },
+        client_form: { form_id: form.id }
+      }
+
+      expect(response).to have_http_status(:see_other)
+      expect(response.location).to include("password_reveal")
+    end
   end
 
   describe "DELETE /clients/:id" do
