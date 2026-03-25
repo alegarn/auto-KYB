@@ -4,7 +4,7 @@ RSpec.describe CrmTransfer, type: :model do
   describe 'constants' do
     it 'defines the allowed statuses, triggers, and failure kinds' do
       expect(described_class::STATUSES).to contain_exactly('pending', 'processing', 'success', 'failed')
-      expect(described_class::TRIGGERS).to include('manual_export', 'portal_submit', 'client_create_sync', 'data_import')
+      expect(described_class::TRIGGERS).to include('manual_export', 'portal_submit', 'client_create_sync', 'client_edit_sync', 'data_import')
       expect(described_class::FAILURE_KINDS).to include('authentication_error', 'provider_error', 'validation_error', 'unknown_error')
     end
   end

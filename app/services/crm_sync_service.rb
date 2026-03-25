@@ -33,14 +33,15 @@ class CrmSyncService
         request_context: request_context
       ).schedule_export!
     when "update"
-      service = Crm::ConnectionManager.service_for(connection)
-      result = service.export_data(
-        client,
-        { sync_address_to_contact: sync_address_to_contact },
-        [],
-        company_data: profile_company_data(client)
-      )
-      persist_link_from_export!(client, connection, result)
+      Crm::TransferScheduler.new(
+        client: client,
+        connection: connection,
+        trigger: CrmTransfer::TRIGGER_CLIENT_EDIT_SYNC,
+        request_context: {
+          source: source,
+          sync_address_to_contact: ActiveRecord::Type::Boolean.new.cast(sync_address_to_contact)
+        }.compact
+      ).schedule_export!
     end
   rescue => e
     Rails.logger.fatal("CrmSyncService Error: #{e.message}\n#{e.backtrace.join(%Q(\n))}")

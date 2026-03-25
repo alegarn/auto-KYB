@@ -5,12 +5,13 @@ module Crm
 
     Result = Struct.new(:triggered, :reason, keyword_init: true)
 
-    def self.call(client)
-      new(client).call
+    def self.call(client, changed_attribute_keys: nil)
+      new(client, changed_attribute_keys: changed_attribute_keys).call
     end
 
-    def initialize(client)
+    def initialize(client, changed_attribute_keys: nil)
       @client = client
+      @changed_attribute_keys = changed_attribute_keys
     end
 
     def call
@@ -18,7 +19,13 @@ module Crm
       return Result.new(triggered: false, reason: :inactive_connection) unless connection_active?
       return Result.new(triggered: false, reason: :no_relevant_changes) unless relevant_changes?
 
-      CrmSyncService.call(@client, "update")
+      connection = @client.crm_client_link.crm_connection
+      Crm::TransferScheduler.new(
+        client: @client,
+        connection: connection,
+        trigger: CrmTransfer::TRIGGER_CLIENT_EDIT_SYNC,
+        request_context: { source: "client_profile_sync" }
+      ).schedule_export!
       Result.new(triggered: true, reason: :synced)
     end
 
@@ -33,7 +40,8 @@ module Crm
     end
 
     def relevant_changes?
-      @client.previous_changes.slice(*SYNCED_ATTRIBUTES).any?
+      keys = @changed_attribute_keys.nil? ? @client.previous_changes.keys : @changed_attribute_keys
+      (Array(keys).map(&:to_s) & SYNCED_ATTRIBUTES).any?
     end
 
   end

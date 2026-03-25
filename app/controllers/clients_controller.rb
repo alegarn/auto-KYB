@@ -163,7 +163,7 @@ class ClientsController < ApplicationController
         )
       end
 
-      sync_linked_client_profile_to_crm if crm_sync_params[:strategy].blank?
+      ClientProfileSyncJob.perform_later(@client.id, @client.previous_changes.keys) if crm_sync_params[:strategy].blank?
 
       redirect_to client_path(@client), notice: "Client updated"
       return
@@ -361,10 +361,6 @@ class ClientsController < ApplicationController
     props[:user] = user_props if include_user
 
     render inertia: view, props: props, status: :unprocessable_entity
-  end
-
-  def sync_linked_client_profile_to_crm
-    Crm::ClientProfileSyncService.call(@client)
   end
 
   def crm_sync_status_for(client)
