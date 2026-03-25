@@ -19,7 +19,7 @@
 - Q: Where in the UI should the CRM test connection feature be available? → A: Both: In CRM settings (general connection test) AND on form pages (form-specific mapping test)
 - Q: When a CRM test connection fails, what information should be displayed to the user? → A: Categorized errors (connection, authentication, field mapping, file upload) with specific guidance for each type
 - Q: How does the system ensure data type compatibility between form fields and CRM properties? → A: The system uses a compatibility matrix (e.g., 'number' matches 'integer', 'float', 'decimal') and displays a "Type mismatch" warning in the UI if incompatible types are selected.
-- Q: How does the system handle mapping to multiple CRM objects (Contact vs Company)? → A: The UI allows selecting the target object type (Contact or Company) for each field. An "Export Preview" summary indicates if both records will be created and if they can be successfully linked (e.g., checking for required identifiers like 'email' for Contacts or 'name/domain' for Companies).
+- Q: How does the system handle mapping to multiple CRM objects (Contact/Lead vs Company)? → A: The UI allows selecting the target object type (Contact or Company) for each field. An "Export Preview" summary indicates if both records will be created and if they can be successfully linked (e.g., checking for required identifiers like 'email' for Contacts or 'name/domain' for Companies).
 - Q: Can users create new properties in their CRM directly from the app? → A: Yes, users can select "+ Create as Custom Contact/Company Property" which will trigger the creation of that property in the CRM during the export process.
 - Q: Is there an automated way to set up mappings? → A: Yes, an "Auto-Map Fields" feature uses fuzzy matching and type validation to suggest mappings for all form fields.
 
@@ -111,6 +111,7 @@ As a user, I want to manually export client data to my connected CRM, so that I 
 4. **Given** the user initiates a manual export, **When** the export completes successfully, **Then** the user is notified of the successful export
 5. **Given** the user initiates a manual export, **When** the export fails, **Then** the user is notified with the reason for failure
 6. **Given** automatic CRM sync after portal submission is disabled in settings, **When** the user wants to push validated submission data to CRM, **Then** the client page manual export flow remains available as the supported fallback
+7. **Given** the user created a client locally without linking it to CRM, **When** they later open the client page or a validated portal submission for that client, **Then** the client and company can still be exported to the connected CRM and linked afterward
 
 ---
 
@@ -208,6 +209,7 @@ As a user, I want to export a client from the application to a connected CRM as 
 3. **Given** the client has an existing CRM identifier stored, **When** the user exports, **Then** the system updates the existing CRM record rather than creating duplicates (where matching rules exist)
 4. **Given** the exported payload includes files, **When** the CRM does not support the file type or size, **Then** the export records partial success and surfaces file-specific errors to the user
 5. **Given** the user exports to multiple CRMs, **When** some exports succeed and others fail, **Then** the UI displays per-CRM statuses and retry options for failed exports
+6. **Given** the client is linked to a company in the application, **When** the export runs, **Then** the company is created or updated in the CRM when the provider supports company associations and identifiers such as a domain or company id
 
 ---
 
@@ -294,6 +296,8 @@ As a user, I want saving a CRM-linked client from the back-office edit page to u
 4. **Given** a client is linked to an active CRM connection, **When** the user clicks the manual CRM prefill action, **Then** fresh CRM data is fetched only for that explicit action and not automatically on page load
 5. **Given** a client is linked to an active CRM connection, **When** the user saves profile or company changes from the edit page, **Then** the application updates the local client and triggers an update of the linked CRM contact/company record
 6. **Given** a client is linked to CRM but the connection is inactive, **When** the user views or saves the edit page, **Then** the page warns that changes stay local until the CRM connection becomes active again
+7. **Given** a client is linked to CRM, **When** the user clicks "Complete with CRM data", **Then** the application refreshes all client and company fields from the current CRM data before the user continues editing
+8. **Given** a client is linked to CRM, **When** the user saves changes from the edit page, **Then** a confirmation modal explains that the linked CRM contact/company will be updated by the save action
 
 ---
 
@@ -316,19 +320,43 @@ As a user, I want new CRM transfer failures to appear as a sidebar badge and a o
 
 ### User Story 16 - Idempotent Client Create Sync Retries (Priority: P1)
 
-As a user, I want create-sync CRM transfers to retry safely without creating duplicate contacts or companies, so that failed transfers can recover without corrupting my CRM data.
+As a user, I want create-sync CRM transfers to retry safely without creating duplicate clients or companies, so that failed transfers can recover without corrupting my CRM data.
 
 **Why this priority**: The client-create path is high risk because a partial failure can create a remote record before later steps fail. Retrying must reuse discovered identifiers and avoid duplicate in-flight work.
 
-**Independent Test**: Can be fully tested by forcing a partial client-create sync failure, retrying it, and confirming the CRM reuses the original identifiers without creating duplicate contact/company records.
+**Independent Test**: Can be fully tested by forcing a partial client-create sync failure, retrying it, and confirming the CRM reuses the original identifiers without creating duplicate client/company records.
 
 **Acceptance Scenarios**:
 
-1. **Given** a `client_create_sync` transfer already created a CRM contact, **When** the job retries, **Then** it reuses the stored CRM contact id instead of creating a duplicate contact
-2. **Given** a client has an email match in the CRM but no stored external contact id, **When** the job runs, **Then** it searches by email before creating a new contact and persists the found id
+1. **Given** a `client_create_sync` transfer already created a CRM client, **When** the job retries, **Then** it reuses the stored CRM client id instead of creating a duplicate client
+2. **Given** a client has an email match in the CRM but no stored external client id, **When** the job runs, **Then** it searches by email before creating a new client and persists the found id
 3. **Given** a pending or processing `client_create_sync` transfer already exists for the same client and CRM connection, **When** the same create-sync action is triggered again, **Then** the scheduler returns the existing transfer instead of creating a duplicate
-4. **Given** the contact-company association already exists in the CRM, **When** the executor associates them again, **Then** the association is treated as success
-5. **Given** the create CRM contact action is accepted from the client page, **When** the request completes, **Then** the user is told the CRM contact creation was queued and can track it in CRM Transfers
+4. **Given** the client-company association already exists in the CRM, **When** the executor associates them again, **Then** the association is treated as success
+5. **Given** the create CRM client action is accepted from the client page, **When** the request completes, **Then** the user is told the CRM client creation was queued and can track it in CRM Transfers
+6. **Given** a create-sync transfer failed after a remote CRM record was already created, **When** the user retries it, **Then** the retry reuses the existing CRM identifiers so only one client and one company record exist in the CRM
+
+---
+
+### User Story 17 - Client Creation, CRM Linking, and Prefill (Priority: P1)
+
+As a user, I want to create a client locally, create a new CRM lead/client, or link an existing CRM lead/contact during client creation, so that I can choose the right onboarding path and avoid duplicate data entry.
+
+**Why this priority**: Client creation is the first point where CRM linkage can happen. If the app cannot either stay local, create a new CRM record asynchronously, or link an existing CRM record and prefill the form, the rest of the CRM workflows become fragmented.
+
+**Independent Test**: Can be fully tested by creating a client with and without an active CRM connection, choosing local creation, create-in-CRM, and link-existing flows, and verifying the saved client, CRM transfer status, and prefilling behavior.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is creating a client and does not choose a CRM action, **When** they save the client, **Then** the client is created locally without a CRM link
+2. **Given** the user is creating a client and a CRM connection is active, **When** they choose to create a new lead/contact in the CRM, **Then** the client is created locally and the CRM creation is queued asynchronously with status visible in CRM Transfers
+3. **Given** the user is creating a client and a CRM connection is active, **When** they choose to link an existing CRM contact/lead, **Then** the app searches the CRM by email or name, allows the user to select a match, links that record to the new client, and pre-fills the client info from the CRM data
+4. **Given** the user created a client locally without linking it to CRM, **When** they later export it from the client edit page or from a validated portal submission, **Then** the client and its company can be linked to the CRM at that time
+5. **Given** the user creates a client with company information and chooses to create a new CRM lead/contact, **When** the export starts, **Then** the company is created or linked in the CRM as part of the same flow and the address is taken from the company address, not the client address, unless the user explicitly chooses to copy the client address to CRM only
+6. **Given** the company name and required company info are completed during client creation, **When** the user chooses to create a new CRM lead/contact, **Then** the UI indicates that the flow will also create a new company record in the CRM
+7. **Given** the CRM supports company associations and the client is linked to a company in the app, **When** the client or form is exported to CRM, **Then** the company is created or updated in the CRM using the provider's supported identifiers and association fields
+8. **Given** the user opens the client edit page for a CRM-linked client, **When** they click "Complete with CRM data", **Then** the app refreshes all client and company fields from the current CRM record
+9. **Given** the user deletes a client that is linked to CRM, **When** the deletion is confirmed, **Then** only the local application client is deleted and the CRM record remains untouched
+
 
 ---
 
@@ -418,6 +446,17 @@ As a user, I want create-sync CRM transfers to retry safely without creating dup
 - FR-055: System MUST display an inline warning on the client edit page when a client is linked to an active CRM connection explaining that CRM fetch is manual and edit-save sync is automatic
 - FR-056: System MUST automatically update the linked CRM contact/company record after a successful local save of a CRM-linked client when the linked connection is active
 - FR-057: System MUST persist dismissal of the linked-client informational edit modal once per browser/device while continuing to show the inline warning on the page
+- FR-058: System MUST allow client creation to remain local or to create/link a CRM lead/contact when a CRM connection is active
+- FR-059: System MUST allow users to search existing CRM contacts/leads by email or name during client creation and link the selected record to the new client
+- FR-060: System MUST prefill client information in the application from the selected CRM record when the user links an existing contact/lead during client creation
+- FR-061: System MUST queue new CRM lead/contact creation asynchronously during client creation and expose the export status in CRM Transfers
+- FR-062: System MUST create or link the associated company in CRM during client creation and later export flows when the CRM connection is active
+- FR-063: System MUST use the company's address for CRM company data by default and only include the client address in CRM when the user explicitly opts in
+- FR-064: System MUST allow clients and companies created locally to be exported and linked to CRM later from the client edit page or validated portal submission flow
+- FR-065: System MUST retry failed create-sync operations idempotently by reusing existing CRM identifiers and avoiding duplicate client/company records
+- FR-066: System MUST provide a "Complete with CRM data" action for linked clients that refreshes all client and company fields from the current CRM data
+- FR-067: System MUST delete only the local application client record when a linked client is deleted and MUST leave CRM records untouched
+
 ### Key Entities
 
 - **CRM Connection**: Represents an authorized OAuth2 connection between a user and a CRM provider (Zoho, Salesforce, or HubSpot). Contains connection credentials, status, and provider-specific metadata.
