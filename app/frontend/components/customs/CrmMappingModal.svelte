@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { areTypesCompatible, getFieldDataType, analyzeMappings, getProviderFileActions, toCrmKey, fromCrmKey, CRM_KEY_SEP, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
+  import { areTypesCompatible, getFieldDataType, analyzeMappings, getProviderFileActions, getCrmObjectLabel, toCrmKey, fromCrmKey, CRM_KEY_SEP, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
   import { isLayoutField } from './form-builder/types';
   import { Select } from "bits-ui";
   import { Check, ChevronsUpDown, Search, Loader2 } from "@lucide/svelte";
@@ -63,15 +63,10 @@
     );
   }
 
-  function formatObjectType(objectType: string) {
-    if (!objectType) return 'Record';
-    return objectType.charAt(0).toUpperCase() + objectType.slice(1);
-  }
-
-  function formatSelectedPropertyLabel(prop: any, objectType: string) {
+  function formatSelectedPropertyLabel(provider: string, prop: any, objectType: string) {
     const label = prop?.label || prop?.name || 'Unknown property';
     const type = prop?.type ? ` (${prop.type})` : '';
-    return `${label} [${formatObjectType(objectType)}]${type}`;
+    return `${label} [${getCrmObjectLabel(provider, objectType)}]${type}`;
   }
 
   function handleSave() {
@@ -352,11 +347,11 @@
                                     data-testid={`crm-mapping-select-${fieldKey}-${provider}`}
                                   >
                                     {#if currentValue === "__custom_contact__"}
-                                      + Create as Custom Contact Property
+                                      + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
                                     {:else if selectedFileAction}
                                       {selectedFileAction.label}
                                     {:else}
-                                      {selectedProp ? formatSelectedPropertyLabel(selectedProp, mapping.object_type) : "-- Do not map --"}
+                                      {selectedProp ? formatSelectedPropertyLabel(provider, selectedProp, mapping.object_type) : "-- Do not map --"}
                                     {/if}
                                     <ChevronsUpDown class="h-4 w-4 opacity-50" />
                                   </Select.Trigger>
@@ -389,7 +384,7 @@
                                         class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm font-semibold text-blue-600 outline-none focus:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                         data-slot="select-item"
                                       >
-                                        + Create as Custom Contact Property
+                                        + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
                                       </Select.Item>
                                       
                                       {#if getFieldDataType(field.field_type) === 'file' && providerFileActions.length > 0}
@@ -405,7 +400,7 @@
                                         {/each}
                                       {/if}
 
-                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Contact Properties</div>
+                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'contact')} Properties</div>
                                       {#each getFilteredProperties(properties.contact || [], fieldSearch[`${fieldKey}-${provider}`]) as prop}
                                         <Select.Item
                                           value={`contact:${prop.name}`}
@@ -413,12 +408,12 @@
                                           class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                           data-slot="select-item"
                                         >
-                                          <span class="flex-1 truncate">{prop.label || prop.name} [Contact] {prop.read_only ? '(Read Only)' : ''}</span>
+                                          <span class="flex-1 truncate">{prop.label || prop.name} [{getCrmObjectLabel(provider, 'contact')}] {prop.read_only ? '(Read Only)' : ''}</span>
                                           <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}
 
-                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Company Properties</div>
+                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'company')} Properties</div>
                                       {#each getFilteredProperties(properties.company || [], fieldSearch[`${fieldKey}-${provider}`]) as prop}
                                         <Select.Item
                                           value={`company:${prop.name}`}
@@ -426,7 +421,7 @@
                                           class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                           data-slot="select-item"
                                         >
-                                          <span class="flex-1 truncate">{prop.label || prop.name} [Company] {prop.read_only ? '(Read Only)' : ''}</span>
+                                          <span class="flex-1 truncate">{prop.label || prop.name} [{getCrmObjectLabel(provider, 'company')}] {prop.read_only ? '(Read Only)' : ''}</span>
                                           <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}

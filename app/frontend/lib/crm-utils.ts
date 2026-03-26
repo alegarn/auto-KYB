@@ -7,6 +7,29 @@ export type DataType = 'string' | 'number' | 'boolean' | 'date' | 'file' | 'json
 
 export const CRM_KEY_SEP = '::';
 
+const CRM_OBJECT_LABELS: Record<string, Record<string, string>> = {
+  hubspot: {
+    contact: 'Contact',
+    company: 'Company',
+  },
+  salesforce: {
+    contact: 'Contact',
+    company: 'Account',
+  },
+  zoho: {
+    contact: 'Contact',
+    company: 'Account',
+  },
+};
+
+export function getCrmObjectLabel(provider: string, objectType: string): string {
+  const providerKey = String(provider || '').toLowerCase();
+  const objectKey = String(objectType || '').toLowerCase();
+
+  return CRM_OBJECT_LABELS[providerKey]?.[objectKey]
+    || (objectKey ? objectKey.charAt(0).toUpperCase() + objectKey.slice(1) : 'Record');
+}
+
 /** Build a compound key: toCrmKey('company','address') → 'company::address' */
 export function toCrmKey(objectType: string, propertyName: string): string {
   if (!objectType || !propertyName) return propertyName || '';

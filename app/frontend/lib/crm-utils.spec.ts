@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { areTypesCompatible, getFieldDataType, analyzeMappings, autoMapFields, toCrmKey, fromCrmKey, isCompoundKey, CRM_KEY_SEP } from './crm-utils';
+import { areTypesCompatible, getCrmObjectLabel, getFieldDataType, analyzeMappings, autoMapFields, toCrmKey, fromCrmKey, isCompoundKey, CRM_KEY_SEP } from './crm-utils';
 
 describe('getFieldDataType', () => {
   it('identifies string types', () => {
@@ -19,6 +19,20 @@ describe('getFieldDataType', () => {
 
   it('identifies date types', () => {
     expect(getFieldDataType('date')).toBe('date');
+  });
+});
+
+describe('getCrmObjectLabel', () => {
+  it('returns provider-specific labels for supported CRM objects', () => {
+    expect(getCrmObjectLabel('hubspot', 'company')).toBe('Company');
+    expect(getCrmObjectLabel('salesforce', 'company')).toBe('Account');
+    expect(getCrmObjectLabel('zoho', 'company')).toBe('Account');
+    expect(getCrmObjectLabel('hubspot', 'contact')).toBe('Contact');
+  });
+
+  it('falls back to a capitalized object type when no provider-specific label exists', () => {
+    expect(getCrmObjectLabel('unknown', 'deal')).toBe('Deal');
+    expect(getCrmObjectLabel('hubspot', '')).toBe('Record');
   });
 });
 
