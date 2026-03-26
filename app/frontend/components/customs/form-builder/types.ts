@@ -130,6 +130,40 @@ export function isLayoutField(fieldType: FieldType): boolean {
   return ['section', 'subtitle', 'static_text', 'separator', 'logo'].includes(fieldType);
 }
 
+export function crmProviderDisplayName(provider: string): string {
+  switch (provider) {
+    case 'hubspot':
+      return 'HubSpot';
+    case 'salesforce':
+      return 'Salesforce';
+    default:
+      return provider
+        .split(/[_-]/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+  }
+}
+
+export function singleActiveCrmProvider(providers: string[]): string | null {
+  return providers.length === 1 ? providers[0] : null;
+}
+
+export function hasCrmMappingForProvider(field: FormField, provider: string): boolean {
+  const mapping = field.metadata?.crm_mapping?.[provider];
+  if (!mapping) return false;
+
+  return mapping.type === 'custom' || !!mapping.property_name?.toString().trim();
+}
+
+export function unmappedCrmFields(fields: FormField[], provider: string): FormField[] {
+  return fields.filter((field) => {
+    if (isLayoutField(field.field_type)) return false;
+
+    return !hasCrmMappingForProvider(field, provider);
+  });
+}
+
 export function effectiveExportKey(field: FormField, fallbackIndex = 0): string {
   const explicit = field.metadata?.export_key?.toString().trim();
   if (explicit) return explicit;

@@ -87,4 +87,24 @@ describe('FormBuilder', () => {
 
     expect(onmappingvaliditychange).toHaveBeenCalledWith(false)
   })
+
+  it('shows CRM mapping warning with a CTA', async () => {
+    const onopencrmmapping = vi.fn()
+
+    const { getByText } = render(FormBuilder, {
+      fields: [
+        { id: '1', label: 'Company name', field_type: 'text', required: false, position: 1, metadata: {} }
+      ],
+      settings: {},
+      showCrmMappingWarning: true,
+      crmMappingWarningProviderName: 'HubSpot',
+      unmappedCrmFieldLabels: ['Company name'],
+      onopencrmmapping,
+    })
+
+    expect(getByText('Some fields will not export to HubSpot.')).toBeInTheDocument()
+
+    await fireEvent.click(getByText('Open CRM field mapping'))
+    expect(onopencrmmapping).toHaveBeenCalledTimes(1)
+  })
 })

@@ -14,6 +14,7 @@
     fields = [],
     onsave,
     ontestcrm,
+    showTestAction = true,
     testingCrm = false,
     testCrmSuccess = false
   } = $props();
@@ -460,13 +461,15 @@
           <span class="text-green-600 text-sm font-medium mr-auto">✓ Test export sent successfully!</span>
         {/if}
         
-        <button 
-          onclick={handleTest}
-          class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
-          disabled={testingCrm || Object.keys(crmProperties).length === 0}
-        >
-          {testingCrm ? 'Sending Test...' : 'Send Test Data'}
-        </button>
+        {#if showTestAction}
+          <button 
+            onclick={handleTest}
+            class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
+            disabled={testingCrm || Object.keys(crmProperties).length === 0}
+          >
+            {testingCrm ? 'Sending Test...' : 'Send Test Data'}
+          </button>
+        {/if}
 
         <button 
           onclick={close}

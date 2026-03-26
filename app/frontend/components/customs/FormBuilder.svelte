@@ -11,14 +11,22 @@
     fields: FormField[];
     settings?: FormSettings;
     showMappingWarning?: boolean;
+    showCrmMappingWarning?: boolean;
+    crmMappingWarningProviderName?: string;
+    unmappedCrmFieldLabels?: string[];
     onmappingvaliditychange?: (isValid: boolean) => void;
+    onopencrmmapping?: () => void;
   }
 
   let {
     fields = $bindable([]),
     settings = $bindable({}),
     showMappingWarning = false,
+    showCrmMappingWarning = false,
+    crmMappingWarningProviderName = 'your CRM',
+    unmappedCrmFieldLabels = [],
     onmappingvaliditychange,
+    onopencrmmapping,
   }: Props = $props();
 
   let selectedIndex = $state<number | null>(null);
@@ -115,6 +123,8 @@
 
   const duplicateMappingKeys = $derived(duplicateExportKeys(fields));
   const hasMappingDuplicates = $derived(duplicateMappingKeys.length > 0);
+  const crmWarningFieldPreview = $derived(unmappedCrmFieldLabels.slice(0, 3));
+  const crmWarningRemainingCount = $derived(Math.max(unmappedCrmFieldLabels.length - crmWarningFieldPreview.length, 0));
 
   $effect(() => {
     onmappingvaliditychange?.(!hasMappingDuplicates);
@@ -146,6 +156,28 @@
   </div>
 
   <div class="block lg:block">
+    {#if showCrmMappingWarning}
+      <div class="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <p class="font-medium">Some fields will not export to {crmMappingWarningProviderName}.</p>
+        <p class="mt-1 text-xs text-amber-800">
+          {#if crmWarningFieldPreview.length > 0}
+            Still unmapped: {crmWarningFieldPreview.join(', ')}{#if crmWarningRemainingCount > 0} and {crmWarningRemainingCount} more{/if}.
+          {:else}
+            Some fields are still set to Do not map.
+          {/if}
+        </p>
+        {#if onopencrmmapping}
+          <button
+            type="button"
+            class="mt-2 text-xs font-medium text-amber-900 underline underline-offset-4"
+            onclick={() => onopencrmmapping?.()}
+          >
+            Open CRM field mapping
+          </button>
+        {/if}
+      </div>
+    {/if}
+
     <div class="mb-3 flex rounded-lg border bg-muted p-1">
       <button
         type="button"
