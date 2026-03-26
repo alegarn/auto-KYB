@@ -144,6 +144,58 @@ describe('autoMapFields', () => {
     expect(result['1'].hubspot.object_type).toBe('contact');
   });
 
+  it('maps draft fields without ids using a stable fallback key', () => {
+    const fields = [{ label: 'Company name', field_type: 'text', metadata: {} }];
+    const result = autoMapFields(fields, mockProperties);
+
+    expect(result['draft:0'].hubspot).toBeDefined();
+    expect(result['draft:0'].hubspot.property_name).toBe('company::name');
+    expect(result['draft:0'].hubspot.object_type).toBe('company');
+  });
+
+  it('maps company name fields to the company name property even when the CRM label is generic', () => {
+    const fields = [{ id: '1', label: 'Company name', field_type: 'text', metadata: {} }];
+    const genericCompanyProps = {
+      hubspot: {
+        contact: [
+          { name: 'associatedcompanyname', label: 'Associated company name', type: 'string' }
+        ],
+        company: [
+          { name: 'name', label: 'Name', type: 'string' }
+        ]
+      }
+    };
+
+    const result = autoMapFields(fields, genericCompanyProps);
+
+    expect(result['1'].hubspot.property_name).toBe('company::name');
+    expect(result['1'].hubspot.object_type).toBe('company');
+  });
+
+  it('uses company-oriented export keys to disambiguate fuzzy matches', () => {
+    const fields = [{
+      id: '1',
+      label: 'Business',
+      field_type: 'text',
+      metadata: { export_key: 'company_name' } as any
+    }];
+    const genericCompanyProps = {
+      hubspot: {
+        contact: [
+          { name: 'associatedcompanyname', label: 'Associated company name', type: 'string' }
+        ],
+        company: [
+          { name: 'name', label: 'Name', type: 'string' }
+        ]
+      }
+    };
+
+    const result = autoMapFields(fields, genericCompanyProps);
+
+    expect(result['1'].hubspot.property_name).toBe('company::name');
+    expect(result['1'].hubspot.object_type).toBe('company');
+  });
+
   it('prioritizes export_key even when label differs', () => {
     const fields = [{ 
       id: '1', 
@@ -206,6 +258,25 @@ describe('autoMapFields', () => {
     const parsed = fromCrmKey(result['1'].hubspot.property_name);
     expect(parsed.propertyName).toBe('address');
     expect(parsed.objectType).toBe(result['1'].hubspot.object_type);
+  });
+
+  it('prefers company properties for address-like fields when both objects expose the same key', () => {
+    const propsWithSameKey = {
+      hubspot: {
+        contact: [
+          { name: 'address', label: 'Street Address', type: 'string' }
+        ],
+        company: [
+          { name: 'address', label: 'Street Address', type: 'string' }
+        ]
+      }
+    };
+
+    const fields = [{ id: '1', label: 'Street Address', field_type: 'text', metadata: {} }];
+    const result = autoMapFields(fields, propsWithSameKey);
+
+    expect(result['1'].hubspot.property_name).toBe('company::address');
+    expect(result['1'].hubspot.object_type).toBe('company');
   });
 });
 

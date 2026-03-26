@@ -208,15 +208,101 @@ function similarityScore(a: string, b: string): number {
   return 1 - dist / maxLen;
 }
 
+const CRM_OBJECT_HINTS: Record<string, string[]> = {
+  contact: ['contact', 'person', 'individual', 'lead'],
+  company: ['company', 'business', 'organization', 'organisation', 'org', 'account', 'firm', 'corporation', 'corp', 'enterprise'],
+};
+
+const CRM_OBJECT_PREFERRED_TERMS: Record<string, string[]> = {
+  contact: ['first', 'last', 'full'],
+  company: ['address', 'street', 'city', 'state', 'postal', 'zip', 'country', 'domain', 'website', 'industry', 'vat', 'tax', 'registration', 'revenue'],
+};
+
+function normalizeForWords(s?: string | null): string {
+  if (!s) return '';
+  const str = String(s).toLowerCase().trim();
+  const withoutDiacritics = (str.normalize && str.normalize('NFD')) ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : str;
+  return withoutDiacritics.replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function uniqueNonEmpty(values: Array<string | undefined | null>): string[] {
+  return [...new Set(values.map(value => value?.trim()).filter((value): value is string => !!value))];
+}
+
+function getObjectAwareVariants(value: string | undefined | null, objectType: string): string[] {
+  const wordForm = normalizeForWords(value);
+  if (!wordForm) return [];
+
+  const hints = CRM_OBJECT_HINTS[objectType] || [];
+  const words = wordForm.split(/\s+/).filter(Boolean);
+  const strippedWords = words.filter(word => !hints.includes(word));
+
+  return uniqueNonEmpty([
+    normalizeForMatch(wordForm),
+    strippedWords.length > 0 ? normalizeForMatch(strippedWords.join(' ')) : '',
+  ]);
+}
+
+function getObjectPreferenceScore(values: Array<string | undefined | null>, objectType: string): number {
+  const wordHints = CRM_OBJECT_HINTS[objectType] || [];
+  const preferredTerms = CRM_OBJECT_PREFERRED_TERMS[objectType] || [];
+
+  return values.reduce((score, value) => {
+    const words = normalizeForWords(value).split(/\s+/).filter(Boolean);
+    if (words.length === 0) return score;
+
+    let nextScore = score;
+    if (words.some(word => wordHints.includes(word))) nextScore += 3;
+    if (words.some(word => preferredTerms.includes(word))) nextScore += 1;
+    return nextScore;
+  }, 0);
+}
+
+type MatchTier = 'raw-exact' | 'normalized-exact' | 'object-aware-exact' | 'fuzzy';
+
+type MatchCandidate = {
+  prop: any;
+  object_type: string;
+  tier: MatchTier;
+  distance: number;
+  similarity: number;
+  objectPreference: number;
+};
+
+function compareCandidates(left: MatchCandidate, right: MatchCandidate): number {
+  const tierOrder: Record<MatchTier, number> = {
+    'raw-exact': 4,
+    'normalized-exact': 3,
+    'object-aware-exact': 2,
+    'fuzzy': 1,
+  };
+
+  const tierDelta = tierOrder[left.tier] - tierOrder[right.tier];
+  if (tierDelta !== 0) return tierDelta;
+
+  const preferenceDelta = left.objectPreference - right.objectPreference;
+  if (preferenceDelta !== 0) return preferenceDelta;
+
+  const similarityDelta = left.similarity - right.similarity;
+  if (similarityDelta !== 0) return similarityDelta;
+
+  return right.distance - left.distance;
+}
+
+function shouldAcceptCandidate(candidate: MatchCandidate | null): boolean {
+  if (!candidate) return false;
+  if (candidate.tier !== 'fuzzy') return true;
+
+  return candidate.distance <= 2 || candidate.similarity >= 0.85 || (candidate.objectPreference > 0 && candidate.similarity >= 0.75);
+}
+
 export function autoMapFields(fields: any[], crmProperties: Record<string, any>): Record<string, Record<string, any>> {
   const newMappings: Record<string, Record<string, any>> = {};
 
-  fields.forEach(field => {
+  fields.forEach((field, index) => {
     const rawFieldId = field?.id;
-    // Skip fields without a stable string id (e.g., section dividers)
-    if (!rawFieldId || typeof rawFieldId !== 'string') return;
+    const fieldId = (rawFieldId && typeof rawFieldId === 'string') ? rawFieldId : `draft:${index}`;
 
-    const fieldId = rawFieldId;
     const fieldLabel = String(field.label || fieldId || '').toLowerCase();
     const fieldLabelNorm = normalizeForMatch(field.label || fieldId || '');
     const fieldIdNorm = normalizeForMatch(fieldId);
@@ -224,89 +310,118 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
     // Use export_key as a matching feature if available
     const exportKey = (field.metadata?.export_key || '').toLowerCase();
     const exportKeyNorm = exportKey ? normalizeForMatch(exportKey) : '';
+    const rawFieldTerms = uniqueNonEmpty([fieldLabel, String(fieldId).toLowerCase(), exportKey]);
+    const normalizedFieldTerms = uniqueNonEmpty([fieldLabelNorm, fieldIdNorm, exportKeyNorm]);
 
     newMappings[fieldId] = {};
 
     Object.entries(crmProperties).forEach(([provider, properties]) => {
-      // Loop through object types (contact, company)
+      let bestCandidate: MatchCandidate | null = null;
+
       for (const objType of ['contact', 'company']) {
         const props = properties[objType] || [];
+        const objectAwareTerms = uniqueNonEmpty([
+          ...rawFieldTerms.flatMap(term => getObjectAwareVariants(term, objType)),
+          ...normalizedFieldTerms,
+        ]);
+        const objectPreference = getObjectPreferenceScore([field.label, fieldId, exportKey], objType);
 
-        // 1) Try exact match first (avoid false positives)
-        const exactMatch = props.find((p: any) => {
+        for (const p of props) {
+          if (!areTypesCompatible(field.field_type, p.type)) continue;
+
           const propName = String(p.name || '').toLowerCase();
           const propLabel = String(p.label || '').toLowerCase();
           const propNameNorm = normalizeForMatch(p.name);
           const propLabelNorm = normalizeForMatch(p.label);
-          const fieldIdLower = String(fieldId).toLowerCase();
 
-          // Try match against label, ID or EXPORT KEY
-          const matchesRaw = propName === fieldLabel || propLabel === fieldLabel || propName === fieldIdLower || propName === exportKey || propLabel === exportKey;
-
+          const matchesRaw = rawFieldTerms.some(term => term === propName || term === propLabel);
           if (matchesRaw) {
-            return areTypesCompatible(field.field_type, p.type);
+            const candidate: MatchCandidate = {
+              prop: p,
+              object_type: objType,
+              tier: 'raw-exact',
+              distance: 0,
+              similarity: 1,
+              objectPreference,
+            };
+            if (!bestCandidate || compareCandidates(candidate, bestCandidate) > 0) bestCandidate = candidate;
+            continue;
           }
-          // Also allow exact match on normalized strings (handles punctuation/diacritics)
-          const matchesNorm = (propNameNorm && (propNameNorm === fieldLabelNorm || propNameNorm === exportKeyNorm)) || 
-                             (propLabelNorm && (propLabelNorm === fieldLabelNorm || propLabelNorm === exportKeyNorm));
 
+          const matchesNorm = normalizedFieldTerms.some(term => term === propNameNorm || term === propLabelNorm);
           if (matchesNorm) {
-            return areTypesCompatible(field.field_type, p.type);
+            const candidate: MatchCandidate = {
+              prop: p,
+              object_type: objType,
+              tier: 'normalized-exact',
+              distance: 0,
+              similarity: 1,
+              objectPreference,
+            };
+            if (!bestCandidate || compareCandidates(candidate, bestCandidate) > 0) bestCandidate = candidate;
+            continue;
           }
-          return false;
-        });
 
-        if (exactMatch) {
-          newMappings[fieldId][provider] = {
-            type: 'existing',
-            object_type: objType,
-            property_name: toCrmKey(objType, exactMatch.name)
-          };
-          break; // Stop looking in other object types once matched for this provider
-        }
-
-        // 2) Fuzzy matching: find best candidate by Levenshtein distance / similarity
-        let best: { prop: any; distance: number; similarity: number } | null = null;
-        for (const p of props) {
-          if (!areTypesCompatible(field.field_type, p.type)) continue;
-          const propNameNorm = normalizeForMatch(p.name);
-          const propLabelNorm = normalizeForMatch(p.label);
           if (!propNameNorm && !propLabelNorm) continue;
 
-          // Evaluate against both name and label
+          const matchesObjectAware = objectAwareTerms.some(term => term === propNameNorm || term === propLabelNorm);
+          if (matchesObjectAware) {
+            const candidate: MatchCandidate = {
+              prop: p,
+              object_type: objType,
+              tier: 'object-aware-exact',
+              distance: 0,
+              similarity: 1,
+              objectPreference,
+            };
+            if (!bestCandidate || compareCandidates(candidate, bestCandidate) > 0) bestCandidate = candidate;
+            continue;
+          }
+
           let candidateDistance = Infinity;
           let candidateSimilarity = -1;
-          if (propNameNorm) {
-            const d = levenshteinDistance(fieldLabelNorm, propNameNorm);
-            const s = similarityScore(fieldLabelNorm, propNameNorm);
-            if (d < candidateDistance || (d === candidateDistance && s > candidateSimilarity)) {
-              candidateDistance = d;
-              candidateSimilarity = s;
+          for (const term of objectAwareTerms) {
+            if (!term) continue;
+
+            if (propNameNorm) {
+              const distance = levenshteinDistance(term, propNameNorm);
+              const similarity = similarityScore(term, propNameNorm);
+              if (distance < candidateDistance || (distance === candidateDistance && similarity > candidateSimilarity)) {
+                candidateDistance = distance;
+                candidateSimilarity = similarity;
+              }
             }
-          }
-          if (propLabelNorm) {
-            const d = levenshteinDistance(fieldLabelNorm, propLabelNorm);
-            const s = similarityScore(fieldLabelNorm, propLabelNorm);
-            if (d < candidateDistance || (d === candidateDistance && s > candidateSimilarity)) {
-              candidateDistance = d;
-              candidateSimilarity = s;
+
+            if (propLabelNorm) {
+              const distance = levenshteinDistance(term, propLabelNorm);
+              const similarity = similarityScore(term, propLabelNorm);
+              if (distance < candidateDistance || (distance === candidateDistance && similarity > candidateSimilarity)) {
+                candidateDistance = distance;
+                candidateSimilarity = similarity;
+              }
             }
           }
 
-          if (!best || candidateDistance < best.distance || (candidateDistance === best.distance && candidateSimilarity > best.similarity)) {
-            best = { prop: p, distance: candidateDistance, similarity: candidateSimilarity };
-          }
-        }
+          if (!Number.isFinite(candidateDistance)) continue;
 
-        // Accept fuzzy match if it's reasonably close
-        if (best && (best.distance <= 2 || best.similarity >= 0.8)) {
-          newMappings[fieldId][provider] = {
-            type: 'existing',
+          const candidate: MatchCandidate = {
+            prop: p,
             object_type: objType,
-            property_name: toCrmKey(objType, best.prop.name)
+            tier: 'fuzzy',
+            distance: candidateDistance,
+            similarity: candidateSimilarity,
+            objectPreference,
           };
-          break;
+          if (!bestCandidate || compareCandidates(candidate, bestCandidate) > 0) bestCandidate = candidate;
+          }
         }
+
+      if (bestCandidate && shouldAcceptCandidate(bestCandidate)) {
+        newMappings[fieldId][provider] = {
+          type: 'existing',
+          object_type: bestCandidate.object_type,
+          property_name: toCrmKey(bestCandidate.object_type, bestCandidate.prop.name)
+        };
       }
     });
   });
