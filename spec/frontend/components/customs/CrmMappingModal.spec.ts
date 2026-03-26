@@ -143,6 +143,51 @@ describe('CrmMappingModal', () => {
     expect(screen.getByRole('button', { name: /save mapping/i })).toBeInTheDocument();
   });
 
+  it('auto-maps unsaved company fields when the user clicks auto-map fields', async () => {
+    const user = userEvent.setup();
+    const onsave = vi.fn();
+    const fields = [
+      {
+        label: 'Company name',
+        field_type: 'text',
+        required: false,
+        position: 0,
+        metadata: { export_key: 'business_name' }
+      }
+    ];
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        fields,
+        onsave,
+        crmProperties: {
+          hubspot: {
+            contact: [
+              { name: 'associatedcompanyname', label: 'Associated company name', type: 'string' }
+            ],
+            company: [
+              { name: 'name', label: 'Company name', type: 'string' }
+            ]
+          }
+        }
+      }
+    });
+
+    await user.click(screen.getByTestId('auto-map-fields'));
+    await user.click(screen.getByRole('button', { name: /save mapping/i }));
+
+    const savedFields = onsave.mock.calls[0][0].fields;
+    expect(savedFields[0].metadata.crm_mapping.hubspot).toEqual(
+      expect.objectContaining({
+        type: 'existing',
+        object_type: 'company',
+        property_name: 'company::name'
+      })
+    );
+    expect(savedFields[0].metadata.export_key).toBe('name');
+  });
+
   it('keeps the incoming fields prop immutable when aligning a key and applies the change on save', async () => {
     const user = userEvent.setup();
     const onsave = vi.fn();

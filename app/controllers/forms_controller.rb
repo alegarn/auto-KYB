@@ -21,7 +21,7 @@ class FormsController < ApplicationController
   end
 
   def new
-    render inertia: "forms/new", props: default_inertia_props
+    render inertia: "forms/new", props: form_editor_props
   end
 
   def create
@@ -32,12 +32,12 @@ class FormsController < ApplicationController
     if request.format.json?
       render json: { errors: error_messages }, status: :unprocessable_entity
     else
-      render inertia: "forms/new", props: default_inertia_props.merge(
+      render inertia: "forms/new", props: form_editor_props(
         errors: error_messages
       ), status: :unprocessable_entity
     end
   rescue ActiveRecord::RecordInvalid => e
-    render inertia: "forms/new", props: default_inertia_props.merge(
+    render inertia: "forms/new", props: form_editor_props(
       errors: e.record.errors.full_messages
     ), status: :unprocessable_entity
   end
@@ -45,10 +45,9 @@ class FormsController < ApplicationController
   def edit
     form = current_user.forms.find(params[:id])
 
-    render inertia: "forms/edit", props: {
-      form: FormDetailSerializer.new(form).as_json,
-      crmProperties: InertiaRails.defer { crm_properties }
-    }
+    render inertia: "forms/edit", props: form_editor_props(
+      form: FormDetailSerializer.new(form).as_json
+    )
   end
 
   def destroy
@@ -223,16 +222,16 @@ def duplicate
     if request.format.json?
       render json: { errors: error_messages }, status: :unprocessable_entity
     else
-      render inertia: "forms/edit", props: {
+      render inertia: "forms/edit", props: form_editor_props(
         form: form ? FormDetailSerializer.new(form).as_json : nil,
         errors: error_messages
-      }, status: :unprocessable_entity
+      ), status: :unprocessable_entity
     end
   rescue ActiveRecord::RecordInvalid => e
-    render inertia: "forms/edit", props: {
+    render inertia: "forms/edit", props: form_editor_props(
       form: form ? FormDetailSerializer.new(form).as_json : nil,
       errors: e.record.errors.full_messages
-    }, status: :unprocessable_entity
+    ), status: :unprocessable_entity
   end
 
   private
@@ -270,6 +269,18 @@ def duplicate
 
     properties
   end
+
+  def active_crm_providers
+    current_user.crm_connections.active.distinct.pluck(:provider)
+  end
+
+  def form_editor_props(extra_props = {})
+    default_inertia_props.merge(
+      activeCrmProviders: active_crm_providers,
+      crmProperties: InertiaRails.defer { crm_properties }
+    ).merge(extra_props)
+  end
+
   def form_params
     params.require(:form).permit(
       :name,

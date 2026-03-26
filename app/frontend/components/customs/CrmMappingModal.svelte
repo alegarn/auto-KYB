@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { areTypesCompatible, getFieldDataType, analyzeMappings, getProviderFileActions, toCrmKey, fromCrmKey, CRM_KEY_SEP, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
+  import { areTypesCompatible, getFieldDataType, analyzeMappings, getProviderFileActions, getCrmObjectLabel, toCrmKey, fromCrmKey, CRM_KEY_SEP, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
   import { isLayoutField } from './form-builder/types';
   import { Select } from "bits-ui";
   import { Check, ChevronsUpDown, Search, Loader2 } from "@lucide/svelte";
@@ -14,6 +14,7 @@
     fields = [],
     onsave,
     ontestcrm,
+    showTestAction = true,
     testingCrm = false,
     testCrmSuccess = false
   } = $props();
@@ -60,6 +61,12 @@
       (p.label || '').toLowerCase().includes(s) || 
       (p.name || '').toLowerCase().includes(s)
     );
+  }
+
+  function formatSelectedPropertyLabel(provider: string, prop: any, objectType: string) {
+    const label = prop?.label || prop?.name || 'Unknown property';
+    const type = prop?.type ? ` (${prop.type})` : '';
+    return `${label} [${getCrmObjectLabel(provider, objectType)}]${type}`;
   }
 
   function handleSave() {
@@ -182,16 +189,21 @@
               const merged = Object.fromEntries(
                 Object.entries(mappings).map(([fieldId, providerMap]) => [fieldId, { ...providerMap }])
               );
+              const autoAlignedExportKeys: Record<string, string> = { ...exportKeyOverrides };
               for (const [rawFieldId, providerMap] of Object.entries(autoMapped)) {
                 const stateKey = fieldIdToStateKey[rawFieldId] || rawFieldId;
                 if (!merged[stateKey]) merged[stateKey] = {};
                 for (const [provider, mapping] of Object.entries(providerMap)) {
                   if (!merged[stateKey][provider]) {
                     merged[stateKey][provider] = mapping;
+                    if (!autoAlignedExportKeys[stateKey] && mapping?.property_name) {
+                      autoAlignedExportKeys[stateKey] = fromCrmKey(mapping.property_name).propertyName;
+                    }
                   }
                 }
               }
               mappings = merged;
+              exportKeyOverrides = autoAlignedExportKeys;
             }}
           >
             Auto-Map Fields
@@ -335,11 +347,11 @@
                                     data-testid={`crm-mapping-select-${fieldKey}-${provider}`}
                                   >
                                     {#if currentValue === "__custom_contact__"}
-                                      + Create as Custom Contact Property
+                                      + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
                                     {:else if selectedFileAction}
                                       {selectedFileAction.label}
                                     {:else}
-                                      {selectedProp ? `${selectedProp.label || selectedProp.name} (${selectedProp.type})` : "-- Do not map --"}
+                                      {selectedProp ? formatSelectedPropertyLabel(provider, selectedProp, mapping.object_type) : "-- Do not map --"}
                                     {/if}
                                     <ChevronsUpDown class="h-4 w-4 opacity-50" />
                                   </Select.Trigger>
@@ -372,7 +384,7 @@
                                         class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm font-semibold text-blue-600 outline-none focus:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                         data-slot="select-item"
                                       >
-                                        + Create as Custom Contact Property
+                                        + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
                                       </Select.Item>
                                       
                                       {#if getFieldDataType(field.field_type) === 'file' && providerFileActions.length > 0}
@@ -388,7 +400,7 @@
                                         {/each}
                                       {/if}
 
-                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Contact Properties</div>
+                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'contact')} Properties</div>
                                       {#each getFilteredProperties(properties.contact || [], fieldSearch[`${fieldKey}-${provider}`]) as prop}
                                         <Select.Item
                                           value={`contact:${prop.name}`}
@@ -396,12 +408,12 @@
                                           class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                           data-slot="select-item"
                                         >
-                                          <span class="flex-1 truncate">{prop.label || prop.name} {prop.read_only ? '(Read Only)' : ''}</span>
+                                          <span class="flex-1 truncate">{prop.label || prop.name} [{getCrmObjectLabel(provider, 'contact')}] {prop.read_only ? '(Read Only)' : ''}</span>
                                           <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}
 
-                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing Company Properties</div>
+                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'company')} Properties</div>
                                       {#each getFilteredProperties(properties.company || [], fieldSearch[`${fieldKey}-${provider}`]) as prop}
                                         <Select.Item
                                           value={`company:${prop.name}`}
@@ -409,7 +421,7 @@
                                           class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                           data-slot="select-item"
                                         >
-                                          <span class="flex-1 truncate">{prop.label || prop.name} {prop.read_only ? '(Read Only)' : ''}</span>
+                                          <span class="flex-1 truncate">{prop.label || prop.name} [{getCrmObjectLabel(provider, 'company')}] {prop.read_only ? '(Read Only)' : ''}</span>
                                           <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}
@@ -460,13 +472,15 @@
           <span class="text-green-600 text-sm font-medium mr-auto">✓ Test export sent successfully!</span>
         {/if}
         
-        <button 
-          onclick={handleTest}
-          class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
-          disabled={testingCrm || Object.keys(crmProperties).length === 0}
-        >
-          {testingCrm ? 'Sending Test...' : 'Send Test Data'}
-        </button>
+        {#if showTestAction}
+          <button 
+            onclick={handleTest}
+            class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
+            disabled={testingCrm || Object.keys(crmProperties).length === 0}
+          >
+            {testingCrm ? 'Sending Test...' : 'Send Test Data'}
+          </button>
+        {/if}
 
         <button 
           onclick={close}
