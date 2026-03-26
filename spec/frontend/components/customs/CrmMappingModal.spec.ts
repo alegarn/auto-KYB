@@ -152,7 +152,7 @@ describe('CrmMappingModal', () => {
         field_type: 'text',
         required: false,
         position: 0,
-        metadata: {}
+        metadata: { export_key: 'business_name' }
       }
     ];
 
@@ -185,6 +185,7 @@ describe('CrmMappingModal', () => {
         property_name: 'company::name'
       })
     );
+    expect(savedFields[0].metadata.export_key).toBe('name');
   });
 
   it('keeps the incoming fields prop immutable when aligning a key and applies the change on save', async () => {

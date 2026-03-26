@@ -63,6 +63,17 @@
     );
   }
 
+  function formatObjectType(objectType: string) {
+    if (!objectType) return 'Record';
+    return objectType.charAt(0).toUpperCase() + objectType.slice(1);
+  }
+
+  function formatSelectedPropertyLabel(prop: any, objectType: string) {
+    const label = prop?.label || prop?.name || 'Unknown property';
+    const type = prop?.type ? ` (${prop.type})` : '';
+    return `${label} [${formatObjectType(objectType)}]${type}`;
+  }
+
   function handleSave() {
     onsave?.({ fields: getUpdatedFields() });
     open = false;
@@ -183,16 +194,21 @@
               const merged = Object.fromEntries(
                 Object.entries(mappings).map(([fieldId, providerMap]) => [fieldId, { ...providerMap }])
               );
+              const autoAlignedExportKeys: Record<string, string> = { ...exportKeyOverrides };
               for (const [rawFieldId, providerMap] of Object.entries(autoMapped)) {
                 const stateKey = fieldIdToStateKey[rawFieldId] || rawFieldId;
                 if (!merged[stateKey]) merged[stateKey] = {};
                 for (const [provider, mapping] of Object.entries(providerMap)) {
                   if (!merged[stateKey][provider]) {
                     merged[stateKey][provider] = mapping;
+                    if (!autoAlignedExportKeys[stateKey] && mapping?.property_name) {
+                      autoAlignedExportKeys[stateKey] = fromCrmKey(mapping.property_name).propertyName;
+                    }
                   }
                 }
               }
               mappings = merged;
+              exportKeyOverrides = autoAlignedExportKeys;
             }}
           >
             Auto-Map Fields
@@ -340,7 +356,7 @@
                                     {:else if selectedFileAction}
                                       {selectedFileAction.label}
                                     {:else}
-                                      {selectedProp ? `${selectedProp.label || selectedProp.name} (${selectedProp.type})` : "-- Do not map --"}
+                                      {selectedProp ? formatSelectedPropertyLabel(selectedProp, mapping.object_type) : "-- Do not map --"}
                                     {/if}
                                     <ChevronsUpDown class="h-4 w-4 opacity-50" />
                                   </Select.Trigger>
@@ -397,7 +413,7 @@
                                           class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                           data-slot="select-item"
                                         >
-                                          <span class="flex-1 truncate">{prop.label || prop.name} {prop.read_only ? '(Read Only)' : ''}</span>
+                                          <span class="flex-1 truncate">{prop.label || prop.name} [Contact] {prop.read_only ? '(Read Only)' : ''}</span>
                                           <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}
@@ -410,7 +426,7 @@
                                           class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                                           data-slot="select-item"
                                         >
-                                          <span class="flex-1 truncate">{prop.label || prop.name} {prop.read_only ? '(Read Only)' : ''}</span>
+                                          <span class="flex-1 truncate">{prop.label || prop.name} [Company] {prop.read_only ? '(Read Only)' : ''}</span>
                                           <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
                                         </Select.Item>
                                       {/each}
