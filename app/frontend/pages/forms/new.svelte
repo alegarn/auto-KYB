@@ -18,7 +18,7 @@
   import type { FormField } from "/components/customs/form-builder/types"
   import { forms_path } from '@/routes';
 
-  const { errors: serverErrors, activeCrmProviders = [], crmProperties } = $props()
+  const { errors: serverErrors, activeCrmProviders = [], crmProperties, auth = {} } = $props()
 
   let name = $state("")
   let fields = $state<FormField[]>([])
@@ -32,7 +32,7 @@
   let showUnmappedCrmWarningModal = $state(false)
   const loadingProperties = $derived(crmProperties === undefined)
   // @ts-ignore
-  const canUseCrm = $derived($page.props.auth?.user?.can_use_crm)
+  const canUseCrm = $derived(auth?.user?.can_use_crm)
   const singleCrmProvider = $derived(getSingleActiveCrmProvider(activeCrmProviders))
   const singleCrmProviderName = $derived(singleCrmProvider ? crmProviderDisplayName(singleCrmProvider) : 'your CRM')
   const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])

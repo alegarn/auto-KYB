@@ -19,7 +19,7 @@
   import Modal from '@/components/ui/modal.svelte';
   import CrmMappingModal from '@/components/customs/CrmMappingModal.svelte';
 
-  let { form: initial, errors: serverErrors, error: serverError, crmProperties, activeCrmProviders = [] } = $props()
+  let { form: initial, errors: serverErrors, error: serverError, crmProperties, activeCrmProviders = [], auth = {} } = $props()
 
   // Track if crmProperties is still being deferred/loaded
   const loadingProperties = $derived(crmProperties === undefined);
@@ -36,7 +36,7 @@
   let showUnmappedCrmWarning = $state(false)
   let showUnmappedCrmWarningModal = $state(false)
   // @ts-ignore
-  const canUseCrm = $derived($page.props.auth?.user?.can_use_crm)
+  const canUseCrm = $derived(auth?.user?.can_use_crm)
   const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
   const hasUnmappedCrmFields = $derived(unmappedFields.length > 0)
 
