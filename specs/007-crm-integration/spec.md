@@ -38,6 +38,13 @@
 - Q: What wording should be shown when `create_crm_contact` schedules work asynchronously? → A: The UI should say the CRM contact creation was queued and point users to CRM Transfers.
 - Q: How should `client_create_sync` retries behave? → A: They must be idempotent, reusing existing CRM identifiers when available and deduplicating open pending/processing transfers for the same client and CRM connection.
 
+### Session 2026-03-29
+
+- Q: How does the system handle HubSpot `enumeration` properties that require specific pre-defined values? → A: The mapping modal detects mismatches between form field options and CRM property options. It displays a "Sync Options" warning and button to overwrite form options with the CRM's allowed values.
+- Q: How should we treat HubSpot `calculation_equation` properties? → A: These are treated as read-only computed fields and are rejected for mapping to prevent API errors during export.
+- Q: What happens if a user saves a form mapping where some fields are not mapped but the CRM is otherwise synced? → A: The system triggers a warning notification during form save, informing the user that unmapped fields will not be exported and providing a direct link to the CRM Mapping Modal.
+- Q: How are enumeration options handled in the abstraction layer during sync? → A: The backend's `OptionNormalizer` and `value_coercer` ensure that the display labels synced to the frontend map back correctly to the CRM's internal internal values during data export.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Authorize CRM Connection (Priority: P1)
@@ -404,6 +411,10 @@ As a user, I want to create a client locally, create a new CRM lead/client, or l
 - **FR-013**: System MUST destroy transferred data from application storage 1 day after successful transfer
 - **FR-014**: System MUST retain data if transfer fails or is still in progress after 1 day
 - **FR-015**: System MUST display transfer status and history to users
+- **FR-016**: System MUST detect mismatches between form field options and CRM enumeration property options in the mapping modal
+- **FR-017**: System MUST provide a "Sync Options" action to overwrite local form field options with CRM-allowed values
+- **FR-018**: System MUST reject `calculation_equation` and other read-only property types from CRM mapping fields
+- **FR-019**: System MUST warn users when saving a form if fields are not mapped to their connected CRM properties
 - **FR-016**: System MUST support multiple simultaneous CRM connections per user
 - **FR-017**: System MUST log all transfer activities for audit purposes
 - **FR-018**: System MUST validate CRM connection status before attempting transfers
