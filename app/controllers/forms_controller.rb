@@ -62,81 +62,53 @@ class FormsController < ApplicationController
   end
 
   def test_crm_mapping
-  form = current_user.forms.find(params[:id])
-  form_fields = params[:fields] || form.structure&.dig("fields") || []
+    form = current_user.forms.find(params[:id])
+    form_fields = params[:fields] || form.structure&.dig("fields") || []
 
-  connections = Crm::ConnectionManager.active_connections_for(current_user)
-  if connections.empty?
-    render json: { error: "No active CRM connections found." }, status: :unprocessable_entity
-    return
-  end
+    connections = Crm::ConnectionManager.active_connections_for(current_user)
+    if connections.empty?
+      render json: { error: "No active CRM connections found." }, status: :unprocessable_entity
+      return
+    end
 
-  # Dummy client with dummy crm_client_link to avoid NoMethodError in export_data
-  # We use a real Struct to simulate the client object
-  dummy_client = Struct.new(:name, :email, :company_name, :phone, :address, :country, :company_id, :crm_client_link).new(
-    "Test Client",
-    "test_crm_#{SecureRandom.hex(4)}@example.com",
-    "Test Company #{SecureRandom.hex(2)}",
-    "+33123456789",
-    "123 Test Street",
-    "FR",
-    "TC-#{SecureRandom.hex(4)}",
-    nil # Force create in service since it's a test
-  )
+    dummy_client = build_dummy_client
+    all_crm_props = crm_properties # Hash like { hubspot: { contact: [...], company: [...] } }
 
-  success = true
-  errors = []
+    success = true
+    errors = []
 
-  connections.each do |conn|
-    service = Crm::ConnectionManager.service_for(conn)
+    connections.each do |conn|
+      service = Crm::ConnectionManager.service_for(conn)
 
-    # Separate contact and company data from form fields mapped per CRM
-    dummy_contact_data = {}
-    dummy_company_data = {}
-    form_fields.each do |f|
-      f = f.with_indifferent_access if f.respond_to?(:with_indifferent_access)
-      type = f["field_type"].to_s
-      next if [ "layout", "title" ].include?(type) || type.start_with?("lay_", "section")
+      result = Crm::TestPayloadBuilder.build(
+        fields:         form_fields,
+        crm_properties: all_crm_props,
+        provider:       conn.provider
+      )
 
-      provider_mapping = f.dig("metadata", "crm_mapping", conn.provider)
-      raw_property_name = provider_mapping&.dig("property_name")
+      # Optional but recommended, pass field_metadata to export if supported
+      export_kwargs = { company_data: result[:company] }
+      export_kwargs[:field_metadata] = result[:field_metadata]
 
-      # Parse compound key for routing + clean CRM property name
-      if raw_property_name.present? && Crm::KeyParser.compound?(raw_property_name)
-        parsed_object_type, clean_key = Crm::KeyParser.parse(raw_property_name)
-        object_type = parsed_object_type
-      else
-        object_type = provider_mapping&.dig("object_type") || "contact"
-        clean_key = raw_property_name
-      end
+      export_result = service.export_data(
+        dummy_client,
+        result[:contact],
+        [],
+        **export_kwargs
+      )
 
-      key = clean_key.presence ||
-            f.dig("metadata", "export_key").presence ||
-            f["label"]
-
-      value = type == "number" ? rand(1..100) : "Test #{f['label']}"
-
-      case object_type
-      when "company"
-        dummy_company_data[key] = value
-      else
-        dummy_contact_data[key] = value
+      unless export_result[:success]
+        success = false
+        errors << "#{conn.provider.titleize}: #{export_result[:error]}"
       end
     end
 
-    result = service.export_data(dummy_client, dummy_contact_data, [], company_data: dummy_company_data)
-    unless result[:success]
-      success = false
-      errors << "#{conn.provider.titleize}: #{result[:error]}"
+    if success
+      render json: { success: true }, status: :ok
+    else
+      render json: { error: errors.join(", ") }, status: :unprocessable_entity
     end
   end
-
-  if success
-    render json: { success: true }, status: :ok
-  else
-    render json: { error: errors.join(", ") }, status: :unprocessable_entity
-  end
-end
 
 def duplicate
     form = current_user.forms.find(params[:id])
@@ -181,7 +153,9 @@ def duplicate
             label: (f["label"] || f[:label]), 
             property_name: prop_name,
             object_type: obj_type,
-            field_type: (f["field_type"] || f[:field_type]).to_s
+            field_type: (f["field_type"] || f[:field_type]).to_s,
+            options: f["options"] || f[:options] || [],
+            allow_multiple: f["allow_multiple"] || f[:allow_multiple]
           }
         end
       end
@@ -236,6 +210,19 @@ def duplicate
 
   private
 
+  def build_dummy_client
+    Struct.new(:name, :email, :company_name, :phone, :address, :country, :company_id, :crm_client_link).new(
+      "Test Client",
+      "test_crm_#{SecureRandom.hex(4)}@example.com",
+      "Test Company #{SecureRandom.hex(2)}",
+      "+33123456789",
+      "123 Test Street",
+      "FR",
+      "TC-#{SecureRandom.hex(4)}",
+      nil # Force create in service since it's a test
+    )
+  end
+
   def authorize_subscription
     authorize :form, :index?
   end
@@ -287,7 +274,7 @@ def duplicate
       :description,
       structure: {
         settings: {},
-        fields: [ :id, :label, :field_type, :required, :position, { metadata: {} } ]
+        fields: [ :id, :label, :field_type, :required, :position, :allow_multiple, { options: [] }, { metadata: {} } ]
       }
     )
   end

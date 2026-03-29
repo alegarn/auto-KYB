@@ -28,13 +28,13 @@
 </script>
 
 <div
-  class="rounded-lg border bg-card w-full max-w-full box-border overflow-hidden"
+  class="box-border w-full min-w-0 max-w-full overflow-hidden rounded-lg border bg-card"
   role="list"
   aria-label="Form fields"
   use:dropZone={{ onDrop: (r) => ondrop?.(r) }}
 >
   {#if fields.length === 0}
-    <div class="flex flex-col items-center justify-center gap-3 px-4 py-12 sm:px-6 sm:py-16 text-center" data-dnd-items>
+    <div class="flex min-w-0 flex-col items-center justify-center gap-3 px-4 py-12 text-center sm:px-6 sm:py-16" data-dnd-items>
       <div class="rounded-full bg-muted p-3">
         <LayoutList class="size-6 text-muted-foreground" />
       </div>
@@ -44,7 +44,7 @@
       </div>
     </div>
   {:else}
-    <div class="space-y-1 p-2 sm:space-y-1.5 sm:p-3" data-dnd-items>
+    <div class="min-w-0 space-y-1 p-2 sm:space-y-1.5 sm:p-3" data-dnd-items>
       {#each fields as field, i (field.id ?? `pos-${i}`)}
         <FieldItem
           {field}

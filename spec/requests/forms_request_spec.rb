@@ -53,6 +53,7 @@ RSpec.describe 'Forms Requests (CRM Mapping)', type: :request do
       allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([connection_mock])
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection_mock).and_return(service_mock)
       allow(service_mock).to receive(:export_data).and_return({ success: true, dummy: true })
+      allow_any_instance_of(FormsController).to receive(:crm_properties).and_return({ hubspot: { contact: [], company: [] } })
     end
 
     it 'tests CRM mapping by exporting data through the mapped fields' do

@@ -96,8 +96,8 @@ RSpec.describe Crm::HubspotService do
     before do
       # Ensure Hubspot::ApiError constant exists in test environment
       stub_const("Hubspot::ApiError", Class.new(StandardError))
-      allow(Crm::Hubspot::CompanyMapper).to receive(:new).with(client, data).and_return(company_mapper_double)
-      allow(Crm::Hubspot::ContactMapper).to receive(:new).with(client, data).and_return(contact_mapper_double)
+      allow(Crm::Hubspot::CompanyMapper).to receive(:new).with(client, anything).and_return(company_mapper_double)
+      allow(Crm::Hubspot::ContactMapper).to receive(:new).with(client, anything).and_return(contact_mapper_double)
       allow(Crm::Hubspot::FileUploader).to receive(:new).with(client_double).and_return(file_uploader_double)
 
       allow(client_double).to receive(:companies_api).and_return(companies_api_double)
@@ -300,6 +300,60 @@ RSpec.describe Crm::HubspotService do
         allow(data_fetcher_double).to receive(:search_contact_by_email).with("test@example.com").and_return({ id: "1" })
         expect(service.search_contact_by_email("test@example.com")).to eq({ id: "1" })
       end
+    end
+  end
+
+  describe "ensure_properties and coercion integration" do
+    let(:all_props_response) { double(code: 200, body: '[]') }
+
+    let(:client) { create(:client, email: "test@example.com", company_name: "Test Co") }
+    let(:contact_mapper_double) { instance_double(Crm::Hubspot::ContactMapper, to_hubspot_properties: { "email" => "test@example.com" }) }
+
+    before do
+      allow(Crm::Hubspot::ContactMapper).to receive(:new).and_return(contact_mapper_double)
+      allow(client_double).to receive(:api_request).and_return(double(code: 201, body: %Q({"vid":"cont_1"})))
+      companies_search_api_double_local = double("CompaniesSearchApiLocal")
+      allow(client_double).to receive(:companies_search_api).and_return(companies_search_api_double_local)
+      allow(companies_search_api_double_local).to receive(:do_search).and_return(double(results: []))
+    end
+
+    it "creates enumeration property when field_metadata present and returns lookups" do
+      allow(client_double).to receive(:api_request).with(hash_including(method: "GET", path: "/properties/v1/contacts/properties")).and_return(all_props_response)
+
+      expect(client_double).to receive(:api_request).with(hash_including(method: "POST", path: "/properties/v1/contacts/properties", body: hash_including(type: "enumeration"))).and_return(double(code: 201, body: '{}'))
+
+      type_lookup, metadata_lookup = service.send(:ensure_properties, "contacts", { "hs_lead_status" => "New" }, field_metadata: { "hs_lead_status" => { field_type: "radio", options: ["New", "In Progress"], object_type: "contact" } })
+
+      expect(type_lookup["hs_lead_status"]).to eq("enumeration")
+      expect(metadata_lookup["hs_lead_status"]) .to be_present
+      expect(metadata_lookup["hs_lead_status"][:type]).to eq("enumeration")
+    end
+
+    it "coerce_and_format_v1 uses metadata_lookup for enum resolution" do
+      properties = { "hs_lead_status" => "New" }
+      type_lookup = { "hs_lead_status" => "enumeration" }
+      metadata_lookup = { "hs_lead_status" => { type: "enumeration", field_type: "radio", options: [{ label: "New", value: "NEW" }] } }
+
+      formatted = service.coerce_and_format_v1(properties, type_lookup, metadata_lookup)
+      expect(formatted).to include({ property: "hs_lead_status", value: "NEW" })
+    end
+
+    it "export_data threads field_metadata through to ensure_properties" do
+      fm = { "hs_lead_status" => { object_type: "contact", field_type: "radio", options: ["New"] } }
+
+      # Stub ensure_properties to assert the passed field_metadata and allow export to proceed
+      allow(client_double).to receive(:api_request).and_return(double(code: 201, body: %Q({"vid":"cont_1"})))
+
+      called = []
+      allow(service).to receive(:ensure_properties) do |object_type, properties, opts|
+        called << [object_type, properties, opts]
+        [{}, {}]
+      end
+
+      result = service.export_data(create(:client), {}, [], field_metadata: fm)
+
+      expect(result[:success]).to be true
+      expect(called.any? { |obj_type, _props, opts| obj_type == "contacts" && opts[:field_metadata].is_a?(Hash) && opts[:field_metadata].key?("hs_lead_status") }).to be true
     end
   end
 end

@@ -34,21 +34,24 @@ module Crm
     end
 
     # Export client data to HubSpot (contacts + companies + files)
-    def export_data(client, data, files = [], company_data: {})
+    def export_data(client, data, files = [], company_data: {}, field_metadata: {})
       ensure_valid_token!
 
       link = client.respond_to?(:crm_client_link) ? client.crm_client_link : nil
 
       results = {}
 
+      contact_field_metadata = field_metadata.select { |_, v| v[:object_type] == "contact" }.transform_keys { |k| Crm::KeyParser.property_name(k) }
+      company_field_metadata = field_metadata.select { |_, v| v[:object_type] == "company" }.transform_keys { |k| Crm::KeyParser.property_name(k) }
+
       # 1. Update existing contact (or create if not linked)
       external_id = link&.external_contact_id
       if external_id.blank?
-        created = create_contact(client)
+        created = create_contact(client, field_metadata: contact_field_metadata)
         external_id = created[:id]
         contact_result = { id: external_id, action: :created }
       else
-        contact_result = update_existing_contact(client, external_id, data)
+        contact_result = update_existing_contact(client, external_id, data, field_metadata: contact_field_metadata)
       end
       results[:contact] = contact_result
 
@@ -62,9 +65,9 @@ module Crm
         end
 
         if company_id.present?
-          company_result = update_existing_company(client, company_id, company_data)
+          company_result = update_existing_company(client, company_id, company_data, field_metadata: company_field_metadata)
         else
-          company_result = create_company(client, company_data)
+          company_result = create_company(client, company_data, field_metadata: company_field_metadata)
           company_id = company_result[:id]
         end
         results[:company] = company_result
@@ -156,14 +159,14 @@ module Crm
       @hubspot_client ||= Crm::Hubspot::Client.new(connection)
     end
 
-    def create_contact(client, sync_address_to_contact: false)
+    def create_contact(client, sync_address_to_contact: false, field_metadata: {})
       mapper = Crm::Hubspot::ContactMapper.new(client, { sync_address_to_contact: sync_address_to_contact })
       properties = mapper.to_hubspot_properties
-      type_lookup = ensure_properties("contacts", properties)
+      type_lookup, metadata_lookup = ensure_properties("contacts", properties, field_metadata: field_metadata)
       
       return nil if properties.empty?
       
-      formatted_props = coerce_and_format_v1(properties, type_lookup)
+      formatted_props = coerce_and_format_v1(properties, type_lookup, metadata_lookup)
 
       res = hubspot_client.api_request(
         method: "POST",
@@ -179,14 +182,14 @@ module Crm
       end
     end
 
-    def update_existing_contact(client, external_id, data)
+    def update_existing_contact(client, external_id, data, field_metadata: {})
       mapper = Crm::Hubspot::ContactMapper.new(client, data)
       properties = mapper.to_hubspot_properties
-      type_lookup = ensure_properties("contacts", properties)
+      type_lookup, metadata_lookup = ensure_properties("contacts", properties, field_metadata: field_metadata)
 
       return { id: external_id, action: :skipped } if properties.empty?
 
-      formatted_props = coerce_and_format_v1(properties, type_lookup)
+      formatted_props = coerce_and_format_v1(properties, type_lookup, metadata_lookup)
 
       res = hubspot_client.api_request(
         method: "POST",
@@ -201,14 +204,14 @@ module Crm
       end
     end
 
-    def create_company(client, company_data = {})
+    def create_company(client, company_data = {}, field_metadata: {})
       mapper = Crm::Hubspot::CompanyMapper.new(client, company_data)
       properties = mapper.to_hubspot_properties
-      type_lookup = ensure_properties("companies", properties)
+      type_lookup, metadata_lookup = ensure_properties("companies", properties, field_metadata: field_metadata)
 
       return nil if properties.empty?
 
-      body = { properties: coerce_and_format_v3(properties, type_lookup) }
+      body = { properties: coerce_and_format_v3(properties, type_lookup, metadata_lookup) }
 
       res = hubspot_client.api_request(
         method: "POST",
@@ -224,17 +227,17 @@ module Crm
       end
     end
 
-    def update_existing_company(client, company_id, company_data = {})
+    def update_existing_company(client, company_id, company_data = {}, field_metadata: {})
       mapper = Crm::Hubspot::CompanyMapper.new(client, company_data)
       properties = mapper.to_hubspot_properties
-      type_lookup = ensure_properties("companies", properties)
+      type_lookup, metadata_lookup = ensure_properties("companies", properties, field_metadata: field_metadata)
 
       return { id: company_id, action: :skipped } if properties.empty?
 
       res = hubspot_client.api_request(
         method: "PATCH",
         path: "/crm/v3/objects/companies/#{company_id}",
-        body: { properties: coerce_and_format_v3(properties, type_lookup) }
+        body: { properties: coerce_and_format_v3(properties, type_lookup, metadata_lookup) }
       )
 
       if res.code.to_i < 300
@@ -248,18 +251,29 @@ module Crm
     # Ensures all properties exist in HubSpot (creates missing ones),
     # removes read-only properties from the hash, and returns a type lookup
     # hash: { "prop_name" => "datetime", ... } used for value coercion.
-    def ensure_properties(object_type, properties_hash)
-      return {} if properties_hash.empty?
+    def ensure_properties(object_type, properties_hash, field_metadata: {})
+      return [{}, {}] if properties_hash.empty?
 
       res = hubspot_client.api_request(method: "GET", path: "/properties/v1/#{object_type}/properties")
-      return {} unless res.code.to_i == 200
+      return [{}, {}] unless res.code.to_i == 200
 
       all_props = JSON.parse(res.body)
       all_props = [] unless all_props.is_a?(Array)
 
       existing = all_props.map { |p| p["name"] }
       read_only_props = all_props.select { |p| p["readOnlyValue"] || p["calculated"] }.map { |p| p["name"] }
+      
+      # type_lookup: backward-compatible string-only format
       type_lookup = all_props.each_with_object({}) { |p, h| h[p["name"]] = p["type"] }
+      
+      # metadata_lookup: enriched format for coercion
+      metadata_lookup = all_props.each_with_object({}) do |p, h|
+        h[p["name"]] = {
+          type:       p["type"],
+          field_type: p["fieldType"],
+          options: (p["options"] || []).map { |o| { label: o["label"], value: o["value"] } }
+        }
+      end
 
       properties_hash.keys.each do |k|
         prop_name = k.to_s.downcase.gsub(/[^a-z0-9]/, "_")
@@ -271,14 +285,37 @@ module Crm
 
         next if existing.include?(prop_name)
 
+        # Build creation payload — use field_metadata if available for enum properties
+        fm = field_metadata[prop_name] || field_metadata[k.to_s] || {}
         group = object_type == "contacts" ? "contactinformation" : "companyinformation"
-        payload = {
-          name: prop_name,
-          label: k.to_s.titleize,
-          groupName: group,
-          type: "string",
-          fieldType: "text"
-        }
+        
+        if fm[:options].present? && %w[select radio checkbox buttons].include?(fm[:field_type].to_s)
+          hs_field_type = fm[:allow_multiple] ? "checkbox" : (fm[:field_type] || "select")
+          hs_options = Crm::Hubspot::OptionNormalizer.build_options(fm[:options])
+          
+          payload = {
+            name:       prop_name,
+            label:      k.to_s.titleize,
+            groupName:  group,
+            type:       "enumeration",
+            fieldType:  hs_field_type,
+            options:    hs_options
+          }
+          # Seed the metadata_lookup immediately so coercion can use it
+          metadata_lookup[prop_name] = { type: "enumeration", field_type: hs_field_type, options: hs_options }
+          type_lookup[prop_name] = "enumeration"
+        else
+          payload = {
+            name: prop_name,
+            label: k.to_s.titleize,
+            groupName: group,
+            type: "string",
+            fieldType: "text"
+          }
+          metadata_lookup[prop_name] = { type: "string", field_type: "text", options: [] }
+          type_lookup[prop_name] = "string"
+        end
+
         create_res = hubspot_client.api_request(
           method: "POST",
           path: "/properties/v1/#{object_type}/properties",
@@ -286,14 +323,11 @@ module Crm
         )
 
         if create_res.code.to_i >= 400
-          Rails.logger.info("[HubSpot Property] Could not create #{prop_name}: #{create_res.body}")
-        else
-          # Newly created properties are always string type
-          type_lookup[prop_name] = "string"
+          Rails.logger.warn("[HubSpot Property] Could not create #{prop_name}: #{create_res.body}")
         end
       end
 
-      type_lookup
+      [type_lookup, metadata_lookup]
     end
 
     def search_company(client)
@@ -339,20 +373,24 @@ module Crm
 
     # Format properties for HubSpot Contacts v1 API (array of {property, value}).
     # Applies type coercion before stringifying.
-    def coerce_and_format_v1(properties, type_lookup)
-      properties.map do |k, v|
+    def coerce_and_format_v1(properties_hash, type_lookup, metadata_lookup = {})
+      properties_hash.filter_map do |k, v|
         prop_name = k.to_s.downcase.gsub(/[^a-z0-9]/, "_")
-        coerced  = Crm::Hubspot::ValueCoercer.coerce(v, type_lookup[prop_name])
+        meta = metadata_lookup[prop_name] || {}
+        coerced = Crm::Hubspot::ValueCoercer.coerce(v, type_lookup[prop_name], property_metadata: meta)
+        next if coerced.blank? && coerced != false
         { property: prop_name, value: coerced }
       end
     end
 
     # Format properties for HubSpot v3 API (flat hash {prop_name => value}).
     # Applies type coercion before stringifying.
-    def coerce_and_format_v3(properties, type_lookup)
-      properties.each_with_object({}) do |(k, v), h|
+    def coerce_and_format_v3(properties_hash, type_lookup, metadata_lookup = {})
+      properties_hash.each_with_object({}) do |(k, v), result|
         prop_name = k.to_s.downcase.gsub(/[^a-z0-9]/, "_")
-        h[prop_name] = Crm::Hubspot::ValueCoercer.coerce(v, type_lookup[prop_name])
+        meta = metadata_lookup[prop_name] || {}
+        coerced = Crm::Hubspot::ValueCoercer.coerce(v, type_lookup[prop_name], property_metadata: meta)
+        result[prop_name] = coerced unless coerced.blank? && coerced != false
       end
     end
 

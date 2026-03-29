@@ -5,16 +5,19 @@ describe('getFieldDataType', () => {
   it('identifies string types', () => {
     expect(getFieldDataType('text')).toBe('string');
     expect(getFieldDataType('email')).toBe('string');
-    expect(getFieldDataType('buttons')).toBe('string');
-    expect(getFieldDataType('select')).toBe('string');
+  });
+
+  it('identifies choice types', () => {
+    expect(getFieldDataType('select')).toBe('single_choice');
+    expect(getFieldDataType('radio')).toBe('single_choice');
+    expect(getFieldDataType({ field_type: 'checkbox' })).toBe('single_choice');
+    expect(getFieldDataType({ field_type: 'checkbox', metadata: { allow_multiple: true } })).toBe('multi_choice');
+    expect(getFieldDataType({ field_type: 'buttons' })).toBe('single_choice');
+    expect(getFieldDataType({ field_type: 'buttons', metadata: { allow_multiple: true } })).toBe('multi_choice');
   });
 
   it('identifies number types', () => {
     expect(getFieldDataType('number')).toBe('number');
-  });
-
-  it('identifies boolean types', () => {
-    expect(getFieldDataType('checkbox')).toBe('boolean');
   });
 
   it('identifies date types', () => {
@@ -45,12 +48,25 @@ describe('areTypesCompatible', () => {
   it('returns true for exact data type matches', () => {
     expect(areTypesCompatible('text', 'string')).toBe(true);
     expect(areTypesCompatible('number', 'number')).toBe(true);
-    expect(areTypesCompatible('checkbox', 'boolean')).toBe(true);
   });
 
-  it('returns true for compatible HubSpot enumeration types', () => {
+  it('returns true for compatible enumeration types (generic — no sub-type discrimination)', () => {
     expect(areTypesCompatible('select', 'enumeration')).toBe(true);
-    expect(areTypesCompatible('checkbox', 'enumeration')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'checkbox' }, 'enumeration')).toBe(true);
+    // multi_choice is generically compatible with enumeration (sub-type check lives in hubspot-compat)
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: true } }, 'enumeration')).toBe(true);
+  });
+
+  it('ignores the optional crmFieldType parameter — HubSpot-specific sub-type logic lives in crm/hubspot-compat', () => {
+    // areTypesCompatible no longer enforces checkbox vs select/radio distinction
+    expect(areTypesCompatible({ field_type: 'select' }, 'enumeration', 'select')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'select' }, 'enumeration', 'booleancheckbox')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: true } }, 'enumeration', 'radio')).toBe(true);
+  });
+
+  it('returns false for text→enumeration mapping (string not in enumeration compat list)', () => {
+    expect(areTypesCompatible('text', 'enumeration')).toBe(false);
+    expect(areTypesCompatible('email', 'enumeration')).toBe(false);
   });
 
   it('returns false for incompatible data types', () => {
@@ -346,6 +362,186 @@ describe('isCompoundKey', () => {
   it('returns false for null/undefined', () => {
     expect(isCompoundKey(null)).toBe(false);
     expect(isCompoundKey(undefined)).toBe(false);
+  });
+});
+
+// ── HubSpot Enumeration Mapping User Stories ─────────────────────────────────
+
+describe('US-01: dropdown (select) — generic enum compat (sub-type gating is in hubspot-compat)', () => {
+  it('select → enumeration is generically compatible regardless of field_type arg', () => {
+    expect(areTypesCompatible({ field_type: 'select' }, 'enumeration')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'select' }, 'enumeration', 'select')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'select' }, 'enumeration', 'radio')).toBe(true);
+    // crmFieldType is now ignored — use isHubSpotCompatible for sub-type enforcement
+    expect(areTypesCompatible({ field_type: 'select' }, 'enumeration', 'checkbox')).toBe(true);
+  });
+});
+
+describe('US-02: radio field — generic enum compat (sub-type gating is in hubspot-compat)', () => {
+  it('radio → enumeration is generically compatible regardless of field_type arg', () => {
+    expect(areTypesCompatible({ field_type: 'radio' }, 'enumeration')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'radio' }, 'enumeration', 'radio')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'radio' }, 'enumeration', 'checkbox')).toBe(true);
+  });
+});
+
+describe('US-03: single checkbox (allow_multiple: false) — generic enum compat', () => {
+  it('getFieldDataType returns single_choice', () => {
+    expect(getFieldDataType({ field_type: 'checkbox', metadata: { allow_multiple: false } })).toBe('single_choice');
+  });
+
+  it('single checkbox → enumeration is generically compatible (no sub-type enforcement)', () => {
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: false } }, 'enumeration')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: false } }, 'enumeration', 'select')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: false } }, 'enumeration', 'checkbox')).toBe(true);
+  });
+});
+
+describe('US-04: multi-checkbox — generic enum compat (sub-type gating is in hubspot-compat)', () => {
+  it('getFieldDataType returns multi_choice', () => {
+    expect(getFieldDataType({ field_type: 'checkbox', metadata: { allow_multiple: true } })).toBe('multi_choice');
+  });
+
+  it('multi-checkbox → enumeration is generically compatible (no sub-type enforcement)', () => {
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: true } }, 'enumeration')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: true } }, 'enumeration', 'checkbox')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: true } }, 'enumeration', 'select')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: true } }, 'enumeration', 'radio')).toBe(true);
+  });
+});
+
+describe('US-05: buttons field — generic enum compat', () => {
+  it('multi-buttons → enumeration is generically compatible', () => {
+    expect(areTypesCompatible({ field_type: 'buttons', metadata: { allow_multiple: true } }, 'enumeration')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'buttons', metadata: { allow_multiple: true } }, 'enumeration', 'checkbox')).toBe(true);
+  });
+
+  it('single-buttons → enumeration is generically compatible', () => {
+    expect(areTypesCompatible({ field_type: 'buttons', metadata: { allow_multiple: false } }, 'enumeration')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'buttons', metadata: { allow_multiple: false } }, 'enumeration', 'select')).toBe(true);
+    expect(areTypesCompatible({ field_type: 'buttons', metadata: { allow_multiple: false } }, 'enumeration', 'checkbox')).toBe(true);
+  });
+});
+
+describe('US-06: text field CANNOT map to any enumeration property', () => {
+  it('getFieldDataType returns string for text', () => {
+    expect(getFieldDataType({ field_type: 'text' })).toBe('string');
+  });
+
+  it('text → enumeration/select is NOT compatible', () => {
+    expect(areTypesCompatible({ field_type: 'text' }, 'enumeration', 'select')).toBe(false);
+  });
+
+  it('text → enumeration/radio is NOT compatible', () => {
+    expect(areTypesCompatible({ field_type: 'text' }, 'enumeration', 'radio')).toBe(false);
+  });
+
+  it('text → enumeration/checkbox is NOT compatible', () => {
+    expect(areTypesCompatible({ field_type: 'text' }, 'enumeration', 'checkbox')).toBe(false);
+  });
+
+  it('text → enumeration (no sub-type) is NOT compatible', () => {
+    expect(areTypesCompatible({ field_type: 'text' }, 'enumeration')).toBe(false);
+  });
+});
+
+describe('US-07: booleancheckbox — handled by hubspot-compat, not areTypesCompatible', () => {
+  // areTypesCompatible is provider-agnostic; it ignores the crmFieldType parameter.
+  // HubSpot-specific booleancheckbox compatibility lives in crm/hubspot-compat.ts.
+  it('single_choice → enumeration is generically true (sub-type gating is HubSpot-specific)', () => {
+    expect(areTypesCompatible({ field_type: 'select' }, 'enumeration', 'booleancheckbox')).toBe(true);
+  });
+
+  it('radio → enumeration is generically true regardless of crmFieldType arg', () => {
+    expect(areTypesCompatible({ field_type: 'radio' }, 'enumeration', 'booleancheckbox')).toBe(true);
+  });
+
+  it('multi_choice → enumeration is generically true regardless of crmFieldType arg', () => {
+    expect(areTypesCompatible({ field_type: 'checkbox', metadata: { allow_multiple: true } }, 'enumeration', 'booleancheckbox')).toBe(true);
+  });
+});
+
+describe('autoMapFields with real HubSpot enumeration properties', () => {
+  // Property definitions mirror the real HubSpot API shape used by the app
+  const hs_lead_status = {
+    name: 'hs_lead_status', label: 'Lead Status', type: 'enumeration', field_type: 'radio',
+    options: [
+      { label: 'New', value: 'NEW' }, { label: 'Open', value: 'OPEN' },
+      { label: 'In Progress', value: 'IN_PROGRESS' }, { label: 'Open Deal', value: 'OPEN_DEAL' },
+      { label: 'Unqualified', value: 'UNQUALIFIED' },
+      { label: 'Attempted to Contact', value: 'ATTEMPTED_TO_CONTACT' },
+      { label: 'Connected', value: 'CONNECTED' }, { label: 'Bad Timing', value: 'BAD_TIMING' },
+    ],
+  };
+
+  const hs_buying_role = {
+    name: 'hs_buying_role', label: 'Buying Role', type: 'enumeration', field_type: 'checkbox',
+    options: [
+      { label: 'Blocker', value: 'BLOCKER' }, { label: 'Budget Holder', value: 'BUDGET_HOLDER' },
+      { label: 'Champion', value: 'CHAMPION' }, { label: 'Decision Maker', value: 'DECISION_MAKER' },
+      { label: 'End User', value: 'END_USER' }, { label: 'Executive Sponsor', value: 'EXECUTIVE_SPONSOR' },
+    ],
+  };
+
+  const hs_analytics_source = {
+    name: 'hs_analytics_source', label: 'Source', type: 'enumeration', field_type: 'select',
+    options: [
+      { label: 'Organic Search', value: 'ORGANIC_SEARCH' }, { label: 'Paid Search', value: 'PAID_SEARCH' },
+      { label: 'Email Marketing', value: 'EMAIL_MARKETING' }, { label: 'Direct Traffic', value: 'DIRECT_TRAFFIC' },
+    ],
+  };
+
+  const hs_firstname = { name: 'firstname', label: 'First Name', type: 'string' };
+
+  const enumProperties = {
+    hubspot: {
+      contact: [hs_lead_status, hs_buying_role, hs_analytics_source, hs_firstname],
+      company: [],
+    },
+  };
+
+  it('select field "Lead Status" auto-maps to hs_lead_status (enumeration/radio)', () => {
+    const fields = [{ id: '1', label: 'Lead Status', field_type: 'select', metadata: {} }];
+    const result = autoMapFields(fields, enumProperties);
+
+    expect(result['1'].hubspot).toBeDefined();
+    expect(result['1'].hubspot.property_name).toBe('contact::hs_lead_status');
+    expect(result['1'].hubspot.object_type).toBe('contact');
+  });
+
+  it('multi-checkbox field "Buying Role" auto-maps to hs_buying_role (enumeration/checkbox)', () => {
+    const fields = [{ id: '2', label: 'Buying Role', field_type: 'checkbox', metadata: { allow_multiple: true } }];
+    const result = autoMapFields(fields, enumProperties);
+
+    expect(result['2'].hubspot).toBeDefined();
+    expect(result['2'].hubspot.property_name).toBe('contact::hs_buying_role');
+    expect(result['2'].hubspot.object_type).toBe('contact');
+  });
+
+  it('select field "Source" auto-maps to hs_analytics_source (enumeration/select)', () => {
+    const fields = [{ id: '3', label: 'Source', field_type: 'select', metadata: {} }];
+    const result = autoMapFields(fields, enumProperties);
+
+    expect(result['3'].hubspot).toBeDefined();
+    expect(result['3'].hubspot.property_name).toBe('contact::hs_analytics_source');
+    expect(result['3'].hubspot.object_type).toBe('contact');
+  });
+
+  it('text field with matching label does NOT auto-map to any enumeration property', () => {
+    // "Lead Status" text field: label matches hs_lead_status but type is incompatible
+    const fields = [{ id: '4', label: 'Lead Status', field_type: 'text', metadata: {} }];
+
+    // Only enumeration props available — no string property with a matching label
+    const enumOnlyProperties = {
+      hubspot: {
+        contact: [hs_lead_status, hs_buying_role, hs_analytics_source],
+        company: [],
+      },
+    };
+
+    const result = autoMapFields(fields, enumOnlyProperties);
+
+    expect(result['4'].hubspot).toBeUndefined();
   });
 });
 
