@@ -137,12 +137,12 @@
   });
 </script>
 
-<div class="grid gap-4 lg:grid-cols-[240px_1fr_280px] w-full">
-  <div class="block lg:block">
+<div class="grid w-full min-w-0 gap-4 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
+  <div class="block min-w-0 lg:block">
     <Palette add={addField} />
   </div>
 
-  <div>
+  <div class="w-full min-w-0">
     <Canvas
       {fields}
       {selectedIndex}
@@ -155,7 +155,7 @@
     />
   </div>
 
-  <div class="block lg:block">
+  <div class="block min-w-0 lg:block">
     {#if showCrmMappingWarning}
       <div class="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
         <p class="font-medium">Some fields will not export to {crmMappingWarningProviderName}.</p>

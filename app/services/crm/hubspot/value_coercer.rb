@@ -12,7 +12,7 @@ module Crm
 
       # Coerce +value+ according to the HubSpot +property_type+.
       # Returns a String suitable for the HubSpot v1/v3 property APIs.
-      def coerce(value, property_type)
+      def coerce(value, property_type, property_metadata: {})
         return value.to_s if value.nil? || property_type.nil?
 
         case property_type.to_s
@@ -22,6 +22,8 @@ module Crm
           coerce_number(value)
         when "bool"
           coerce_bool(value)
+        when "enumeration"
+          coerce_enumeration(value, property_metadata)
         else
           value.to_s
         end
@@ -60,6 +62,54 @@ module Crm
         end
       rescue Date::Error, ArgumentError
         nil
+      end
+
+      def coerce_enumeration(value, metadata)
+        options    = metadata[:options] || []
+        field_type = metadata[:field_type]
+
+        # booleancheckbox: an enumeration whose only valid API values are "true"/"false"
+        return coerce_bool(value) if field_type == "booleancheckbox"
+
+        if field_type == "checkbox"
+          values = normalize_to_array(value)
+          resolved = values.map { |v| resolve_option(v, options) }.reject { |r| r.to_s.empty? }
+          resolved.join(";")
+        else
+          resolve_option(value, options)
+        end
+      end
+
+      # Resolve a single form value to a HubSpot internal option value.
+      # Priority: 1) exact label match (case-insensitive)
+      #           2) direct internal value match
+      #           3) pass through as-is
+      def resolve_option(form_value, options)
+        return form_value.to_s if options.empty?
+
+        normalized = form_value.to_s.strip.downcase
+
+        # 1. Case-insensitive label match
+        match = options.find { |o| o[:label].to_s.downcase == normalized }
+        return match[:value].to_s if match
+
+        # 2. Direct internal value match
+        value_match = options.find { |o| o[:value].to_s.downcase == normalized }
+        return value_match[:value].to_s if value_match
+
+        # 3. No match — pass through (HubSpot will reject with a clear error)
+        form_value.to_s
+      end
+
+      def normalize_to_array(value)
+        case value
+        when Array
+          value.map(&:to_s).reject(&:empty?)
+        when String
+          value.split(/[;,]/).map(&:strip).reject(&:empty?)
+        else
+          [value.to_s].reject(&:empty?)
+        end
       end
 
       private_class_method :parse_date

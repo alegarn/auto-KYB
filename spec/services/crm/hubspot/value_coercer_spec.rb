@@ -84,5 +84,121 @@ RSpec.describe Crm::Hubspot::ValueCoercer do
         expect(described_class.coerce("2026-03-24", nil)).to eq("2026-03-24")
       end
     end
+
+    context 'with enumeration properties' do
+      let(:options) do
+        [
+          { label: "United States", value: "US" },
+          { label: "Canada", value: "CA" },
+          { label: "United Kingdom", value: "GB" }
+        ]
+      end
+
+      context 'when field_type is booleancheckbox' do
+        let(:metadata) { { field_type: "booleancheckbox", options: [] } }
+
+        it 'coerces truthy form values to "true"' do
+          %w[true 1 yes on].each do |val|
+            expect(described_class.coerce(val, "enumeration", property_metadata: metadata)).to eq("true"),
+              "Expected '#{val}' to coerce to 'true'"
+          end
+        end
+
+        it 'coerces falsy form values to "false"' do
+          %w[false 0 no off].each do |val|
+            expect(described_class.coerce(val, "enumeration", property_metadata: metadata)).to eq("false"),
+              "Expected '#{val}' to coerce to 'false'"
+          end
+        end
+
+        it 'coerces an empty string to "false"' do
+          expect(described_class.coerce("", "enumeration", property_metadata: metadata)).to eq("false")
+        end
+
+        it 'does NOT use the options list for resolution (booleancheckbox ignores options)' do
+          meta_with_options = { field_type: "booleancheckbox", options: [{ label: "Yes", value: "YES" }] }
+          expect(described_class.coerce("yes", "enumeration", property_metadata: meta_with_options)).to eq("true")
+        end
+      end
+
+      context 'when field_type is a single-select (e.g. select or radio)' do
+        let(:metadata) { { field_type: "select", options: options } }
+
+        it 'matches by exact label case-insensitively and returns internal value' do
+          expect(described_class.coerce("united states", "enumeration", property_metadata: metadata)).to eq("US")
+          expect(described_class.coerce("CaNaDa", "enumeration", property_metadata: metadata)).to eq("CA")
+        end
+
+        it 'matches by direct internal value' do
+          expect(described_class.coerce("GB", "enumeration", property_metadata: metadata)).to eq("GB")
+          expect(described_class.coerce("us", "enumeration", property_metadata: metadata)).to eq("US")
+        end
+
+        it 'passes through as-is if no match is found' do
+          expect(described_class.coerce("France", "enumeration", property_metadata: metadata)).to eq("France")
+        end
+
+        it 'returns the original string if options are empty' do
+          empty_metadata = { field_type: "select", options: [] }
+          expect(described_class.coerce("United States", "enumeration", property_metadata: empty_metadata)).to eq("United States")
+        end
+      end
+
+      context 'when field_type is a multi-select (checkbox)' do
+        let(:metadata) { { field_type: "checkbox", options: options } }
+
+        it 'handles array values' do
+          result = described_class.coerce(["United States", "CA", "France"], "enumeration", property_metadata: metadata)
+          expect(result).to eq("US;CA;France")
+        end
+
+        it 'handles semicolon-separated strings' do
+          result = described_class.coerce("united states;CA;France", "enumeration", property_metadata: metadata)
+          expect(result).to eq("US;CA;France")
+        end
+
+        it 'handles comma-separated strings' do
+          result = described_class.coerce("united states, CA ,   France", "enumeration", property_metadata: metadata)
+          expect(result).to eq("US;CA;France")
+        end
+
+        it 'resolves checkbox labels to internal values for HubSpot buying role' do
+          hs_buying = {
+            field_type: "checkbox",
+            options: [
+              { label: "Blocker", value: "BLOCKER" },
+              { label: "Budget Holder", value: "BUDGET_HOLDER" },
+              { label: "Champion", value: "CHAMPION" },
+              { label: "Decision Maker", value: "DECISION_MAKER" }
+            ]
+          }
+
+          expect(described_class.coerce(["Budget Holder"], "enumeration", property_metadata: hs_buying)).to eq("BUDGET_HOLDER")
+
+          expect(described_class.coerce(["Blocker", "Champion"], "enumeration", property_metadata: hs_buying)).to eq("BLOCKER;CHAMPION")
+
+          expect(described_class.coerce("Blocker;Champion", "enumeration", property_metadata: hs_buying)).to eq("BLOCKER;CHAMPION")
+
+          expect(described_class.coerce(["Connected"], "enumeration", property_metadata: hs_buying.merge(options: [{ label: "Connected", value: "CONNECTED" }]))).to eq("CONNECTED")
+
+          expect(described_class.coerce([], "enumeration", property_metadata: hs_buying)).to eq("")
+        end
+      end
+      
+      it 'resolves HubSpot radio label "New" to internal "NEW" for hs_lead_status' do
+        hs_lead = {
+          field_type: "radio",
+          options: [
+            { label: "New", value: "NEW" },
+            { label: "In Progress", value: "IN_PROGRESS" },
+            { label: "Connected", value: "CONNECTED" },
+            { label: "Unqualified", value: "UNQUALIFIED" }
+          ]
+        }
+
+        expect(described_class.coerce("New", "enumeration", property_metadata: hs_lead)).to eq("NEW")
+        expect(described_class.coerce("Unknown Label", "enumeration", property_metadata: hs_lead)).to eq("Unknown Label")
+      end
+    end
   end
 end

@@ -1,5 +1,4 @@
 class CrmPropertyCreationJob < ApplicationJob
-
   queue_as :default
 
   def perform(user_id, field_mappings)
@@ -24,39 +23,12 @@ class CrmPropertyCreationJob < ApplicationJob
   def create_hubspot_property(connection, mapping)
     client = Crm::Hubspot::Client.new(connection)
 
-    # default to creating contact properties for now, can be expanded to companies based on mapping metadata
     object_type = mapping[:object_type].presence || "contact"
     property_name = mapping[:property_name].downcase.gsub(/[^a-z0-9_]/, "_")
+    options = Array(mapping[:options])
+    allow_multiple = mapping[:allow_multiple]
 
-    hs_type = "string"
-    hs_field_type = "text"
-
-    case mapping[:field_type].to_s
-    when "number"
-      hs_type = "number"
-      hs_field_type = "number"
-    when "date"
-      hs_type = "date"
-      hs_field_type = "date"
-    when "long_text", "textarea"
-      hs_type = "string"
-      hs_field_type = "textarea"
-    when "checkbox"
-      hs_type = "enumeration"
-      hs_field_type = "checkbox"
-    when "radio"
-      hs_type = "enumeration"
-      hs_field_type = "radio"
-    when "boolean"
-      hs_type = "bool"
-      hs_field_type = "booleancheckbox"
-    end
-    
-    if ["checkbox", "radio"].include?(mapping[:field_type].to_s)
-      # Fallback to string if enumerations since we don't have options passed easily right now
-      hs_type = "string"
-      hs_field_type = "text"
-    end
+    hs_type, hs_field_type, hs_options = derive_hubspot_property(mapping[:field_type].to_s, options, allow_multiple)
 
     group_name = object_type == "company" ? "companyinformation" : "contactinformation"
 
@@ -67,6 +39,7 @@ class CrmPropertyCreationJob < ApplicationJob
         type: hs_type,
         fieldType: hs_field_type
     }
+    body[:options] = hs_options if hs_options.any?
 
     begin
       client.sdk.crm.properties.core_api.create(
@@ -80,4 +53,35 @@ class CrmPropertyCreationJob < ApplicationJob
     end
   end
 
+  def derive_hubspot_property(field_type, options, allow_multiple)
+    case field_type
+    when "number"
+      ["number", "number", []]
+    when "date"
+      ["date", "date", []]
+    when "textarea", "long_text"
+      ["string", "textarea", []]
+    when "select"
+      if options.any?
+        ["enumeration", "select", Crm::Hubspot::OptionNormalizer.build_options(options)]
+      else
+        ["string", "text", []]
+      end
+    when "radio"
+      if options.any?
+        ["enumeration", "radio", Crm::Hubspot::OptionNormalizer.build_options(options)]
+      else
+        ["string", "text", []]
+      end
+    when "checkbox", "buttons"
+      if options.any?
+        hs_field_type = allow_multiple ? "checkbox" : "select"
+        ["enumeration", hs_field_type, Crm::Hubspot::OptionNormalizer.build_options(options)]
+      else
+        ["string", "text", []]
+      end
+    else
+      ["string", "text", []]
+    end
+  end
 end

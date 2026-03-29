@@ -1,4 +1,4 @@
-export type DataType = 'string' | 'number' | 'boolean' | 'date' | 'file' | 'json' | 'unknown';
+export type DataType = 'string' | 'number' | 'boolean' | 'date' | 'file' | 'json' | 'single_choice' | 'multi_choice' | 'unknown';
 
 // ── Compound Key Helpers ────────────────────────────────────────────
 // A compound key encodes both CRM object type and raw property name
@@ -49,47 +49,55 @@ export function isCompoundKey(key: string | undefined | null): boolean {
   return !!key && key.includes(CRM_KEY_SEP);
 }
 
-export function getFieldDataType(field_type: string): DataType {
+export type FieldLike = { field_type: string; metadata?: { allow_multiple?: boolean } };
+
+export function getFieldDataType(field: string | FieldLike): DataType {
+  const f = typeof field === 'string' ? { field_type: field } : field;
+  const { field_type, metadata } = f;
+
   switch (field_type) {
-    case 'text':
-    case 'email':
-    case 'textarea':
     case 'select':
     case 'radio':
+      return 'single_choice';
+    case 'checkbox':
     case 'buttons':
-      return 'string';
+      return metadata?.allow_multiple === true ? 'multi_choice' : 'single_choice';
     case 'number':
       return 'number';
-    case 'checkbox':
-      return 'boolean';
     case 'date':
       return 'date';
     case 'file':
       return 'file';
     case 'table':
       return 'json';
+    case 'text':
+    case 'email':
+    case 'textarea':
+      return 'string';
     default:
       return 'unknown';
   }
 }
 
-export function areTypesCompatible(formFieldType: string, crmPropertyType: string): boolean {
-  if (!formFieldType || !crmPropertyType) return true;
+export function areTypesCompatible(formField: any, crmPropertyType: string, _crmFieldType?: string): boolean {
+  if (!formField || !crmPropertyType) return true;
 
-  const dataType = getFieldDataType(formFieldType);
+  const dataType = getFieldDataType(formField);
   const propType = crmPropertyType.toLowerCase();
 
-  // Basic compatibility mapping
-  // This can be expanded as we learn more about CRM specific types (HubSpot, Salesforce, etc.)
-  
+  // Generic compatibility mapping — provider-agnostic.
+  // For provider-specific sub-type discrimination (e.g. HubSpot enumeration/checkbox vs select),
+  // use the provider's own compat module (e.g. isHubSpotCompatible from crm/hubspot-compat).
   const compatibilityMap: Record<DataType, string[]> = {
-    'string': ['string', 'text', 'textarea', 'email', 'phone', 'url', 'select', 'radio', 'enumeration'],
-    'number': ['number', 'integer', 'float', 'decimal', 'price'],
-    'boolean': ['boolean', 'bool', 'checkbox', 'yesno', 'enumeration'],
-    'date': ['date', 'datetime'],
-    'file': ['file', 'string', 'text', 'url'],
-    'json': ['string', 'text', 'textarea', 'json'],
-    'unknown': ['string', 'text']
+    'single_choice': ['enumeration', 'string', 'text', 'textarea', 'email', 'phone', 'url', 'select', 'radio'],
+    'multi_choice':  ['enumeration', 'string', 'text', 'checkbox'],
+    'string':        ['string', 'text', 'textarea', 'email', 'phone', 'url', 'select', 'radio'],
+    'number':        ['number', 'integer', 'float', 'decimal', 'price'],
+    'boolean':       ['boolean', 'bool', 'checkbox', 'yesno', 'enumeration'],
+    'date':          ['date', 'datetime'],
+    'file':          ['file', 'string', 'text', 'url'],
+    'json':          ['string', 'text', 'textarea', 'json'],
+    'unknown':       ['string', 'text']
   };
 
   // If we have a defined set of compatible types for the dataType
@@ -290,6 +298,7 @@ type MatchCandidate = {
   distance: number;
   similarity: number;
   objectPreference: number;
+  subtypeBonus: number;
 };
 
 function compareCandidates(left: MatchCandidate, right: MatchCandidate): number {
@@ -302,6 +311,9 @@ function compareCandidates(left: MatchCandidate, right: MatchCandidate): number 
 
   const tierDelta = tierOrder[left.tier] - tierOrder[right.tier];
   if (tierDelta !== 0) return tierDelta;
+
+  const subtypeDelta = (left.subtypeBonus || 0) - (right.subtypeBonus || 0);
+  if (subtypeDelta !== 0) return subtypeDelta;
 
   const preferenceDelta = left.objectPreference - right.objectPreference;
   if (preferenceDelta !== 0) return preferenceDelta;
@@ -319,7 +331,11 @@ function shouldAcceptCandidate(candidate: MatchCandidate | null): boolean {
   return candidate.distance <= 2 || candidate.similarity >= 0.85 || (candidate.objectPreference > 0 && candidate.similarity >= 0.75);
 }
 
-export function autoMapFields(fields: any[], crmProperties: Record<string, any>): Record<string, Record<string, any>> {
+export function autoMapFields(
+  fields: any[],
+  crmProperties: Record<string, any>,
+  providerIsCompatible?: (field: any, prop: any, provider: string) => boolean
+): Record<string, Record<string, any>> {
   const newMappings: Record<string, Record<string, any>> = {};
 
   fields.forEach((field, index) => {
@@ -348,9 +364,20 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
           ...normalizedFieldTerms,
         ]);
         const objectPreference = getObjectPreferenceScore([field.label, fieldId, exportKey], objType);
+        const formDataType = getFieldDataType(field);
 
         for (const p of props) {
-          if (!areTypesCompatible(field.field_type, p.type)) continue;
+          const compatible = providerIsCompatible
+            ? providerIsCompatible(field, p, provider)
+            : areTypesCompatible(field, p.type);
+          if (!compatible) continue;
+
+          let subtypeBonus = 0;
+          if (p.type === 'enumeration' && p.field_type) {
+            const isMultiCrm = p.field_type.toLowerCase() === 'checkbox';
+            const isMultiForm = formDataType === 'multi_choice';
+            if (isMultiCrm === isMultiForm) subtypeBonus = 1;
+          }
 
           const propName = String(p.name || '').toLowerCase();
           const propLabel = String(p.label || '').toLowerCase();
@@ -366,6 +393,7 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
               distance: 0,
               similarity: 1,
               objectPreference,
+              subtypeBonus,
             };
             if (!bestCandidate || compareCandidates(candidate, bestCandidate) > 0) bestCandidate = candidate;
             continue;
@@ -380,6 +408,7 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
               distance: 0,
               similarity: 1,
               objectPreference,
+              subtypeBonus,
             };
             if (!bestCandidate || compareCandidates(candidate, bestCandidate) > 0) bestCandidate = candidate;
             continue;
@@ -396,6 +425,7 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
               distance: 0,
               similarity: 1,
               objectPreference,
+              subtypeBonus,
             };
             if (!bestCandidate || compareCandidates(candidate, bestCandidate) > 0) bestCandidate = candidate;
             continue;
@@ -434,6 +464,7 @@ export function autoMapFields(fields: any[], crmProperties: Record<string, any>)
             distance: candidateDistance,
             similarity: candidateSimilarity,
             objectPreference,
+            subtypeBonus,
           };
           if (!bestCandidate || compareCandidates(candidate, bestCandidate) > 0) bestCandidate = candidate;
           }
