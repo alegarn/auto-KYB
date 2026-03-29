@@ -2,6 +2,7 @@
 
 class CrmConnectionsController < ApplicationController
   before_action :authorize_subscription
+  before_action :authorize_crm_access!
 
   # GET /crm_connections/auth/:provider
   # This route ensures a standard, full-page browser redirect to avoid any Inertia XHR weirdness.

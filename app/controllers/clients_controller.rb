@@ -4,6 +4,7 @@ class ClientsController < ApplicationController
 
   before_action :authorize_subscription
   before_action :set_client, only: %i[show edit update destroy export export_to_crm crm_match_suggestions crm_contact_details link_crm_contact create_crm_contact]
+  before_action :authorize_crm_access!, only: %i[export_to_crm crm_match_suggestions crm_contact_details link_crm_contact create_crm_contact]
 
   def index
     scope = Client.by_user(current_user.id).order(created_at: :desc)
@@ -34,7 +35,7 @@ class ClientsController < ApplicationController
       forms: forms_for_select,
       file_retention: FileRetentionPolicy.as_json,
       uploaded_files: UploadedFileSerializer.collection(@client.uploaded_files.available),
-      crm_connections: current_user.crm_connections.where(status: "active").as_json(only: [ :id, :provider ])
+      crm_connections: current_user.can_use_crm? ? current_user.crm_connections.where(status: "active").as_json(only: [ :id, :provider ]) : []
     )
   end
 
@@ -80,7 +81,7 @@ class ClientsController < ApplicationController
     render inertia: "Clients/New", props: default_inertia_props.merge(
       client: {},
       forms: forms_for_select,
-      has_active_crm_connection: current_user.crm_connections.active.exists?
+      has_active_crm_connection: current_user.can_use_crm? && current_user.crm_connections.active.exists?
     )
   end
 
@@ -117,7 +118,8 @@ class ClientsController < ApplicationController
         return
       end
 
-      redirect_to clients_path, status: :see_other
+      notice = crm_sync_params[:strategy].present? ? "Client created. CRM sync was queued and will continue in the background." : "Client created successfully."
+      redirect_to clients_path, notice: notice, status: :see_other
     else
       render inertia: "Clients/New", props: default_inertia_props.merge(
         client: ClientSerializer.new(client).as_json,
@@ -342,7 +344,7 @@ class ClientsController < ApplicationController
       forms: forms_for_select,
       current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id,
       has_crm_link: @client.crm_client_link.present?,
-      has_active_crm_connection: current_user.crm_connections.active.exists?,
+      has_active_crm_connection: current_user.can_use_crm? && current_user.crm_connections.active.exists?,
       crm_sync_status: crm_sync_status_for(@client)
     }.merge(extra_props)
   end

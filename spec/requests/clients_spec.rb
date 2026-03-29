@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Clients API", type: :request do
   include ActiveJob::TestHelper
 
-  let(:user) { create(:user, :subscribed) }
+  let(:user) { create(:user, :subscribed, plan: :pro) }
   let(:session) { user.sessions.create! }
   let(:inertia_headers) { { 'X-Inertia' => 'true', 'X-Inertia-Version' => ViteRuby.digest } }
 

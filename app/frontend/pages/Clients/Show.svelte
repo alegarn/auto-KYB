@@ -417,10 +417,12 @@
                 >
                   <Download class="size-4" /> Download CSV
                 </a>
+                {#if user?.can_use_crm}
                 <Button variant="outline" onclick={openCrmExport} class="gap-2 shadow-sm">
                   <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   Export to CRM
                 </Button>
+                {/if}
               </div>
             </div>
           {/if}

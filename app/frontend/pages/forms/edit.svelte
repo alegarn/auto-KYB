@@ -35,7 +35,9 @@
   let mappingValid = $state(true)
   let showUnmappedCrmWarning = $state(false)
   let showUnmappedCrmWarningModal = $state(false)
-  const unmappedFields = $derived(singleCrmProvider ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
+  // @ts-ignore
+  const canUseCrm = $derived($page.props.auth?.user?.can_use_crm)
+  const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
   const hasUnmappedCrmFields = $derived(unmappedFields.length > 0)
 
   // Sync state with props
@@ -289,7 +291,9 @@
         Preview
       </button>
     </div>
-    <Button type="button" variant="outline" size="sm" onclick={openCrmMapping}>🔌 CRM Sync Settings</Button>
+    {#if canUseCrm}
+      <Button type="button" variant="outline" size="sm" onclick={openCrmMapping}> 🔌 CRM Sync Settings</Button>
+    {/if}
   </div>
 
   {#if preview}

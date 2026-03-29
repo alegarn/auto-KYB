@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "ClientPortal::FormResponses", type: :request do
   include ActiveJob::TestHelper
 
-  let(:user) { create(:user, crm_auto_sync_on_portal_submit: true) }
+  let(:user) { create(:user, crm_auto_sync_on_portal_submit: true, plan: :pro) }
   let(:client) { create(:client, user: user) }
   let(:form) { create(:form, user: user) }
 

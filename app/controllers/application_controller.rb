@@ -27,7 +27,10 @@ class ApplicationController < ActionController::Base
                    user: {
                      id:                   user.id,
                      email:                user.email,
-                     onboarding_completed: user.onboarding_completed
+                     onboarding_completed: user.onboarding_completed,
+                     plan:                 user.plan,
+                     can_use_crm:          user.can_use_crm?,
+                     crm_auto_sync_on_portal_submit: user.crm_auto_sync_on_portal_submit
                    },
                    subscription: {
                      status:      user.subscription_status,
@@ -48,7 +51,17 @@ class ApplicationController < ActionController::Base
   def user_props
     return nil unless current_user
 
-    { id: current_user.id, email: current_user.email }
+    {
+      id: current_user.id,
+      email: current_user.email,
+      plan: current_user.plan,
+      can_use_crm: current_user.can_use_crm?,
+      crm_auto_sync_on_portal_submit: current_user.crm_auto_sync_on_portal_submit
+    }
+  end
+
+  def authorize_crm_access!
+    authorize :crm_feature, :access?, policy_class: CrmFeaturePolicy
   end
 
   def default_inertia_props
@@ -140,7 +153,16 @@ class ApplicationController < ActionController::Base
         notice: "The page expired, please try again.")
     end
 
-    def pundit_not_authorized
+    def pundit_not_authorized(exception = nil)
+      if exception && exception.policy.class == CrmFeaturePolicy
+        if request.format.json? || request.format.turbo_stream?
+          render json: { error: "CRM features require the Pro plan" }, status: :forbidden
+        else
+          redirect_to root_path, alert: "CRM features require the Pro plan."
+        end
+        return
+      end
+
       if current_user
         redirect_to subscription_required_path,
                     alert: "You need an active subscription to access this page."

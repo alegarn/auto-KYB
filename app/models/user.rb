@@ -32,6 +32,15 @@ class User < ApplicationRecord
   after_create :initialize_default_forms
 
   # Subscription statuses from Stripe / application state
+  enum :plan, {
+    basic: "basic",
+    pro: "pro"
+  }
+
+  def can_use_crm?
+    pro?
+  end
+
   enum :subscription_status, {
     incomplete: 'incomplete',
     trialing:   'trialing',

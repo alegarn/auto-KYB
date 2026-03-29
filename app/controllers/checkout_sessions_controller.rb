@@ -4,9 +4,11 @@ class CheckoutSessionsController < ApplicationController
 
   # Creates a Stripe Checkout Session
   def create
-    price_id = ENV['STRIPE_BASIC_PLAN_PRICE_ID']
+    plan_param = params[:plan] == 'pro' ? 'pro' : 'basic'
+    price_id = plan_param == 'pro' ? ENV['STRIPE_PRO_PLAN_PRICE_ID'] : ENV['STRIPE_BASIC_PLAN_PRICE_ID']
+
     unless price_id.present?
-      Rails.logger.error("Stripe: missing STRIPE_BASIC_PLAN_PRICE_ID")
+      Rails.logger.error("Stripe: missing STRIPE_#{plan_param.upcase}_PLAN_PRICE_ID")
       return render json: { error: 'Pricing not configured' }, status: :unprocessable_entity
     end
 

@@ -43,6 +43,12 @@
     },
   ];
 
+  const filteredItems = $derived(
+    items.filter(item => 
+      item.title !== "CRM Transfers" || ($page.props.auth as any)?.user?.can_use_crm
+    )
+  );
+
   const currentPath = $derived.by(() => {
     const url = $page?.url ?? "";
     try {
@@ -70,7 +76,7 @@
       <Sidebar.GroupLabel>Application</Sidebar.GroupLabel>
       <Sidebar.GroupContent>
         <Sidebar.Menu>
-          {#each items as item (item.title)}
+          {#each filteredItems as item (item.title)}
             <Sidebar.MenuItem>
               <Sidebar.MenuButton isActive={isActiveRoute(item.url)}>
                 {#snippet child({ props }: { props: Record<string, unknown> })}

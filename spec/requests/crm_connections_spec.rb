@@ -1,12 +1,13 @@
 require 'rails_helper'
 
 RSpec.describe "CrmConnections", type: :request do
-  let(:user) { create(:user) }
+  let(:user) { create(:user, plan: :pro) }
 
   before do
     sign_in_user(user)
     # Mock subscription policy so authorize_subscription passes
     allow_any_instance_of(SubscriptionPolicy).to receive(:active?).and_return(true)
+    allow_any_instance_of(User).to receive(:active_subscription?).and_return(true)
   end
 
   describe "POST /crm_connections" do

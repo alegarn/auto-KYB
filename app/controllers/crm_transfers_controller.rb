@@ -1,5 +1,6 @@
 class CrmTransfersController < ApplicationController
   before_action :authorize_subscription
+  before_action :authorize_crm_access!
   before_action :mark_crm_transfer_signals_seen!, only: :index
   before_action :set_transfer, only: :retry
 

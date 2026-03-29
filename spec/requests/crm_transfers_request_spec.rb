@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe 'CrmTransfers', type: :request do
   include ActiveJob::TestHelper
 
-  let(:user) { sign_in_user(create(:user, :subscribed)) }
+  let(:user) { sign_in_user(create(:user, :subscribed, plan: :pro)) }
   let(:session_id) { user.sessions.last.id }
   let(:inertia_headers) do
     {

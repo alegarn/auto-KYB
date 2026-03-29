@@ -112,10 +112,13 @@
   });
   let CrmSyncWidgetComponent = $state<CrmSyncWidgetComponentType | null>(null);
 
-  const shouldShowCrmSyncWidget = $derived(has_active_crm_connection && !has_crm_link);
-  const shouldShowCrmPrefillBox = $derived(has_active_crm_connection && has_crm_link);
+  // @ts-ignore
+  const canUseCrm = $derived($page.props.auth?.user?.can_use_crm);
+  const shouldShowCrmSyncWidget = $derived(canUseCrm && has_active_crm_connection && !has_crm_link);
+  const shouldShowCrmPrefillBox = $derived(canUseCrm && has_active_crm_connection && has_crm_link);
   const crmProviderName = $derived(crm_sync_status?.provider_name || 'your CRM');
   const crmSyncNotice = $derived.by(() => {
+    if (!canUseCrm) return null;
     if (!crm_sync_status?.linked) return null;
 
     if (crm_sync_status?.auto_updates_on_edit) {
@@ -184,6 +187,7 @@
   onMount(() => {
     fetchCountries();
 
+    if (!canUseCrm) return;
     if (!shouldShowCrmPrefillBox || !crm_sync_status?.auto_updates_on_edit) return;
 
     const dismissedNotice = window.localStorage.getItem(CRM_LINKED_NOTICE_STORAGE_KEY);

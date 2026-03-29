@@ -314,6 +314,7 @@
       </Card.Content>
     </Card.Root>
 
+    {#if user?.can_use_crm}
     <Card.Root>
       <Card.Header>
         <Card.Title>CRM Integrations</Card.Title>
@@ -398,6 +399,7 @@
         {/if}
       </Card.Content>
     </Card.Root>
+    {/if}
 
     <Card.Root class="border-destructive/40">
       <Card.Header>

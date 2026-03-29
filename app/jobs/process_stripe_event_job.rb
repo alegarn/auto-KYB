@@ -122,6 +122,15 @@ class ProcessStripeEventJob < ApplicationJob
       attrs[:stripe_subscription_id] = sub['id']
     end
 
+    if sub['items'] && sub['items']['data'].present?
+      price_id = sub['items']['data'].first&.dig('price', 'id')
+      if price_id == ENV['STRIPE_PRO_PLAN_PRICE_ID'] && price_id.present?
+        attrs[:plan] = 'pro'
+      elsif price_id == ENV['STRIPE_BASIC_PLAN_PRICE_ID'] && price_id.present?
+        attrs[:plan] = 'basic'
+      end
+    end
+
     if attrs.any?
       user.update!(attrs)
       Rails.logger.info("[Stripe] Updated subscription for user_id=#{user.id} status=#{user.subscription_status} ends_at=#{user.subscription_ends_at}")
