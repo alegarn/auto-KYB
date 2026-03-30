@@ -258,7 +258,8 @@ def duplicate
   end
 
   def active_crm_providers
-    return [] unless current_user.can_use_crm?
+    return [] unless Crm::Entitlement.new(current_user).allowed?
+
     current_user.crm_connections.active.distinct.pluck(:provider)
   end
 

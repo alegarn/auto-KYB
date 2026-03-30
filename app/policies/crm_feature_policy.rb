@@ -2,6 +2,16 @@
 
 class CrmFeaturePolicy < ApplicationPolicy
   def access?
-    subscribed? && user.can_use_crm?
+    entitlement.allowed?
+  end
+
+  def reason
+    entitlement.reason
+  end
+
+  private
+
+  def entitlement
+    @entitlement ||= Crm::Entitlement.new(user)
   end
 end

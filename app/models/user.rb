@@ -37,7 +37,7 @@ class User < ApplicationRecord
     pro: "pro"
   }
 
-  def can_use_crm?
+  def crm_plan_eligible?
     pro?
   end
 

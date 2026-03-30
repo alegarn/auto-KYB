@@ -2,9 +2,12 @@ class SettingsController < ApplicationController
 
   def index
     authorize :settings, :show?
+
+    entitlement = Crm::Entitlement.new(current_user)
+
     render inertia: "Settings/Index", props: {
-      user: current_user.as_json.merge(can_use_crm: current_user.can_use_crm?),
-      crm_connections: current_user.can_use_crm? ? current_user.crm_connections.as_json(only: [:id, :provider, :status, :updated_at]) : []
+      user: current_user.as_json.merge(can_use_crm: entitlement.allowed?),
+      crm_connections: entitlement.allowed? ? current_user.crm_connections.as_json(only: [:id, :provider, :status, :updated_at]) : []
     }
   end
 

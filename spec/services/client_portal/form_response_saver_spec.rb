@@ -63,6 +63,23 @@ RSpec.describe ClientPortal::FormResponseSaver, type: :service do
     }.not_to have_enqueued_job(CrmDataExportJob)
   end
 
+  it "does not enqueue CRM export when the user has no active CRM entitlement" do
+    canceled_user = create(:user, :canceled, plan: :pro, crm_auto_sync_on_portal_submit: true)
+    canceled_client_form = create(:client_form, client: create(:client, user: canceled_user))
+    create(:crm_connection, user: canceled_user, status: "active")
+
+    saver = described_class.new(
+      client_form: canceled_client_form,
+      data: { a: 1 },
+      validate: true,
+      partial: false
+    )
+
+    expect {
+      saver.save
+    }.not_to have_enqueued_job(CrmDataExportJob)
+  end
+
   it "does not enqueue CRM export when portal auto-sync is disabled" do
     create(:crm_connection, user: client.user, status: "active")
     client.user.update!(crm_auto_sync_on_portal_submit: false)

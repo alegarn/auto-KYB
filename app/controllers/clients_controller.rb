@@ -28,6 +28,7 @@ class ClientsController < ApplicationController
 
   def show
     client_form = @client.client_forms.includes(:form).order(created_at: :desc).first
+    entitlement = Crm::Entitlement.new(current_user)
 
     render inertia: "Clients/Show", props: default_inertia_props.merge(
       client: ClientSerializer.new(@client).as_json,
@@ -35,7 +36,7 @@ class ClientsController < ApplicationController
       forms: forms_for_select,
       file_retention: FileRetentionPolicy.as_json,
       uploaded_files: UploadedFileSerializer.collection(@client.uploaded_files.available),
-      crm_connections: current_user.can_use_crm? ? current_user.crm_connections.where(status: "active").as_json(only: [ :id, :provider ]) : []
+      crm_connections: entitlement.allowed? ? current_user.crm_connections.where(status: "active").as_json(only: [ :id, :provider ]) : []
     )
   end
 
@@ -78,10 +79,12 @@ class ClientsController < ApplicationController
   end
 
   def new
+    entitlement = Crm::Entitlement.new(current_user)
+
     render inertia: "Clients/New", props: default_inertia_props.merge(
       client: {},
       forms: forms_for_select,
-      has_active_crm_connection: current_user.can_use_crm? && current_user.crm_connections.active.exists?
+      has_active_crm_connection: entitlement.allowed? && current_user.crm_connections.active.exists?
     )
   end
 
@@ -339,12 +342,14 @@ class ClientsController < ApplicationController
   end
 
   def edit_inertia_props(extra_props = {})
+    entitlement = Crm::Entitlement.new(current_user)
+
     {
       client: ClientSerializer.new(@client).as_json,
       forms: forms_for_select,
       current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id,
       has_crm_link: @client.crm_client_link.present?,
-      has_active_crm_connection: current_user.can_use_crm? && current_user.crm_connections.active.exists?,
+      has_active_crm_connection: entitlement.allowed? && current_user.crm_connections.active.exists?,
       crm_sync_status: crm_sync_status_for(@client)
     }.merge(extra_props)
   end

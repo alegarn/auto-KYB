@@ -68,6 +68,23 @@ RSpec.describe SettingsController, type: :controller, inertia: true do
       end
     end
 
+    context "when the user has a pro plan without active CRM entitlement" do
+      let(:user) { create(:user, :canceled, plan: :pro, password: "password123456") }
+      let(:session) { user.sessions.create! }
+
+      before do
+        cookies.signed[:session_token] = session.id
+        create(:crm_connection, user: user, provider: "hubspot", status: "active")
+      end
+
+      it "keeps the CRM flag false and hides CRM connections" do
+        get :index
+
+        expect(inertia.props[:user][:can_use_crm]).to be(false)
+        expect(inertia.props[:crm_connections]).to eq([])
+      end
+    end
+
     context "when not authenticated" do
       it "redirects to sign in path" do
         get :index
