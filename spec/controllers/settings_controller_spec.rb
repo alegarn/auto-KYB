@@ -20,14 +20,29 @@ RSpec.describe SettingsController, type: :controller, inertia: true do
       it "passes user as prop" do
         get :index
 
-        expect(inertia.props[:user]).to include(
+        serialized_user = inertia.props[:user].with_indifferent_access
+
+        expect(serialized_user).to include(
           "id" => user.id,
           "email" => user.email,
+          "provider" => user.provider,
+          "created_at" => user.created_at.iso8601,
           "plan" => user.plan,
           "subscription_status" => user.subscription_status,
+          "subscription_ends_at" => user.subscription_ends_at,
           "crm_auto_sync_on_portal_submit" => user.crm_auto_sync_on_portal_submit,
-          :can_use_crm => false
+          "can_use_crm" => false
         )
+      end
+
+      it "does not expose internal billing or authentication fields" do
+        get :index
+
+        serialized_user = inertia.props[:user].with_indifferent_access
+
+        expect(serialized_user).not_to have_key("password_digest")
+        expect(serialized_user).not_to have_key("stripe_customer_id")
+        expect(serialized_user).not_to have_key("stripe_subscription_id")
       end
 
       it "hides CRM connections for users without CRM access" do
@@ -57,7 +72,7 @@ RSpec.describe SettingsController, type: :controller, inertia: true do
       it "passes the CRM-enabled user flag and active connections" do
         get :index
 
-        expect(inertia.props[:user][:can_use_crm]).to be(true)
+        expect(inertia.props[:user].with_indifferent_access[:can_use_crm]).to be(true)
         expect(inertia.props[:crm_connections]).to contain_exactly(
           hash_including(
             "id" => connection.id,
@@ -80,7 +95,7 @@ RSpec.describe SettingsController, type: :controller, inertia: true do
       it "keeps the CRM flag false and hides CRM connections" do
         get :index
 
-        expect(inertia.props[:user][:can_use_crm]).to be(false)
+        expect(inertia.props[:user].with_indifferent_access[:can_use_crm]).to be(false)
         expect(inertia.props[:crm_connections]).to eq([])
       end
     end
@@ -107,6 +122,7 @@ RSpec.describe SettingsController, type: :controller, inertia: true do
   end
 
   describe "PATCH #update_crm_preferences" do
+    let(:user) { create(:user, :subscribed, plan: :pro, password: "password123456") }
     let(:session) { user.sessions.create! }
 
     before do
@@ -123,6 +139,23 @@ RSpec.describe SettingsController, type: :controller, inertia: true do
       expect(response).to redirect_to(settings_path)
       expect(response).to have_http_status(:see_other)
       expect(user.reload.crm_auto_sync_on_portal_submit).to be(false)
+    end
+
+    context "when the user is not entitled to CRM features" do
+      let(:user) { create(:user, :subscribed, plan: :basic, password: "password123456") }
+
+      it "redirects without updating the preference" do
+        expect {
+          patch :update_crm_preferences, params: {
+            settings: {
+              crm_auto_sync_on_portal_submit: false
+            }
+          }
+        }.not_to change { user.reload.crm_auto_sync_on_portal_submit }
+
+        expect(response).to redirect_to(dashboard_path)
+        expect(response).to have_http_status(:see_other)
+      end
     end
   end
 end

@@ -191,6 +191,32 @@ RSpec.describe "Clients API", type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
       expect(response.body).to include("Clients/New")
     end
+
+    context "when CRM sync is requested by a non-entitled user" do
+      let(:user) { create(:user, :subscribed, plan: :basic) }
+
+      before do
+        create(:crm_connection, user: user, provider: "hubspot", status: "active")
+      end
+
+      it "rejects the request before creating a client or transfer" do
+        attrs = attributes_for(:client, company_name: "Acme Corp")
+
+        expect {
+          post clients_path, params: {
+            client: attrs,
+            crm: {
+              strategy: "create",
+              sync_address_to_contact: "true"
+            }
+          }
+        }.not_to change(Client, :count)
+
+        expect(CrmTransfer.count).to eq(0)
+        expect(response).to redirect_to(dashboard_path)
+        expect(response).to have_http_status(:see_other)
+      end
+    end
   end
 
   describe "GET /clients/:id/edit" do
@@ -262,6 +288,26 @@ RSpec.describe "Clients API", type: :request do
 
       expect(response).to have_http_status(:unprocessable_entity)
       expect(response.body).to include("Clients/Edit")
+    end
+
+    context "when CRM sync is requested by a non-entitled user" do
+      let(:user) { create(:user, :subscribed, plan: :basic) }
+
+      it "rejects the update before changing the client or scheduling work" do
+        create(:crm_connection, user: user, provider: "hubspot", status: "active")
+        client = create(:client, user: user, name: "Before")
+
+        expect {
+          patch client_path(client), params: {
+            client: { name: "After" },
+            crm: { strategy: "update" }
+          }
+        }.not_to change(CrmTransfer, :count)
+
+        expect(client.reload.name).to eq("Before")
+        expect(response).to redirect_to(dashboard_path)
+        expect(response).to have_http_status(:see_other)
+      end
     end
 
     it "enqueues ClientProfileSyncJob in the background when no CRM strategy is provided" do

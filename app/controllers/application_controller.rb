@@ -98,6 +98,8 @@ class ApplicationController < ActionController::Base
       # Allow tests that set Current.session directly to bypass cookie-based lookup
       return if Current.session&.user.present?
 
+      return head(:unauthorized) if api_authentication_request?
+
       redirect_to(sign_in_path) and return
     end
 
@@ -158,20 +160,70 @@ class ApplicationController < ActionController::Base
     end
 
     def pundit_not_authorized(exception = nil)
-      if exception && exception.policy.class == CrmFeaturePolicy
-        if request.format.json? || request.format.turbo_stream?
-          render json: { error: "CRM features require the Pro plan" }, status: :forbidden
-        else
-          redirect_to root_path, alert: "CRM features require the Pro plan."
-        end
+      if crm_policy_violation?(exception)
+        handle_crm_authorization_failure(crm_authorization_reason(exception))
         return
       end
 
       if current_user
         redirect_to subscription_required_path,
-                    alert: "You need an active subscription to access this page."
+                    alert: "You need an active subscription to access this page.",
+                    status: authorization_redirect_status
       else
-        redirect_to sign_in_path
+        return head(:unauthorized) if api_authentication_request?
+
+        redirect_to sign_in_path, status: authorization_redirect_status
+      end
+    end
+
+    def api_authentication_request?
+      request.format.json? || (request.xhr? && !inertia_request?)
+    end
+
+    def inertia_request?
+      request.headers["X-Inertia"].present?
+    end
+
+    def authorization_redirect_status
+      request.get? ? :found : :see_other
+    end
+
+    def crm_policy_violation?(exception)
+      exception&.policy.is_a?(CrmFeaturePolicy)
+    end
+
+    def crm_authorization_reason(exception)
+      if exception&.policy&.respond_to?(:reason)
+        exception.policy.reason.to_sym
+      else
+        :plan_insufficient
+      end
+    end
+
+    def handle_crm_authorization_failure(reason)
+      normalized_reason = reason.to_sym
+
+      if request.format.json? && !inertia_request?
+        status = normalized_reason == :unauthenticated ? :unauthorized : :forbidden
+        render json: { error: normalized_reason.to_s }, status: status
+        return
+      end
+
+      case normalized_reason
+      when :unauthenticated
+        redirect_to sign_in_path, status: authorization_redirect_status
+      when :subscription_inactive
+        redirect_to subscription_required_path,
+                    alert: "You need an active subscription to use CRM features.",
+                    status: authorization_redirect_status
+      when :plan_insufficient
+        redirect_to dashboard_path,
+                    alert: "CRM features require the Pro plan.",
+                    status: authorization_redirect_status
+      else
+        redirect_to dashboard_path,
+                    alert: "CRM access is not available.",
+                    status: authorization_redirect_status
       end
     end
 
