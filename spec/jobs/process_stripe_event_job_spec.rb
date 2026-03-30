@@ -177,6 +177,108 @@ RSpec.describe ProcessStripeEventJob, type: :job do
         expect(user.reload.subscription_status).to eq('trialing')
       end
 
+context "when downgrading from pro to basic while still active" do
+  before do
+    ENV['STRIPE_BASIC_PLAN_PRICE_ID'] = 'price_basic_123'
+    ENV['STRIPE_PRO_PLAN_PRICE_ID'] = 'price_pro_123'
+    user.update!(plan: 'pro')
+  end
+
+  it "updates the user plan to basic and preserves connections" do
+    sub = {
+      'id' => 'sub_1',
+      'customer' => 'cus_sub_1',
+      'status' => 'active',
+      'items' => {
+        'data' => [ { 'price' => { 'id' => 'price_basic_123' } } ]
+      }
+    }
+    create(:crm_connection, user: user) # create some CRM connection data to prove it isn't deleted
+
+    expect {
+      described_class.perform_now(event: event_for('customer.subscription.updated', sub))
+      user.reload
+    }.to change(user, :plan).from('pro').to('basic')
+
+    expect(CrmConnection.where(user: user).count).to eq(1)
+  end
+end
+
+context "when upgrading from basic to pro" do
+  before do
+    ENV['STRIPE_BASIC_PLAN_PRICE_ID'] = 'price_basic_123'
+    ENV['STRIPE_PRO_PLAN_PRICE_ID'] = 'price_pro_123'
+    user.update!(plan: 'basic')
+  end
+
+  it "updates the user plan to pro" do
+    sub = {
+      'id' => 'sub_1',
+      'customer' => 'cus_sub_1',
+      'status' => 'active',
+      'items' => {
+        'data' => [ { 'price' => { 'id' => 'price_pro_123' } } ]
+      }
+    }
+
+    expect {
+      described_class.perform_now(event: event_for('customer.subscription.updated', sub))
+      user.reload
+    }.to change(user, :plan).from('basic').to('pro')
+  end
+end
+
+context "when downgrading from pro to basic while still active" do
+  before do
+    ENV['STRIPE_BASIC_PLAN_PRICE_ID'] = 'price_basic_123'
+    ENV['STRIPE_PRO_PLAN_PRICE_ID'] = 'price_pro_123'
+    user.update!(plan: 'pro')
+  end
+
+  it "updates the user plan to basic and preserves connections" do
+    sub = {
+      'id' => 'sub_1',
+      'customer' => 'cus_sub_1',
+      'status' => 'active',
+      'items' => {
+        'data' => [ { 'price' => { 'id' => 'price_basic_123' } } ]
+      }
+    }
+    create(:crm_connection, user: user) # create some CRM connection data to prove it isn't deleted
+
+    expect {
+      described_class.perform_now(event: event_for('customer.subscription.updated', sub))
+      user.reload
+    }.to change(user, :plan).from('pro').to('basic')
+
+    expect(CrmConnection.where(user: user).count).to eq(1)
+  end
+end
+
+context "when upgrading from basic to pro" do
+  before do
+    ENV['STRIPE_BASIC_PLAN_PRICE_ID'] = 'price_basic_123'
+    ENV['STRIPE_PRO_PLAN_PRICE_ID'] = 'price_pro_123'
+    user.update!(plan: 'basic')
+  end
+
+  it "updates the user plan to pro" do
+    sub = {
+      'id' => 'sub_1',
+      'customer' => 'cus_sub_1',
+      'status' => 'active',
+      'items' => {
+        'data' => [ { 'price' => { 'id' => 'price_pro_123' } } ]
+      }
+    }
+
+    expect {
+      described_class.perform_now(event: event_for('customer.subscription.updated', sub))
+      user.reload
+    }.to change(user, :plan).from('basic').to('pro')
+  end
+end
+
       context "when all values are already up to date (idempotent)" do
         let(:ts) { 5.days.from_now }
         before { user.update!(subscription_status: 'active', stripe_subscription_id: 'sub_same', subscription_ends_at: ts) }
@@ -246,6 +348,34 @@ RSpec.describe ProcessStripeEventJob, type: :job do
         described_class.perform_now(event: event_for('customer.subscription.deleted', sub))
         expect(user.reload.subscription_ends_at).to be_within(1.second).of(Time.zone.at(ended_ts))
       end
+
+context "when cancelling a pro subscription" do
+  before { user.update!(plan: 'pro') }
+
+  it "marks subscription as canceled and preserves connections" do
+    create(:crm_connection, user: user)
+    sub = { 'customer' => 'cus_del_1' }
+    expect {
+      described_class.perform_now(event: event_for('customer.subscription.deleted', sub))
+      user.reload
+    }.not_to change { CrmConnection.where(user: user).count }
+    expect(user.subscription_status).to eq('canceled')
+  end
+end
+
+context "when cancelling a pro subscription" do
+  before { user.update!(plan: 'pro') }
+
+  it "marks subscription as canceled and preserves connections" do
+    create(:crm_connection, user: user)
+    sub = { 'customer' => 'cus_del_1' }
+    expect {
+      described_class.perform_now(event: event_for('customer.subscription.deleted', sub))
+      user.reload
+    }.not_to change { CrmConnection.where(user: user).count }
+    expect(user.subscription_status).to eq('canceled')
+  end
+end
 
       context "when already canceled (idempotent)" do
         before { user.update!(subscription_status: 'canceled', stripe_subscription_id: nil, subscription_canceled_at: 1.day.ago) }
@@ -391,6 +521,40 @@ RSpec.describe ProcessStripeEventJob, type: :job do
       end
     end
   end
+
+# ─────────────────────────────────────────────────────────────
+# Out of order events (monotonic guard)
+# ─────────────────────────────────────────────────────────────
+describe "monotonic guard (out of order events)" do
+  let!(:user) { create(:user, stripe_customer_id: 'cus_ooo_1', last_stripe_event_ts: 1000) }
+
+  it "skips checkout.session.completed if created < last_stripe_event_ts" do
+    event = { 'type' => 'checkout.session.completed', 'id' => 'evt_old', 'created' => 999, 'data' => { 'object' => { 'customer' => 'cus_ooo_1', 'subscription' => 'sub_new' } } }
+    expect { described_class.perform_now(event: event) }.not_to change { user.reload.last_stripe_event_ts }
+  end
+
+  it "processes checkout.session.completed if created >= last_stripe_event_ts" do
+    event = { 'type' => 'checkout.session.completed', 'id' => 'evt_new', 'created' => 1001, 'data' => { 'object' => { 'customer' => 'cus_ooo_1', 'subscription' => 'sub_new' } } }
+    expect { described_class.perform_now(event: event) }.to change { user.reload.last_stripe_event_ts }.to(1001)
+  end
+end
+
+# ─────────────────────────────────────────────────────────────
+# Out of order events (monotonic guard)
+# ─────────────────────────────────────────────────────────────
+describe "monotonic guard (out of order events)" do
+  let!(:user) { create(:user, stripe_customer_id: 'cus_ooo_1', last_stripe_event_ts: 1000) }
+
+  it "skips checkout.session.completed if created < last_stripe_event_ts" do
+    event = { 'type' => 'checkout.session.completed', 'id' => 'evt_old', 'created' => 999, 'data' => { 'object' => { 'customer' => 'cus_ooo_1', 'subscription' => 'sub_new' } } }
+    expect { described_class.perform_now(event: event) }.not_to change { user.reload.last_stripe_event_ts }
+  end
+
+  it "processes checkout.session.completed if created >= last_stripe_event_ts" do
+    event = { 'type' => 'checkout.session.completed', 'id' => 'evt_new', 'created' => 1001, 'data' => { 'object' => { 'customer' => 'cus_ooo_1', 'subscription' => 'sub_new' } } }
+    expect { described_class.perform_now(event: event) }.to change { user.reload.last_stripe_event_ts }.to(1001)
+  end
+end
 
   # ─────────────────────────────────────────────────────────────
   # Unknown event type
