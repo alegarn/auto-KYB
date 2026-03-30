@@ -302,5 +302,22 @@ RSpec.describe 'CrmTransfers', type: :request do
       expect(response).to redirect_to(crm_transfers_path)
       expect(enqueued_jobs).to be_empty
     end
+
+    it 'rejects authorization failures because they are not retryable' do
+      authorization_failed_transfer = create(
+        :crm_transfer,
+        :failed,
+        failure_kind: CrmTransfer::FAILURE_KIND_AUTHORIZATION_ERROR,
+        client: create(:client, user: user),
+        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active')
+      )
+
+      expect {
+        post retry_crm_transfer_path(authorization_failed_transfer), headers: auth_headers
+      }.not_to change(CrmTransfer, :count)
+
+      expect(response).to redirect_to(crm_transfers_path)
+      expect(enqueued_jobs).to be_empty
+    end
   end
 end

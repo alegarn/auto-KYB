@@ -14,6 +14,7 @@ class CrmTransfer < ApplicationRecord
   TRIGGER_CLIENT_EDIT_SYNC = "client_edit_sync"
 
   FAILURE_KIND_AUTHENTICATION_ERROR = "authentication_error"
+  FAILURE_KIND_AUTHORIZATION_ERROR = "authorization_error"
   FAILURE_KIND_PROVIDER_ERROR = "provider_error"
   FAILURE_KIND_VALIDATION_ERROR = "validation_error"
   FAILURE_KIND_UNKNOWN_ERROR = "unknown_error"
@@ -35,6 +36,7 @@ class CrmTransfer < ApplicationRecord
 
   FAILURE_KINDS = [
     FAILURE_KIND_AUTHENTICATION_ERROR,
+    FAILURE_KIND_AUTHORIZATION_ERROR,
     FAILURE_KIND_PROVIDER_ERROR,
     FAILURE_KIND_VALIDATION_ERROR,
     FAILURE_KIND_UNKNOWN_ERROR
