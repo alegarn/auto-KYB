@@ -20,13 +20,51 @@ RSpec.describe SettingsController, type: :controller, inertia: true do
       it "passes user as prop" do
         get :index
 
-        expect(inertia.props[:user]).to eq(user)
+        expect(inertia.props[:user]).to include(
+          "id" => user.id,
+          "email" => user.email,
+          "plan" => user.plan,
+          "subscription_status" => user.subscription_status,
+          "crm_auto_sync_on_portal_submit" => user.crm_auto_sync_on_portal_submit,
+          :can_use_crm => false
+        )
+      end
+
+      it "hides CRM connections for users without CRM access" do
+        create(:crm_connection, user: user, status: "active")
+
+        get :index
+
+        expect(inertia.props[:crm_connections]).to eq([])
       end
 
       it "passes session_id as prop" do
         get :index
 
         expect(inertia.props[:session_id]).to eq(session.id)
+      end
+    end
+
+    context "when the user can use CRM" do
+      let(:user) { create(:user, :subscribed, plan: :pro, password: "password123456") }
+      let(:session) { user.sessions.create! }
+      let!(:connection) { create(:crm_connection, user: user, provider: "hubspot", status: "active") }
+
+      before do
+        cookies.signed[:session_token] = session.id
+      end
+
+      it "passes the CRM-enabled user flag and active connections" do
+        get :index
+
+        expect(inertia.props[:user][:can_use_crm]).to be(true)
+        expect(inertia.props[:crm_connections]).to contain_exactly(
+          hash_including(
+            "id" => connection.id,
+            "provider" => connection.provider,
+            "status" => connection.status
+          )
+        )
       end
     end
 
