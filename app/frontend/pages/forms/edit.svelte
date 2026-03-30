@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getSharedAuth } from '@/lib/shared-auth'
   import { router, page } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
@@ -35,8 +36,8 @@
   let mappingValid = $state(true)
   let showUnmappedCrmWarning = $state(false)
   let showUnmappedCrmWarningModal = $state(false)
-  // @ts-ignore
-  const canUseCrm = $derived(auth?.user?.can_use_crm)
+  const sharedAuth = getSharedAuth()
+  const canUseCrm = $derived(sharedAuth?.features?.crm?.allowed)
   const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
   const hasUnmappedCrmFields = $derived(unmappedFields.length > 0)
 

@@ -25,21 +25,23 @@ class ApplicationController < ActionController::Base
 
                  entitlement = Crm::Entitlement.new(user)
 
-                 {
-                   user: {
-                     id:                   user.id,
-                     email:                user.email,
-                     onboarding_completed: user.onboarding_completed,
-                     plan:                 user.plan,
-                     can_use_crm:          entitlement.allowed?,
-                     crm_auto_sync_on_portal_submit: user.crm_auto_sync_on_portal_submit
-                   },
-                   subscription: {
-                     status:      user.subscription_status,
-                     active:      user.active_subscription? || user.trialing?,
-                     canceled_at: user.subscription_canceled_at&.iso8601
-                   }
-                 }
+                  {
+                    user: {
+                      id:                   user.id,
+                      email:                user.email,
+                      onboarding_completed: user.onboarding_completed,
+                      plan:                 user.plan,
+                      crm_auto_sync_on_portal_submit: user.crm_auto_sync_on_portal_submit
+                    },
+                    subscription: {
+                      status:      user.subscription_status,
+                      active:      user.active_subscription? || user.trialing?,
+                      canceled_at: user.subscription_canceled_at&.iso8601
+                    },
+                    features: {
+                      crm: entitlement.as_json
+                    }
+                  }
                }
 
   def current_user
@@ -53,13 +55,10 @@ class ApplicationController < ActionController::Base
   def user_props
     return nil unless current_user
 
-    entitlement = Crm::Entitlement.new(current_user)
-
     {
       id: current_user.id,
       email: current_user.email,
       plan: current_user.plan,
-      can_use_crm: entitlement.allowed?,
       crm_auto_sync_on_portal_submit: current_user.crm_auto_sync_on_portal_submit
     }
   end

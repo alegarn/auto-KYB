@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getSharedAuth } from '@/lib/shared-auth'
   import { page } from "@inertiajs/svelte";
   import { Input } from "@/components/ui/input/index.js";
   import { Label } from "@/components/ui/label/index.js";

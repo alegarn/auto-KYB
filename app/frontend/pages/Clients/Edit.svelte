@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getSharedAuth } from '@/lib/shared-auth'
   import { router, page } from '@inertiajs/svelte';
   import { onMount, untrack } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
@@ -113,8 +114,8 @@
   });
   let CrmSyncWidgetComponent = $state<CrmSyncWidgetComponentType | null>(null);
 
-  // @ts-ignore
-  const canUseCrm = $derived(auth?.user?.can_use_crm);
+  const sharedAuth = getSharedAuth()
+  const canUseCrm = $derived(sharedAuth?.features?.crm?.allowed);
   const shouldShowCrmSyncWidget = $derived(canUseCrm && has_active_crm_connection && !has_crm_link);
   const shouldShowCrmPrefillBox = $derived(canUseCrm && has_active_crm_connection && has_crm_link);
   const crmProviderName = $derived(crm_sync_status?.provider_name || 'your CRM');
