@@ -5,9 +5,9 @@ set -e
 # Ensure the directory exists and is writable
 mkdir -p /rails/storage
 
-# Run database migrations
-echo "Running database migrations..."
-bundle exec rails db:migrate
+# Run database migrations/preparation
+echo "Running database preparation..."
+bundle exec rails db:prepare
 
 # Start background jobs (Solid Queue) in the background if requested
 if [ "$RUN_SOLID_QUEUE_IN_WEB" = "1" ]; then
