@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe CrmDataExportJob, type: :job do
   describe '#perform' do
-    let(:user) { create(:user) }
+    let(:user) { create(:user, :subscribed, plan: :pro) }
     let(:client) { create(:client, user: user, name: 'John', email: 'john@example.com', company_name: 'Acme Corp') }
     let(:connection) { create(:crm_connection, user: user, provider: 'hubspot', status: 'active') }
     let(:form) { create(:form, user: user) }
@@ -83,7 +83,7 @@ RSpec.describe CrmDataExportJob, type: :job do
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
       allow(service).to receive(:export_data) { raise StandardError, 'boom' }
 
-      expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError)
+      described_class.perform_now(transfer.id)
 
       transfer.reload
       expect(transfer.status).to eq('failed')
@@ -112,12 +112,27 @@ RSpec.describe CrmDataExportJob, type: :job do
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
       allow(service).to receive(:export_data) { raise StandardError, 'boom' }
 
-      expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError)
-      expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError)
+      described_class.perform_now(transfer.id)
+      described_class.perform_now(transfer.id)
 
       transfer.reload
       expect(transfer.attempts_count).to eq(2)
       expect(transfer.last_attempt_at).not_to be_nil
+    end
+
+    it 'marks the transfer as authorization_error and skips provider work when entitlement is lost before perform' do
+      user.update!(plan: :basic, subscription_status: 'active')
+
+      expect(Crm::ConnectionManager).not_to receive(:service_for)
+
+      described_class.perform_now(transfer.id)
+
+      transfer.reload
+      expect(transfer.status).to eq(CrmTransfer::STATUS_FAILED)
+      expect(transfer.failure_kind).to eq(CrmTransfer::FAILURE_KIND_AUTHORIZATION_ERROR)
+      expect(transfer.error_message).to include('plan_insufficient')
+      expect(transfer.attempts_count).to eq(1)
+      expect(transfer.retryable?).to be(false)
     end
 
     it 'dispatches client_create_sync transfers without using the generic export flow' do
@@ -159,13 +174,15 @@ RSpec.describe CrmDataExportJob, type: :job do
       allow(service).to receive(:search_companies).and_return([{ hubspot_id: 'comp_456', company_name: client.company_name }])
       allow(service).to receive(:associate_contact_to_company).and_raise(StandardError.new('association failed'))
 
-      expect(service).to receive(:create_contact).with(client, sync_address_to_contact: false)
+      expect(service).to receive(:create_contact).with(client, sync_address_to_contact: nil)
       expect(service).to receive(:search_companies).with(client.company_name)
 
-      expect { described_class.perform_now(transfer.id) }.to raise_error(StandardError, 'association failed')
+      described_class.perform_now(transfer.id)
 
       transfer.reload
       expect(transfer.status).to eq(CrmTransfer::STATUS_FAILED)
+      expect(transfer.failure_kind).to eq(CrmTransfer::FAILURE_KIND_UNKNOWN_ERROR)
+      expect(transfer.error_message).to include('association failed')
 
       link = CrmClientLink.find_by!(client: client, crm_connection: connection)
       expect(link.external_contact_id).to eq('ext_123')

@@ -5,7 +5,7 @@ RSpec.describe CrmTransfer, type: :model do
     it 'defines the allowed statuses, triggers, and failure kinds' do
       expect(described_class::STATUSES).to contain_exactly('pending', 'processing', 'success', 'failed')
       expect(described_class::TRIGGERS).to include('manual_export', 'portal_submit', 'client_create_sync', 'client_edit_sync', 'data_import')
-      expect(described_class::FAILURE_KINDS).to include('authentication_error', 'provider_error', 'validation_error', 'unknown_error')
+      expect(described_class::FAILURE_KINDS).to include('authentication_error', 'authorization_error', 'provider_error', 'validation_error', 'unknown_error')
     end
   end
 
@@ -88,6 +88,12 @@ RSpec.describe CrmTransfer, type: :model do
 
     it 'is false for authentication failures' do
       expect(build(:crm_transfer, :non_retryable_failed)).not_to be_retryable
+    end
+
+    it 'is false for authorization failures' do
+      transfer = build(:crm_transfer, :failed, failure_kind: CrmTransfer::FAILURE_KIND_AUTHORIZATION_ERROR)
+
+      expect(transfer).not_to be_retryable
     end
   end
 end

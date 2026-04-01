@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth'
   import { router, page } from '@inertiajs/svelte';
   import { onMount, untrack } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
@@ -24,8 +25,7 @@
     has_crm_link = false,
     has_active_crm_connection = false,
     crm_sync_status = { linked: false, connection_active: false, auto_updates_on_edit: false, provider: null, provider_name: null },
-    confirm_replace_required = false,
-    auth = {} } = $props();
+    confirm_replace_required = false } = $props();
 
   const CRM_LINKED_NOTICE_STORAGE_KEY = 'quick-kyb.crm-linked-edit-notice.v1';
 
@@ -113,8 +113,8 @@
   });
   let CrmSyncWidgetComponent = $state<CrmSyncWidgetComponentType | null>(null);
 
-  // @ts-ignore
-  const canUseCrm = $derived(auth?.user?.can_use_crm);
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
   const shouldShowCrmSyncWidget = $derived(canUseCrm && has_active_crm_connection && !has_crm_link);
   const shouldShowCrmPrefillBox = $derived(canUseCrm && has_active_crm_connection && has_crm_link);
   const crmProviderName = $derived(crm_sync_status?.provider_name || 'your CRM');

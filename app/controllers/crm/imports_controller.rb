@@ -2,7 +2,6 @@ class Crm::ImportsController < ApplicationController
   before_action :authorize_crm_access!
 
   def index
-    authorize :subscription, :index?
     query = params[:q]
 
     if query.blank? || !current_user.crm_connections.active.exists?

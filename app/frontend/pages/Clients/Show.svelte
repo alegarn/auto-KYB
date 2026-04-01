@@ -2,9 +2,9 @@
   import { clients_path, dashboard_path, edit_client_path, client_path, client_forms_path, export_responses_client_form_path, export_client_path, download_uploaded_file_path, uploaded_file_path } from "@/routes";
   import Button from '@/components/ui/button/button.svelte';
   import Modal from '@/components/ui/modal.svelte';
-  import { Form as InertiaForm } from '@inertiajs/svelte';
+  import { Form as InertiaForm, page, router } from '@inertiajs/svelte';
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth';
   import { Label } from '/components/ui/label/index.js';
-  import { router } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
   import { fetchCountriesData } from '/lib/countries';
   import { computeFileExpiry, formatDuration } from '/lib/fileExpiry';
@@ -19,6 +19,8 @@
 
   let countries = $state<Array<{ name: string; code: string; flag: string }>>([]);
   let countriesByCode = $derived(() => (countries || []).reduce((h: Record<string, any>, c: any) => { h[String(c.code).toUpperCase()] = c; return h; }, {}));
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
 
   const displayCountry = $derived(() => {
     const code = client?.country;
@@ -417,7 +419,7 @@
                 >
                   <Download class="size-4" /> Download CSV
                 </a>
-                {#if user?.can_use_crm}
+                {#if canUseCrm}
                 <Button variant="outline" onclick={openCrmExport} class="gap-2 shadow-sm">
                   <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   Export to CRM

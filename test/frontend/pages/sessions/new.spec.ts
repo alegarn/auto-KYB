@@ -14,7 +14,7 @@ beforeEach(() => {
 })
 
 test('Sessions new mounts and shows sign in heading', () => {
-  const component: any = mount(SessionsNew as any, { target: document.body, props: { ...mockPageProps.props } })
+  const component: any = mount(SessionsNew as any, { props: { ...mockPageProps.props } })
 
   expect(document.body.innerHTML).toContain('Sign In to Quick KYB')
 

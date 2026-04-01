@@ -2,7 +2,8 @@ class ClientsController < ApplicationController
 
   FILTER_ALL = "all"
 
-  before_action :authorize_subscription
+  before_action :authorize_subscription, except: %i[export_to_crm crm_match_suggestions crm_contact_details link_crm_contact create_crm_contact]
+  before_action :authorize_requested_crm_sync!, only: %i[create update]
   before_action :set_client, only: %i[show edit update destroy export export_to_crm crm_match_suggestions crm_contact_details link_crm_contact create_crm_contact]
   before_action :authorize_crm_access!, only: %i[export_to_crm crm_match_suggestions crm_contact_details link_crm_contact create_crm_contact]
 
@@ -35,7 +36,7 @@ class ClientsController < ApplicationController
       forms: forms_for_select,
       file_retention: FileRetentionPolicy.as_json,
       uploaded_files: UploadedFileSerializer.collection(@client.uploaded_files.available),
-      crm_connections: current_user.can_use_crm? ? current_user.crm_connections.where(status: "active").as_json(only: [ :id, :provider ]) : []
+      crm_connections: serialized_active_crm_connections
     )
   end
 
@@ -81,7 +82,7 @@ class ClientsController < ApplicationController
     render inertia: "Clients/New", props: default_inertia_props.merge(
       client: {},
       forms: forms_for_select,
-      has_active_crm_connection: current_user.can_use_crm? && current_user.crm_connections.active.exists?
+      has_active_crm_connection: active_crm_connection_available?
     )
   end
 
@@ -344,9 +345,30 @@ class ClientsController < ApplicationController
       forms: forms_for_select,
       current_form_id: @client.client_forms.order(created_at: :desc).first&.form_id,
       has_crm_link: @client.crm_client_link.present?,
-      has_active_crm_connection: current_user.can_use_crm? && current_user.crm_connections.active.exists?,
+      has_active_crm_connection: active_crm_connection_available?,
       crm_sync_status: crm_sync_status_for(@client)
     }.merge(extra_props)
+  end
+
+  def authorize_requested_crm_sync!
+    strategy = params.dig(:crm, :strategy).presence
+    return if strategy.blank? || strategy == "skip"
+
+    authorize_crm_access!
+  end
+
+  def active_crm_connection_available?
+    return false unless Crm::Entitlement.new(current_user).allowed?
+
+    authorize_crm_access!
+    current_user.crm_connections.active.exists?
+  end
+
+  def serialized_active_crm_connections
+    return [] unless Crm::Entitlement.new(current_user).allowed?
+
+    authorize_crm_access!
+    current_user.crm_connections.active.as_json(only: [ :id, :provider ])
   end
 
   def render_form_not_found(view:, client:, include_user: false)

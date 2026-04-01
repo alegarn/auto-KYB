@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 class CrmConnectionsController < ApplicationController
-  before_action :authorize_subscription
   before_action :authorize_crm_access!
 
   # GET /crm_connections/auth/:provider
@@ -35,7 +34,7 @@ class CrmConnectionsController < ApplicationController
       # instead of an XHR follow, which is required for external OAuth flows.
       inertia_location url
     else
-      redirect_back fallback_location: settings_path, alert: "Unsupported CRM provider."
+      redirect_back fallback_location: settings_path, alert: "Unsupported CRM provider.", status: :see_other
     end
   end
 
@@ -58,14 +57,14 @@ class CrmConnectionsController < ApplicationController
 
   # DELETE /crm_connections/:id
   def destroy
-    connection = Current.user.crm_connections.find(params[:id])
+    connection = current_user.crm_connections.find(params[:id])
     connection.update!(status: "disconnected", access_token: nil, refresh_token: nil)
     redirect_to settings_path, notice: "#{connection.provider.titleize} disconnected."
   end
 
   # POST /crm_connections/:id/test
   def test
-    connection = Current.user.crm_connections.find(params[:id])
+    connection = current_user.crm_connections.find(params[:id])
     service = Crm::ConnectionManager.service_for(connection)
 
     if service.test_connection
@@ -83,13 +82,13 @@ class CrmConnectionsController < ApplicationController
     oauth = Crm::Hubspot::OAuth.new
     tokens = oauth.exchange_code(params[:code])
 
-    connection = Current.user.crm_connections.find_or_initialize_by(provider: "hubspot")
+    connection = current_user.crm_connections.find_or_initialize_by(provider: "hubspot")
     connection.assign_attributes(
       access_token:  tokens[:access_token],
       refresh_token: tokens[:refresh_token],
       expires_at:    Time.current + tokens[:expires_in].to_i.seconds,
       status:        "active",
-      scopes:        HubspotConfig::SCOPES
+      scopes:        HubspotConfig.scopes
     )
     connection.save!
 
@@ -97,9 +96,5 @@ class CrmConnectionsController < ApplicationController
   rescue Crm::Hubspot::OAuthError => e
     Rails.logger.error("[HubSpot OAuth] #{e.message}")
     redirect_to settings_path, alert: "Failed to connect HubSpot: #{e.message}"
-  end
-
-  def authorize_subscription
-    authorize :subscription, :active?, policy_class: SubscriptionPolicy rescue redirect_to subscription_required_path
   end
 end

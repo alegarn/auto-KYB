@@ -7,6 +7,7 @@
   import BookOpenIcon from "@lucide/svelte/icons/book-open";
   import ArrowRightLeftIcon from "@lucide/svelte/icons/arrow-right-left";
   import { Link, page } from "@inertiajs/svelte";
+  import { crmAllowed, getSharedAuth } from "@/lib/shared-auth";
   import { clients_path, dashboard_path, forms_path, quickstart_path } from "@/routes";
 
   // Menu items.
@@ -43,9 +44,12 @@
     },
   ];
 
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
+
   const filteredItems = $derived(
     items.filter(item => 
-      item.title !== "CRM Transfers" || ($page.props.auth as any)?.user?.can_use_crm
+      item.title !== "CRM Transfers" || canUseCrm
     )
   );
 

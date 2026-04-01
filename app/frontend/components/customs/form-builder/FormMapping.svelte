@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth'
   import { page } from "@inertiajs/svelte";
   import { Input } from "@/components/ui/input/index.js";
   import { Label } from "@/components/ui/label/index.js";
@@ -19,8 +20,8 @@
 
   let showSyncModal = $state(false);
 
-  // @ts-ignore
-  const canUseCrm = $derived($page.props.auth?.user?.can_use_crm);
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
 
   const dataFields = $derived(
     fields.map((f, i) => ({ field: f, index: i })).filter(

@@ -1,8 +1,11 @@
 class CrmSyncService
 
-  def self.call(client, strategy, external_contact_id: nil, external_company_id: nil, sync_address_to_contact: false, source: nil)
+  UNAUTHORIZED = :unauthorized
+
+  def self.call(client, strategy, external_contact_id: nil, external_company_id: nil, sync_address_to_contact: false, source: nil, scheduler: Crm::TransferScheduler)
     return unless strategy
     return if strategy == "skip"
+    return UNAUTHORIZED unless Crm::Entitlement.new(client.user).allowed?
 
     connection = connection_for(client, strategy)
     return unless connection
@@ -26,14 +29,14 @@ class CrmSyncService
         external_company_id: external_company_id.presence
       }.compact
 
-      Crm::TransferScheduler.new(
+      scheduler.new(
         client: client,
         connection: connection,
         trigger: CrmTransfer::TRIGGER_CLIENT_CREATE_SYNC,
         request_context: request_context
       ).schedule_export!
     when "update"
-      Crm::TransferScheduler.new(
+      scheduler.new(
         client: client,
         connection: connection,
         trigger: CrmTransfer::TRIGGER_CLIENT_EDIT_SYNC,

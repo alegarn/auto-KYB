@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
   include ActiveJob::TestHelper
 
-  let(:user) { sign_in_user }
+  let(:user) { sign_in_user(create(:user, :subscribed, plan: :pro)) }
   let(:session_id) { user.sessions.last.id }
   let(:headers) { { 'Cookie' => "session_token=#{session_id}" } }
   let(:client) { create(:client, user: user) }
@@ -17,6 +17,16 @@ RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
   end
 
   describe 'POST /clients/:id/export_to_crm' do
+    it 'returns unauthorized when the request is unauthenticated' do
+      anonymous_client = create(:client)
+
+      post "/clients/#{anonymous_client.id}/export_to_crm", params: { crms: ['hubspot'] }, as: :json
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.body).to be_blank
+      expect(CrmTransfer.count).to eq(0)
+    end
+
     it 'queues one pending transfer per selected active provider during manual client-page export' do
       hubspot_connection = create(:crm_connection, user: user, provider: 'hubspot', status: 'active')
       salesforce_connection = create(:crm_connection, user: user, provider: 'salesforce', status: 'active')
@@ -71,6 +81,32 @@ RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
       json = JSON.parse(response.body)
       expect(json['error']).to eq('No active connections for selected CRMs')
+      expect(CrmTransfer.count).to eq(0)
+      expect(enqueued_jobs).to be_empty
+    end
+
+    it 'returns plan_insufficient for a basic user with an active subscription' do
+      basic_user = sign_in_user(create(:user, :subscribed, plan: :basic))
+      basic_client = create(:client, user: basic_user)
+      create(:crm_connection, user: basic_user, provider: 'hubspot', status: 'active')
+
+      post "/clients/#{basic_client.id}/export_to_crm", params: { crms: ['hubspot'] }, headers: { 'Cookie' => "session_token=#{basic_user.sessions.last.id}" }, as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body)).to eq('error' => 'plan_insufficient')
+      expect(CrmTransfer.count).to eq(0)
+      expect(enqueued_jobs).to be_empty
+    end
+
+    it 'returns subscription_inactive for a canceled pro user' do
+      canceled_user = sign_in_user(create(:user, :canceled, plan: :pro))
+      canceled_client = create(:client, user: canceled_user)
+      create(:crm_connection, user: canceled_user, provider: 'hubspot', status: 'active')
+
+      post "/clients/#{canceled_client.id}/export_to_crm", params: { crms: ['hubspot'] }, headers: { 'Cookie' => "session_token=#{canceled_user.sessions.last.id}" }, as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body)).to eq('error' => 'subscription_inactive')
       expect(CrmTransfer.count).to eq(0)
       expect(enqueued_jobs).to be_empty
     end

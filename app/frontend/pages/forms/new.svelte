@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth'
   import { router, page } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
@@ -18,7 +19,7 @@
   import type { FormField } from "/components/customs/form-builder/types"
   import { forms_path } from '@/routes';
 
-  const { errors: serverErrors, activeCrmProviders = [], crmProperties, auth = {} } = $props()
+  const { errors: serverErrors, activeCrmProviders = [], crmProperties } = $props()
 
   let name = $state("")
   let fields = $state<FormField[]>([])
@@ -31,8 +32,8 @@
   let showUnmappedCrmWarning = $state(false)
   let showUnmappedCrmWarningModal = $state(false)
   const loadingProperties = $derived(crmProperties === undefined)
-  // @ts-ignore
-  const canUseCrm = $derived(auth?.user?.can_use_crm)
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>))
+  const canUseCrm = $derived(crmAllowed(sharedAuth))
   const singleCrmProvider = $derived(getSingleActiveCrmProvider(activeCrmProviders))
   const singleCrmProviderName = $derived(singleCrmProvider ? crmProviderDisplayName(singleCrmProvider) : 'your CRM')
   const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])

@@ -1,6 +1,21 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, fireEvent, cleanup } from '@testing-library/svelte'
 import FormBuilder from '@/components/customs/FormBuilder.svelte'
+import type { FormField } from '@/components/customs/form-builder/types'
+
+function buildField(overrides: Partial<FormField> = {}): FormField {
+  const { metadata, ...rest } = overrides
+
+  return {
+    id: 'field-1',
+    label: 'Test field',
+    field_type: 'text',
+    required: false,
+    position: 1,
+    ...rest,
+    metadata: metadata ?? {},
+  }
+}
 
 describe('FormBuilder', () => {
   afterEach(() => {
@@ -55,9 +70,9 @@ describe('FormBuilder', () => {
   })
 
   it('shows mapping warning state and auto-opens Mapping tab when duplicates exist', () => {
-    const fields = [
-      { id: '1', label: 'Company Name', field_type: 'text', required: false, position: 1, metadata: { export_key: 'company_name' } },
-      { id: '2', label: 'Legal Name', field_type: 'text', required: false, position: 2, metadata: { export_key: 'company_name' } }
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'Company Name', position: 1, metadata: { export_key: 'company_name' } }),
+      buildField({ id: '2', label: 'Legal Name', position: 2, metadata: { export_key: 'company_name' } })
     ]
 
     const { getByText } = render(FormBuilder, {
@@ -73,9 +88,9 @@ describe('FormBuilder', () => {
   })
 
   it('emits mapping validity callback with false when duplicates exist', () => {
-    const fields = [
-      { id: '1', label: 'Email', field_type: 'text', required: false, position: 1, metadata: { export_key: 'email' } },
-      { id: '2', label: 'Alt Email', field_type: 'text', required: false, position: 2, metadata: { export_key: 'email' } }
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'Email', position: 1, metadata: { export_key: 'email' } }),
+      buildField({ id: '2', label: 'Alt Email', position: 2, metadata: { export_key: 'email' } })
     ]
     const onmappingvaliditychange = vi.fn()
 
@@ -93,7 +108,7 @@ describe('FormBuilder', () => {
 
     const { getByText } = render(FormBuilder, {
       fields: [
-        { id: '1', label: 'Company name', field_type: 'text', required: false, position: 1, metadata: {} }
+        buildField({ id: '1', label: 'Company name', position: 1 })
       ],
       settings: {},
       showCrmMappingWarning: true,

@@ -10,6 +10,7 @@ RSpec.describe 'Settings CRM preferences', type: :system, js: true do
       create(
         :user,
         :subscribed,
+        plan: :pro,
         onboarding_completed: true,
         verified: true,
         subscription_status: 'active',

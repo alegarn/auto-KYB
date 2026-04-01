@@ -4,9 +4,8 @@ RSpec.describe CrmSyncService do
   include ActiveJob::TestHelper
 
   let(:client) { create(:client, name: "John Doe", email: "john@example.com", company_name: "Acme Corp", user: user) }
-  let(:user) { create(:user) }
-  let(:connection) { create(:crm_connection, user: user, provider: "hubspot") }
-  let(:service) { instance_double("Crm::HubspotService") }
+  let(:user) { create(:user, :subscribed, plan: :pro) }
+  let(:connection) { create(:crm_connection, user: user, provider: "hubspot", status: 'active') }
   let(:scheduler_class) { class_double(Crm::TransferScheduler) }
   let(:scheduled_transfer) do
     build_stubbed(
@@ -22,46 +21,32 @@ RSpec.describe CrmSyncService do
     )
   end
   let(:scheduler_instance) { instance_double(Crm::TransferScheduler, schedule_export!: scheduled_transfer) }
-  
+
   before do
-    allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
-    allow(user).to receive(:crm_connections).and_return(CrmConnection.where(id: connection.id))
-    allow(service).to receive(:export_data).and_return(true)
     clear_enqueued_jobs
   end
 
   describe '.call' do
-    it 'delegates to Crm::HubspotService#export_data' do
-      # CrmSyncService.call(client) only delegates to active hubspot_service when called without parameters
-      # Let's fix the test logic to test what CrmSyncService ACTUALLY does when "call" is invoked
-      
-      # Mock the connection lookup that happens inside CrmSyncService.call(client, strategy)
-      connections = double('connections')
-      allow(user).to receive(:crm_connections).and_return(connections)
-      allow(connections).to receive(:active).and_return([connection])
-      
-      expect {
-        described_class.call(client, "link", external_contact_id: "ext123", external_company_id: "comp456")
-      }.to change(CrmClientLink, :count).by(1)
-      
-      link = CrmClientLink.last
+    it 'creates a CRM link for the link strategy when entitled' do
+      expect(CrmClientLink.find_by(client: client, crm_connection: connection)).to be_nil
+
+      result = described_class.call(client, "link", external_contact_id: "ext123", external_company_id: "comp456")
+
+      link = CrmClientLink.find_by!(client: client, crm_connection: connection)
+      expect(result).to eq(link)
       expect(link.external_contact_id).to eq("ext123")
       expect(link.external_company_id).to eq("comp456")
     end
-    
-    it 'creates contact, company and links them' do
-      connections = double('connections')
-      allow(user).to receive(:crm_connections).and_return(connections)
-      allow(connections).to receive(:active).and_return([connection])
-      allow(scheduler_class).to receive(:new).and_return(scheduler_instance)
 
-      expect(Crm::ConnectionManager).not_to receive(:service_for)
+    it 'schedules an async export via TransferScheduler for the create strategy' do
+      allow(scheduler_class).to receive(:new).and_return(scheduler_instance)
 
       result = described_class.call(
         client,
         "create",
         external_company_id: "comp_456",
         sync_address_to_contact: true,
+        source: 'clients#create',
         scheduler: scheduler_class
       )
 
@@ -77,7 +62,7 @@ RSpec.describe CrmSyncService do
         }
       )
       expect(scheduler_instance).to have_received(:schedule_export!)
-      expect(CrmClientLink.count).to eq(1)
+      expect(CrmClientLink.count).to eq(0)
     end
 
     it 'schedules an async export via TransferScheduler for the update strategy' do
@@ -97,6 +82,32 @@ RSpec.describe CrmSyncService do
         )
       )
       expect(scheduler_instance2).to have_received(:schedule_export!)
+    end
+
+    it 'returns an explicit unauthorized result before creating links for non-entitled users' do
+      basic_user = create(:user, :subscribed, plan: :basic)
+      basic_client = create(:client, user: basic_user)
+      create(:crm_connection, user: basic_user, provider: 'hubspot', status: 'active')
+
+      expect {
+        result = described_class.call(basic_client, 'link', external_contact_id: 'ext123')
+        expect(result).to eq(described_class::UNAUTHORIZED)
+      }.not_to change(CrmClientLink, :count)
+    end
+
+    it 'returns an explicit unauthorized result before scheduling transfers for non-entitled users' do
+      canceled_user = create(:user, :canceled, plan: :pro)
+      canceled_client = create(:client, user: canceled_user)
+      create(:crm_connection, user: canceled_user, provider: 'hubspot', status: 'active')
+
+      allow(scheduler_class).to receive(:new)
+
+      expect {
+        result = described_class.call(canceled_client, 'create', scheduler: scheduler_class)
+        expect(result).to eq(described_class::UNAUTHORIZED)
+      }.not_to change(CrmTransfer, :count)
+
+      expect(scheduler_class).not_to have_received(:new)
     end
   end
 end
