@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import Button from "/components/ui/button/button.svelte";
   import {
     Card,
@@ -9,6 +9,7 @@
     CardFooter,
   } from "/components/ui/card";
   import Check from "@lucide/svelte/icons/check";
+  import { router } from "@inertiajs/svelte";
 
   let pricingList = {
     basic: [
@@ -28,6 +29,31 @@
       "Client pre-onboard company research",
       "Client company KYB autocomplete on form",
     ],
+  };
+
+  const handleSubscribe = async (plan: string) => {
+    try {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (csrfToken) {
+        headers["X-CSRF-Token"] = csrfToken;
+      }
+
+      const response = await fetch("/checkout_sessions", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ plan }),
+      });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (e) {
+      console.error("Failed to create checkout session", e);
+      router.visit("/sign_up");
+    }
   };
 </script>
 
@@ -66,18 +92,13 @@
         </CardContent>
 
         <CardFooter class="mt-auto">
-          <Button variant="outline" class="w-full">
+          <Button variant="outline" class="w-full" onclick={() => handleSubscribe('basic')}>
             Get Started
           </Button>
         </CardFooter>
       </Card>
 
-      <Card class="relative flex flex-col opacity-80">
-        <span
-          class="bg-muted text-muted-foreground absolute inset-x-0 -top-3 mx-auto flex h-6 w-fit items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ring-white/20 ring-offset-1 ring-offset-gray-950/5"
-          >Coming Soon</span
-        >
-
+      <Card class="relative flex flex-col">
         <div class="flex flex-col flex-1">
           <CardHeader>
             <CardTitle class="font-medium">Pro</CardTitle>
@@ -98,8 +119,8 @@
           </CardContent>
 
           <CardFooter class="mt-auto">
-            <Button class="w-full" disabled>
-              Coming Soon
+            <Button class="w-full" onclick={() => handleSubscribe('pro')}>
+              Get Started
             </Button>
           </CardFooter>
         </div>
