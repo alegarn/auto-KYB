@@ -36,7 +36,7 @@ module HubspotConfig
   end
 end
 
-if Rails.env.production? && !HubspotConfig.configured?
+if Rails.env.production? && !HubspotConfig.configured? && !ENV["SECRET_KEY_BASE_DUMMY"]
   Rails.logger.fatal("[HubSpot] Missing hubspot.client_id, hubspot.client_secret, or hubspot.redirect_uri in credentials")
   raise "Missing HubSpot configuration in production"
 end

@@ -12,7 +12,7 @@ require "stripe"
 
 stripe_key = Rails.application.credentials.dig(:stripe, :secret_key) || ENV["STRIPE_SECRET_KEY"]
 
-if Rails.env.production?
+if Rails.env.production? && !ENV["SECRET_KEY_BASE_DUMMY"]
   if stripe_key.blank?
     Rails.logger.fatal("[Stripe] stripe.secret_key is not set in production. Application requires this to process payments.")
     # Fail fast in production so misconfiguration is detected immediately on deploy
