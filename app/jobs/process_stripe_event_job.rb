@@ -143,9 +143,9 @@ class ProcessStripeEventJob < ApplicationJob
 
     if sub["items"] && sub["items"]["data"].present?
       price_id = sub["items"]["data"].first&.dig("price", "id")
-      if price_id == ENV["STRIPE_PRO_PLAN_PRICE_ID"] && price_id.present?
+      if price_id == (Rails.application.credentials.dig(:stripe, :pro_plan_price_id) || ENV["STRIPE_PRO_PLAN_PRICE_ID"]) && price_id.present?
         attrs[:plan] = "pro"
-      elsif price_id == ENV["STRIPE_BASIC_PLAN_PRICE_ID"] && price_id.present?
+      elsif price_id == (Rails.application.credentials.dig(:stripe, :basic_plan_price_id) || ENV["STRIPE_BASIC_PLAN_PRICE_ID"]) && price_id.present?
         attrs[:plan] = "basic"
       end
     end

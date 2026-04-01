@@ -88,7 +88,7 @@ class CrmConnectionsController < ApplicationController
       refresh_token: tokens[:refresh_token],
       expires_at:    Time.current + tokens[:expires_in].to_i.seconds,
       status:        "active",
-      scopes:        HubspotConfig::SCOPES
+      scopes:        HubspotConfig.scopes
     )
     connection.save!
 

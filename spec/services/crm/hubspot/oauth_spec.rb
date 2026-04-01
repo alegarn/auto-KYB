@@ -9,12 +9,12 @@ RSpec.describe Crm::Hubspot::OAuth do
   let(:scopes) { 'contacts companies' }
 
   before do
-    # Ensure test strictly evaluates without `.env` overriding AUTHORIZE_URL
-    stub_const('Crm::Hubspot::OAuth::AUTHORIZE_URL', 'https://app.hubspot.com/oauth/authorize')
-    stub_const('HubspotConfig::CLIENT_ID', client_id)
-    stub_const('HubspotConfig::CLIENT_SECRET', client_secret)
-    stub_const('HubspotConfig::REDIRECT_URI', redirect_uri)
-    stub_const('HubspotConfig::SCOPES', scopes)
+    # Stub HubspotConfig methods so specs are self-contained and independent of credentials
+    allow(HubspotConfig).to receive(:authorize_url).and_return('https://app.hubspot.com/oauth/authorize')
+    allow(HubspotConfig).to receive(:client_id).and_return(client_id)
+    allow(HubspotConfig).to receive(:client_secret).and_return(client_secret)
+    allow(HubspotConfig).to receive(:redirect_uri).and_return(redirect_uri)
+    allow(HubspotConfig).to receive(:scopes).and_return(scopes)
   end
 
   describe '#authorize_url' do

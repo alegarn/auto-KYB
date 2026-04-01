@@ -8,9 +8,9 @@ module Crm
   module Hubspot
     class OAuth
       TOKEN_URL     = "https://api.hubapi.com/oauth/v1/token"
-      # Override via HUBSPOT_AUTHORIZE_URL env var for non-default data centres
-      # e.g. HUBSPOT_AUTHORIZE_URL=https://app-na2.hubspot.com/oauth/authorize
-      AUTHORIZE_URL = ENV.fetch("HUBSPOT_AUTHORIZE_URL", "https://app.hubspot.com/oauth/authorize")
+      # Override via credentials hubspot.authorize_url for non-default data centres
+      # e.g. hubspot: { authorize_url: "https://app-na2.hubspot.com/oauth/authorize" }
+      AUTHORIZE_URL = "https://app.hubspot.com/oauth/authorize"
 
       def initialize(connection: nil)
         @connection = connection
@@ -19,15 +19,15 @@ module Crm
       # Step 1: Build authorization URL
       def authorize_url(state:)
         # HubSpot prefers %20 over + for URL encoding scopes
-        scopes_encoded = HubspotConfig::SCOPES.split(" ").map { |s| CGI.escape(s) }.join("%20")
-        
+        scopes_encoded = HubspotConfig.scopes.split(" ").map { |s| CGI.escape(s) }.join("%20")
+
         params = {
-          client_id:    HubspotConfig::CLIENT_ID,
-          redirect_uri: HubspotConfig::REDIRECT_URI,
+          client_id:    HubspotConfig.client_id,
+          redirect_uri: HubspotConfig.redirect_uri,
           state:        state
         }
-        
-        "#{AUTHORIZE_URL}?#{params.to_query}&scope=#{scopes_encoded}"
+
+        "#{HubspotConfig.authorize_url}?#{params.to_query}&scope=#{scopes_encoded}"
       end
 
       # Step 2: Exchange authorization code for tokens
@@ -35,7 +35,7 @@ module Crm
         response = post_token_request(
           grant_type:   "authorization_code",
           code:         code,
-          redirect_uri: HubspotConfig::REDIRECT_URI
+          redirect_uri: HubspotConfig.redirect_uri
         )
         parse_token_response(response)
       end
@@ -45,7 +45,7 @@ module Crm
         response = post_token_request(
           grant_type:    "refresh_token",
           refresh_token: refresh_token,
-          redirect_uri:  HubspotConfig::REDIRECT_URI
+          redirect_uri:  HubspotConfig.redirect_uri
         )
         parse_token_response(response)
       end
@@ -55,8 +55,8 @@ module Crm
       def post_token_request(params)
         uri = URI(TOKEN_URL)
         body = {
-          client_id:     HubspotConfig::CLIENT_ID,
-          client_secret: HubspotConfig::CLIENT_SECRET
+          client_id:     HubspotConfig.client_id,
+          client_secret: HubspotConfig.client_secret
         }.merge(params)
 
         http = Net::HTTP.new(uri.host, uri.port)

@@ -179,8 +179,9 @@ RSpec.describe ProcessStripeEventJob, type: :job do
 
 context "when downgrading from pro to basic while still active" do
   before do
-    ENV['STRIPE_BASIC_PLAN_PRICE_ID'] = 'price_basic_123'
-    ENV['STRIPE_PRO_PLAN_PRICE_ID'] = 'price_pro_123'
+    allow(Rails.application.credentials).to receive(:dig).and_call_original
+    allow(Rails.application.credentials).to receive(:dig).with(:stripe, :basic_plan_price_id).and_return('price_basic_123')
+    allow(Rails.application.credentials).to receive(:dig).with(:stripe, :pro_plan_price_id).and_return('price_pro_123')
     user.update!(plan: 'pro')
   end
 
@@ -206,8 +207,9 @@ end
 
 context "when upgrading from basic to pro" do
   before do
-    ENV['STRIPE_BASIC_PLAN_PRICE_ID'] = 'price_basic_123'
-    ENV['STRIPE_PRO_PLAN_PRICE_ID'] = 'price_pro_123'
+    allow(Rails.application.credentials).to receive(:dig).and_call_original
+    allow(Rails.application.credentials).to receive(:dig).with(:stripe, :basic_plan_price_id).and_return('price_basic_123')
+    allow(Rails.application.credentials).to receive(:dig).with(:stripe, :pro_plan_price_id).and_return('price_pro_123')
     user.update!(plan: 'basic')
   end
 
@@ -230,8 +232,9 @@ end
 
 context "when downgrading from pro to basic while still active" do
   before do
-    ENV['STRIPE_BASIC_PLAN_PRICE_ID'] = 'price_basic_123'
-    ENV['STRIPE_PRO_PLAN_PRICE_ID'] = 'price_pro_123'
+    allow(Rails.application.credentials).to receive(:dig).and_call_original
+    allow(Rails.application.credentials).to receive(:dig).with(:stripe, :basic_plan_price_id).and_return('price_basic_123')
+    allow(Rails.application.credentials).to receive(:dig).with(:stripe, :pro_plan_price_id).and_return('price_pro_123')
     user.update!(plan: 'pro')
   end
 
@@ -257,8 +260,9 @@ end
 
 context "when upgrading from basic to pro" do
   before do
-    ENV['STRIPE_BASIC_PLAN_PRICE_ID'] = 'price_basic_123'
-    ENV['STRIPE_PRO_PLAN_PRICE_ID'] = 'price_pro_123'
+    allow(Rails.application.credentials).to receive(:dig).and_call_original
+    allow(Rails.application.credentials).to receive(:dig).with(:stripe, :basic_plan_price_id).and_return('price_basic_123')
+    allow(Rails.application.credentials).to receive(:dig).with(:stripe, :pro_plan_price_id).and_return('price_pro_123')
     user.update!(plan: 'basic')
   end
 
