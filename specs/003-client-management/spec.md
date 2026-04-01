@@ -46,10 +46,12 @@ As a user, I want to create a new client with their information, so that I can a
 **Acceptance Scenarios**:
 
 1. **Given** the user is on the Dashboard, **When** the user clicks the "Add Client" button, **Then** a client creation form is displayed
-2. **Given** the client creation form is open, **When** the user fills in required client information, **Then** the "Create Client" button becomes enabled
-3. **Given** the client creation form is open, **When** the user clicks "Create Client" with valid information, **Then** a new client is added to the user's client list
-4. **Given** the client creation form is open, **When** the user clicks "Create Client" with invalid information, **Then** appropriate validation messages are displayed
-5. **Given** the client creation form is open, **When** the user clicks "Cancel", **Then** the form closes without creating a client
+2. **Given** the client creation form is open, **When** no CRM is connected, **Then** no CRM-related integration components are loaded or displayed
+3. **Given** the client creation form is open, **When** a CRM is connected, **Then** the CRM integration widget is loaded and displayed
+4. **Given** the client creation form is open, **When** the user fills in required client information, **Then** the "Create Client" button becomes enabled
+5. **Given** the client creation form is open, **When** the user clicks "Create Client" with valid information, **Then** a new client is added to the user's client list
+6. **Given** the client creation form is open, **When** the user clicks "Create Client" with invalid information, **Then** appropriate validation messages are displayed
+7. **Given** the client creation form is open, **When** the user clicks "Cancel", **Then** the form closes without creating a client
 
 ---
 
@@ -80,10 +82,13 @@ As a user, I want to update a client's information, so that I can keep client re
 **Acceptance Scenarios**:
 
 1. **Given** the client detail view is displayed, **When** the user clicks "Edit Client", **Then** the client information becomes editable
-2. **Given** the client information is editable, **When** the user modifies client information, **Then** the changes are reflected in the form
-3. **Given** the client information is editable, **When** the user clicks "Save", **Then** the changes are persisted and the detail view is updated
-4. **Given** the client information is editable, **When** the user clicks "Cancel", **Then** the changes are discarded and the original information is displayed
-5. **Given** the client information is editable, **When** the user clicks "Save" with invalid information, **Then** appropriate validation messages are displayed
+2. **Given** the edit form is loaded, **When** the client is already linked to a CRM, **Then** the CRM sync widget is hidden (using the prefill banner instead)
+3. **Given** the edit form is loaded, **When** no CRM is connected, **Then** the CRM sync widget is not loaded or shown
+4. **Given** the edit form is loaded and a sync widget is shown, **When** choosing a sync strategy, **Then** the "Do not sync" option is not available
+5. **Given** the client information is editable, **When** the user modifies client information, **Then** the changes are reflected in the form
+6. **Given** the client information is editable, **When** the user clicks "Save", **Then** the changes are persisted and the detail view is updated
+7. **Given** the client information is editable, **When** the user clicks "Cancel", **Then** the changes are discarded and the original information is displayed
+8. **Given** the client information is editable, **When** the user clicks "Save" with invalid information, **Then** appropriate validation messages are displayed
 
 ---
 

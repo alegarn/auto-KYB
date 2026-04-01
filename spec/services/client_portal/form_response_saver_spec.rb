@@ -1,7 +1,9 @@
 require "rails_helper"
 
 RSpec.describe ClientPortal::FormResponseSaver, type: :service do
-  let(:client_form) { create(:client_form) }
+  let(:user) { create(:user, :subscribed, plan: :pro, crm_auto_sync_on_portal_submit: true) }
+  let(:client_form) { create(:client_form, client: create(:client, user: user)) }
+  let(:client) { client_form.client }
 
   it "normalizes ActionController::Parameters data" do
     params = ActionController::Parameters.new({
@@ -22,5 +24,75 @@ RSpec.describe ClientPortal::FormResponseSaver, type: :service do
       "foo" => "bar",
       "nested" => { "a" => 1 }
     )
+  end
+
+  it "enqueues CRM export when validate is true" do
+    connection = create(:crm_connection, user: client.user, status: "active")
+
+    saver = described_class.new(
+      client_form: client_form,
+      data: { a: 1 },
+      validate: true,
+      partial: false
+    )
+
+    expect {
+      saver.save
+    }.to have_enqueued_job(CrmDataExportJob)
+
+    transfer = CrmTransfer.order(created_at: :desc).first
+    expect(transfer.crm_connection).to eq(connection)
+    expect(transfer.trigger).to eq(CrmTransfer::TRIGGER_PORTAL_SUBMIT)
+    expect(transfer.request_context).to include('source' => 'client_portal', 'client_form_id' => client_form.id)
+  end
+
+  it "does not enqueue CRM export when the user cannot use CRM" do
+    basic_user = create(:user, :subscribed, plan: :basic, crm_auto_sync_on_portal_submit: true)
+    basic_client_form = create(:client_form, client: create(:client, user: basic_user))
+    create(:crm_connection, user: basic_user, status: "active")
+
+    saver = described_class.new(
+      client_form: basic_client_form,
+      data: { a: 1 },
+      validate: true,
+      partial: false
+    )
+
+    expect {
+      saver.save
+    }.not_to have_enqueued_job(CrmDataExportJob)
+  end
+
+  it "does not enqueue CRM export when the user has no active CRM entitlement" do
+    canceled_user = create(:user, :canceled, plan: :pro, crm_auto_sync_on_portal_submit: true)
+    canceled_client_form = create(:client_form, client: create(:client, user: canceled_user))
+    create(:crm_connection, user: canceled_user, status: "active")
+
+    saver = described_class.new(
+      client_form: canceled_client_form,
+      data: { a: 1 },
+      validate: true,
+      partial: false
+    )
+
+    expect {
+      saver.save
+    }.not_to have_enqueued_job(CrmDataExportJob)
+  end
+
+  it "does not enqueue CRM export when portal auto-sync is disabled" do
+    create(:crm_connection, user: client.user, status: "active")
+    client.user.update!(crm_auto_sync_on_portal_submit: false)
+
+    saver = described_class.new(
+      client_form: client_form,
+      data: { a: 1 },
+      validate: true,
+      partial: false
+    )
+
+    expect {
+      saver.save
+    }.not_to have_enqueued_job(CrmDataExportJob)
   end
 end

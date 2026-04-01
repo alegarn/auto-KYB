@@ -23,7 +23,7 @@ module Crm
       )
     end
 
-    def export_data(client, data, files = [])
+    def export_data(client, data, files = [], company_data: {})
       ensure_valid_token!
       # Dummy implementation
       Rails.logger.info "Exporting data to Salesforce for client #{client.id}"

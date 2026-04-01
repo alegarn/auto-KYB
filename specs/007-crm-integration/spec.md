@@ -18,6 +18,32 @@
 - Q: When sending test data to CRM, how should the test data be generated and what should happen to it in the CRM? → A: Use placeholder/sample data (e.g., 'Test Client', 'test@example.com') and mark records as test data in CRM (flagged for easy deletion)
 - Q: Where in the UI should the CRM test connection feature be available? → A: Both: In CRM settings (general connection test) AND on form pages (form-specific mapping test)
 - Q: When a CRM test connection fails, what information should be displayed to the user? → A: Categorized errors (connection, authentication, field mapping, file upload) with specific guidance for each type
+- Q: How does the system ensure data type compatibility between form fields and CRM properties? → A: The system uses a compatibility matrix (e.g., 'number' matches 'integer', 'float', 'decimal') and displays a "Type mismatch" warning in the UI if incompatible types are selected.
+- Q: How does the system handle mapping to multiple CRM objects (Contact/Lead vs Company)? → A: The UI allows selecting the target object type (Contact or Company) for each field. An "Export Preview" summary indicates if both records will be created and if they can be successfully linked (e.g., checking for required identifiers like 'email' for Contacts or 'name/domain' for Companies).
+- Q: Can users create new properties in their CRM directly from the app? → A: Yes, users can select "+ Create as Custom Contact/Company Property" which will trigger the creation of that property in the CRM during the export process.
+- Q: Is there an automated way to set up mappings? → A: Yes, an "Auto-Map Fields" feature uses fuzzy matching and type validation to suggest mappings for all form fields.
+
+### Session 2026-03-19
+
+- Q: Should users be able to disable automatic CRM export when a client validates a portal submission? → A: Yes. A per-user setting controls whether validated portal submissions auto-export to CRM or stay local until manual export.
+- Q: If automatic portal export is disabled, how should CRM-linked clients still be updated? → A: The manual export path from the client page remains available and becomes the fallback for portal-submitted data.
+- Q: For CRM-linked clients on the back-office edit page, is fetching fresh CRM data automatic? → A: No. Fetching remains a manual action via the dedicated CRM prefill action.
+- Q: For CRM-linked clients on the back-office edit page, should saving local edits update the CRM automatically? → A: Yes, if the client is linked and the CRM connection is active, saving the edit form automatically updates the linked CRM profile and company data.
+- Q: Should the linked-client edit warning dismissal be shared across devices? → A: No. The informational modal is dismissed once per browser/device, while the inline warning remains visible on the page.
+
+### Session 2026-03-20
+
+- Q: How should unread CRM transfer failures be surfaced? → A: Use a durable user-level last-seen timestamp for the sidebar badge and a session-scoped toast marker for the global alert so users only see new failures.
+- Q: When should CRM transfer failures be marked as seen? → A: Visiting the CRM Transfers page marks current failures as seen and advances the session toast marker.
+- Q: What wording should be shown when `create_crm_contact` schedules work asynchronously? → A: The UI should say the CRM contact creation was queued and point users to CRM Transfers.
+- Q: How should `client_create_sync` retries behave? → A: They must be idempotent, reusing existing CRM identifiers when available and deduplicating open pending/processing transfers for the same client and CRM connection.
+
+### Session 2026-03-29
+
+- Q: How does the system handle HubSpot `enumeration` properties that require specific pre-defined values? → A: The mapping modal detects mismatches between form field options and CRM property options. It displays a "Sync Options" warning and button to overwrite form options with the CRM's allowed values.
+- Q: How should we treat HubSpot `calculation_equation` properties? → A: These are treated as read-only computed fields and are rejected for mapping to prevent API errors during export.
+- Q: What happens if a user saves a form mapping where some fields are not mapped but the CRM is otherwise synced? → A: The system triggers a warning notification during form save, informing the user that unmapped fields will not be exported and providing a direct link to the CRM Mapping Modal.
+- Q: How are enumeration options handled in the abstraction layer during sync? → A: The backend's `OptionNormalizer` and `value_coercer` ensure that the display labels synced to the frontend map back correctly to the CRM's internal internal values during data export.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -54,6 +80,7 @@ As a user, I want client data (including form responses and uploaded files) to b
 3. **Given** the user has multiple CRM connections, **When** a client validates their form, **Then** the data is transferred to all active CRM connections sequentially (one at a time)
 4. **Given** the user has an active CRM connection, **When** the data transfer is successful, **Then** the user is notified of the successful transfer (per CRM)
 5. **Given** the user has an active CRM connection, **When** the data transfer fails, **Then** the system attempts to retry the transfer and notifies the user if retries are exhausted (per CRM)
+6. **Given** the user disabled automatic CRM sync in settings, **When** a client validates their form in the portal, **Then** the validation completes normally but no CRM export is triggered automatically
 
 ---
 
@@ -90,6 +117,8 @@ As a user, I want to manually export client data to my connected CRM, so that I 
 3. **Given** the user initiates a manual export, **When** the export is in progress, **Then** the user sees a progress indicator
 4. **Given** the user initiates a manual export, **When** the export completes successfully, **Then** the user is notified of the successful export
 5. **Given** the user initiates a manual export, **When** the export fails, **Then** the user is notified with the reason for failure
+6. **Given** automatic CRM sync after portal submission is disabled in settings, **When** the user wants to push validated submission data to CRM, **Then** the client page manual export flow remains available as the supported fallback
+7. **Given** the user created a client locally without linking it to CRM, **When** they later open the client page or a validated portal submission for that client, **Then** the client and company can still be exported to the connected CRM and linked afterward
 
 ---
 
@@ -134,9 +163,212 @@ As a user, I want to test my CRM connection and preview field mappings when crea
 
 ---
 
-### Edge Cases
+### User Story 7 - CRM Selection in Settings (Priority: P1)
+
+As a user, I want to choose which CRM providers I enable from the application settings (Zoho, Salesforce, HubSpot), so that only selected CRMs are available for imports/exports and automatic transfers.
+
+**Why this priority**: Users must control which CRM providers the application may interact with to avoid accidental exports and to limit visible options in form mapping and manual export flows.
+
+**Independent Test**: Can be tested by visiting CRM settings, toggling available CRM providers, and confirming the available options in form mapping and manual export UI update accordingly.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is logged in, **When** they open CRM settings, **Then** they can enable or disable Zoho, Salesforce, and HubSpot individually
+2. **Given** the user disables a CRM provider, **When** they view form mapping or manual export screens, **Then** the disabled provider is not listed as an export or mapping target
+3. **Given** the user enables a CRM provider, **When** they then connect that provider using OAuth, **Then** the provider becomes available for exports, imports and test mapping
+4. **Given** the user has multiple providers enabled, **When** they choose defaults in settings, **Then** default selection is pre-selected in manual export and mapping dialogs
+5. **Given** no CRM providers are connected, **When** creating or editing a client, **Then** no CRM-related UI components (sync widgets, import/export buttons) are loaded or displayed to the user
+6. **Given** a CRM is connected, **When** editing an existing client that is already linked to the CRM, **Then** the CRM sync strategy widget is hidden to avoid redundant import/link prompts
+7. **Given** the user is in settings, **When** they toggle automatic CRM sync after client portal submission, **Then** future validated portal submissions follow the selected automatic or manual-export behavior
+
+---
+
+### User Story 8 - Import Leads/Contacts from CRM (Priority: P2)
+
+As a user, I want to import chosen leads/contacts (CRM wording) from a connected CRM into the application as clients (including associated company data), so that I can onboard existing CRM records into the app and update their client/company profiles with portal/form data.
+
+**Why this priority**: Importing contacts/leads is essential for migrating existing customers and enabling a two-way workflow where CRM-origin data becomes a managed client record in the application.
+
+**Independent Test**: Can be tested by selecting a subset of contacts/leads in the UI, importing them, and verifying created client and company records in the application reflect CRM data.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user has at least one active CRM connection, **When** they open the "Import from CRM" flow, **Then** they can browse/search CRM leads/contacts and select which records to import
+2. **Given** the user selects a lead/contact to import, **When** the import completes, **Then** a client record (and associated company record if present) is created in the application with CRM-provided fields (name, company, email, phone, address)
+3. **Given** the user imports multiple records, **When** the import completes, **Then** the UI displays a summary of imported records and any partial failures with reasons
+4. **Given** the user later receives updated data in the CRM for an imported record, **When** they run a sync or re-import for that record, **Then** the application updates the client/company info while preserving any locally-collected form data unless the user opts to overwrite
+5. **Given** imported records include files/attachments, **When** the import is performed, **Then** files are associated with the created client/company where supported and any file-size/provider limits are surfaced as warnings or errors
+
+---
+
+### User Story 9 - Export Client to CRM as Contact/Lead (Priority: P2)
+
+As a user, I want to export a client from the application to a connected CRM as a contact or lead (CRM wording) including company data and recent form responses, so that CRM systems are kept up-to-date from the app.
+
+**Why this priority**: Allows integrating application-managed client lifecycle with the CRM sales/marketing workflows and supports both one-off manual exports and automated exports on form validation.
+
+**Independent Test**: Can be tested by selecting a client and exporting to a connected CRM, then verifying the created contact/lead and associated company record in the CRM.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user has at least one active CRM connection, **When** they open a client's page and click "Export to CRM", **Then** they can choose the target CRM(s) and whether to create a contact or a lead where the provider differentiates
+2. **Given** the user exports a client, **When** the export completes successfully, **Then** the created CRM record contains client fields (name, company, email, phone, address) and mapped form responses
+3. **Given** the client has an existing CRM identifier stored, **When** the user exports, **Then** the system updates the existing CRM record rather than creating duplicates (where matching rules exist)
+4. **Given** the exported payload includes files, **When** the CRM does not support the file type or size, **Then** the export records partial success and surfaces file-specific errors to the user
+5. **Given** the user exports to multiple CRMs, **When** some exports succeed and others fail, **Then** the UI displays per-CRM statuses and retry options for failed exports
+6. **Given** the client is linked to a company in the application, **When** the export runs, **Then** the company is created or updated in the CRM when the provider supports company associations and identifiers such as a domain or company id
+
+---
+
+### User Story 10 - Form-Level CRM Field Mapping Configuration (Priority: P1)
+
+As a user, I want to configure how form fields map to CRM properties directly within the form builder, so that I have clear, contextual control over where collected data is exported.
+
+**Why this priority**: Users need explicit control over how dynamic form data corresponds to CRM records. Auto-mapping might miss edge cases, and giving users the choice to use existing CRM default properties or dynamically create new custom properties in the CRM guarantees accurate data representation.
+
+**Independent Test**: Can be tested mathematically in a mock environment by interacting with the Form Builder's "CRM Mapping" tab, selecting "Create Custom Property" vs an "Existing Property", and verifying the payload structures generated upon form submission.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is editing a form, **When** they open the CRM Mapping settings, **Then** they see a table matching Form Fields to corresponding CRM Properties for the selected CRM
+2. **Given** the user adds a new form field, **When** they view the mapping settings, **Then** the system automatically auto-suggests a corresponding CRM property using fuzzy matching
+3. **Given** a form field does not match any existing standard CRM property, **When** the mapper loads, **Then** the field defaults to the "Create as Custom Property" action
+4. **Given** the user configures a field to "Create as Custom Property", **When** the form mapping is saved (or form submitted), **Then** the application asynchronously creates that custom property in the CRM via API
+5. **Given** the user wants to map standard app fields (e.g. client name, company email), **When** they check the standard mappings section in global settings, **Then** they see the hardcoded mappings which represent where core entities route to their CRM
+
+---
+
+### User Story 11 - CRM Property Data Type Validation (Priority: P2)
+
+As a user, I want to see warnings when I map a form field to an incompatible CRM property type, so that I can avoid data truncation or transfer failures due to type mismatches.
+
+**Why this priority**: Prevents silent data loss or API errors. While users can still save the mapping, being informed of the "DataType" mismatch (e.g., mapping a 'text' field to a CRM 'number' property) allows them to correct the mapping before real data is sent.
+
+**Independent Test**: Can be tested by selecting a 'long text' form field and mapping it to a 'boolean' CRM property, then verifying that a "Type mismatch" warning is displayed in the UI.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is in the CRM mapping modal, **When** they select a CRM property with a type (e.g., 'number') that is incompatible with the form field type (e.g., 'text' or 'select'), **Then** a "Type mismatch" warning is displayed below the field
+2. **Given** a type mismatch is present, **When** the user switches to a compatible CRM property, **Then** the warning automatically disappears
+3. **Given** multiple CRM providers are active, **When** the user checks different provider tabs, **Then** type validation is performed independently for each provider's unique property schema
+
+---
+
+### User Story 12 - CRM Object Creation Preview and Required Identifiers (Priority: P1)
+
+As a user, I want a clear preview of which CRM object records (Contact, Company) will be created and whether they contain the required identifiers, so that I can ensure the CRM integration will successfully link and create records.
+
+**Why this priority**: CRM APIs often have mandatory fields (e.g., HubSpot requires 'name' or 'domain' for Companies). Without these, the entire export might fail or create disconnected records. A real-time "Export Preview" makes these requirements visible and actionable.
+
+**Independent Test**: Can be tested by mapping only 'non-identifier' fields for a Company and verifying the "Company (incomplete)" warning appears, then mapping a 'name' field and verifying it changes to "Ready".
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is in the mapping modal, **When** they map at least one field to a Contact, **Then** the "Contact" status in the Export Preview is marked as "Ready"
+2. **Given** the user maps fields to both Contact and Company, **When** both have at least one field mapped, **Then** the "Linked" status indicates the records will be associated in the CRM
+3. **Given** a CRM (like HubSpot) requires a company 'name' for creation, **When** the user maps other company fields but NOT 'name', **Then** a specific warning listing the missing required identifier is displayed
+4. **Given** the user maps no fields to a specific object type, **When** viewing the Export Preview, **Then** the status for that object type shows "No [Object Type]" to indicate it will be skipped during export
+
+---
+
+### User Story 13 - Automation of Field Mapping (Priority: P2)
+
+As a user, I want to automatically match my form fields to CRM properties at the click of a button, so that I don't have to manually select dozens of properties for complex forms.
+
+**Why this priority**: High UX value for efficiency. In complex forms with many KYC/KYB fields, manual mapping is tedious and error-prone. Automation handles the 80% of obvious matches, leaving the user to only review and adjust exceptions.
+
+**Independent Test**: Can be tested by opening a form with fields like "First Name", "Company Email", clicking "Auto-Map Fields", and verifying they are correctly mapped to "firstname" and "email" in the CRM.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user has complex forms and an active CRM, **When** they click "Auto-Map Fields", **Then** the system uses fuzzy matching and type validation to automatically suggest mappings for as many fields as possible
+2. **Given** auto-mapping is triggered, **When** a field already has a manual mapping, **Then** the manual mapping is preserved and NOT overwritten by the automation
+3. **Given** auto-mapping finds a match but the types are incompatible, **When** analyzing the result, **Then** the system should prioritize compatible types or surface a warning if a mismatching name is the best match
+
+---
+
+### User Story 14 - Automatic CRM Sync for Linked Client Edits (Priority: P1)
+
+As a user, I want saving a CRM-linked client from the back-office edit page to update the linked CRM profile automatically, while keeping CRM fetch as a manual action, so that my local edits and CRM records stay aligned without unexpected overwrites.
+
+**Why this priority**: Once a client is explicitly linked to CRM, the edit page becomes a high-frequency operational workflow. If local profile changes do not propagate back to CRM, users quickly create divergence between the app and their CRM.
+
+**Independent Test**: Can be fully tested by opening a CRM-linked client edit page, confirming the manual-fetch warning appears, saving profile changes, and verifying the linked CRM sync service is triggered while the local client is updated.
+
+**Acceptance Scenarios**:
+
+1. **Given** a client is linked to an active CRM connection, **When** the user opens the edit page, **Then** the page displays an inline warning that CRM fetch is manual but saving changes updates the linked CRM automatically
+2. **Given** a client is linked to an active CRM connection, **When** the user opens the edit page for the first time in a browser, **Then** an informational modal explains that fetching CRM data is manual and saving changes updates the linked CRM automatically
+3. **Given** the user dismisses the informational modal, **When** they continue editing in the same browser, **Then** the modal stays dismissed for later visits while the inline warning remains visible
+4. **Given** a client is linked to an active CRM connection, **When** the user clicks the manual CRM prefill action, **Then** fresh CRM data is fetched only for that explicit action and not automatically on page load
+5. **Given** a client is linked to an active CRM connection, **When** the user saves profile or company changes from the edit page, **Then** the application updates the local client and triggers an update of the linked CRM contact/company record
+6. **Given** a client is linked to CRM but the connection is inactive, **When** the user views or saves the edit page, **Then** the page warns that changes stay local until the CRM connection becomes active again
+7. **Given** a client is linked to CRM, **When** the user clicks "Complete with CRM data", **Then** the application refreshes all client and company fields from the current CRM data before the user continues editing
+8. **Given** a client is linked to CRM, **When** the user saves changes from the edit page, **Then** a confirmation modal explains that the linked CRM contact/company will be updated by the save action
+
+---
+
+### User Story 15 - CRM Transfer Failure Signals And Review (Priority: P2)
+
+As a user, I want new CRM transfer failures to appear as a sidebar badge and a one-time global alert, so that I can review fresh failures quickly without seeing the same alert on every page load.
+
+**Why this priority**: Transfer visibility is important for support and recovery. Users need a durable indicator for unread failures plus a lightweight toast for immediate attention, but the alert must not become noisy or repetitive.
+
+**Independent Test**: Can be fully tested by creating a failed CRM transfer, visiting authenticated pages to observe the sidebar badge and toast, then opening CRM Transfers to mark failures as seen and confirming the toast does not repeat on refresh.
+
+**Acceptance Scenarios**:
+
+1. **Given** unread CRM transfer failures exist, **When** the user views an authenticated page, **Then** the CRM Transfers sidebar item shows an unread badge with the current failed count
+2. **Given** a new unread CRM transfer failure exists, **When** the user enters the app on any authenticated page, **Then** a single toast appears linking them to CRM Transfers
+3. **Given** the user opens the CRM Transfers page, **When** the page loads successfully, **Then** the current failures are marked as seen and the toast does not reappear on refresh
+4. **Given** a newer failure occurs after the user has already seen previous failures, **When** shared CRM transfer signals are recomputed, **Then** the badge and toast update for the new failure only
+
+---
+
+### User Story 16 - Idempotent Client Create Sync Retries (Priority: P1)
+
+As a user, I want create-sync CRM transfers to retry safely without creating duplicate clients or companies, so that failed transfers can recover without corrupting my CRM data.
+
+**Why this priority**: The client-create path is high risk because a partial failure can create a remote record before later steps fail. Retrying must reuse discovered identifiers and avoid duplicate in-flight work.
+
+**Independent Test**: Can be fully tested by forcing a partial client-create sync failure, retrying it, and confirming the CRM reuses the original identifiers without creating duplicate client/company records.
+
+**Acceptance Scenarios**:
+
+1. **Given** a `client_create_sync` transfer already created a CRM client, **When** the job retries, **Then** it reuses the stored CRM client id instead of creating a duplicate client
+2. **Given** a client has an email match in the CRM but no stored external client id, **When** the job runs, **Then** it searches by email before creating a new client and persists the found id
+3. **Given** a pending or processing `client_create_sync` transfer already exists for the same client and CRM connection, **When** the same create-sync action is triggered again, **Then** the scheduler returns the existing transfer instead of creating a duplicate
+4. **Given** the client-company association already exists in the CRM, **When** the executor associates them again, **Then** the association is treated as success
+5. **Given** the create CRM client action is accepted from the client page, **When** the request completes, **Then** the user is told the CRM client creation was queued and can track it in CRM Transfers
+6. **Given** a create-sync transfer failed after a remote CRM record was already created, **When** the user retries it, **Then** the retry reuses the existing CRM identifiers so only one client and one company record exist in the CRM
+
+---
+
+### User Story 17 - Client Creation, CRM Linking, and Prefill (Priority: P1)
+
+As a user, I want to create a client locally, create a new CRM lead/client, or link an existing CRM lead/contact during client creation, so that I can choose the right onboarding path and avoid duplicate data entry.
+
+**Why this priority**: Client creation is the first point where CRM linkage can happen. If the app cannot either stay local, create a new CRM record asynchronously, or link an existing CRM record and prefill the form, the rest of the CRM workflows become fragmented.
+
+**Independent Test**: Can be fully tested by creating a client with and without an active CRM connection, choosing local creation, create-in-CRM, and link-existing flows, and verifying the saved client, CRM transfer status, and prefilling behavior.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is creating a client and does not choose a CRM action, **When** they save the client, **Then** the client is created locally without a CRM link
+2. **Given** the user is creating a client and a CRM connection is active, **When** they choose to create a new lead/contact in the CRM, **Then** the client is created locally and the CRM creation is queued asynchronously with status visible in CRM Transfers
+3. **Given** the user is creating a client and a CRM connection is active, **When** they choose to link an existing CRM contact/lead, **Then** the app searches the CRM by email or name, allows the user to select a match, links that record to the new client, and pre-fills the client info from the CRM data
+4. **Given** the user created a client locally without linking it to CRM, **When** they later export it from the client edit page or from a validated portal submission, **Then** the client and its company can be linked to the CRM at that time
+5. **Given** the user creates a client with company information and chooses to create a new CRM lead/contact, **When** the export starts, **Then** the company is created or linked in the CRM as part of the same flow and the address is taken from the company address, not the client address, unless the user explicitly chooses to copy the client address to CRM only
+6. **Given** the company name and required company info are completed during client creation, **When** the user chooses to create a new CRM lead/contact, **Then** the UI indicates that the flow will also create a new company record in the CRM
+7. **Given** the CRM supports company associations and the client is linked to a company in the app, **When** the client or form is exported to CRM, **Then** the company is created or updated in the CRM using the provider's supported identifiers and association fields
+8. **Given** the user opens the client edit page for a CRM-linked client, **When** they click "Complete with CRM data", **Then** the app refreshes all client and company fields from the current CRM record
+9. **Given** the user deletes a client that is linked to CRM, **When** the deletion is confirmed, **Then** only the local application client is deleted and the CRM record remains untouched
+
+
+---
 
 - What happens when the user has no active CRM connections and a client validates their form? The form validation proceeds normally, but no data transfer occurs. The user is notified that no CRM connection is active.
+- What happens when the user disables automatic CRM sync after portal submission? The form validation still completes, but the submission stays local until the user manually exports the linked client from the client page.
 - What happens when the CRM provider's API is temporarily unavailable during transfer? The system implements retry logic with 3 retries using exponential backoff (30s, 2min, 10min intervals) and notifies the user if all retry attempts fail.
 - What happens when the client data exceeds CRM API limits (e.g., file size too large)? The transfer fails with an appropriate error message, and the user is notified of the specific limitation.
 - What happens when OAuth access tokens expire? The system automatically refreshes tokens using refresh tokens. If refresh fails, the user is notified and the connection is marked as requiring re-authorization.
@@ -156,6 +388,9 @@ As a user, I want to test my CRM connection and preview field mappings when crea
 - What happens when the user modifies form fields after testing the CRM mapping? The mapping preview should be refreshed or the user should be prompted to re-test to verify the new field mappings.
 - What happens when OAuth tokens expire during a connection test? The system attempts automatic token refresh; if refresh fails, the test fails with an authentication error and the user is prompted to re-authorize the connection.
 - What happens when test data is sent but the CRM creates a duplicate record? The test record is created with unique identifiers (e.g., timestamp) to avoid duplicates, and the user is informed to delete the test record manually.
+- What happens when the user edits a CRM-linked client while the linked connection is inactive? The page warns that changes remain local and no automatic CRM update is attempted.
+- What happens when the same user opens the linked-client edit page in a different browser or after clearing local storage? The informational modal is shown again because dismissal is browser-local rather than account-global.
+
 
 ## Requirements *(mandatory)*
 
@@ -176,6 +411,10 @@ As a user, I want to test my CRM connection and preview field mappings when crea
 - **FR-013**: System MUST destroy transferred data from application storage 1 day after successful transfer
 - **FR-014**: System MUST retain data if transfer fails or is still in progress after 1 day
 - **FR-015**: System MUST display transfer status and history to users
+- **FR-016**: System MUST detect mismatches between form field options and CRM enumeration property options in the mapping modal
+- **FR-017**: System MUST provide a "Sync Options" action to overwrite local form field options with CRM-allowed values
+- **FR-018**: System MUST reject `calculation_equation` and other read-only property types from CRM mapping fields
+- **FR-019**: System MUST warn users when saving a form if fields are not mapped to their connected CRM properties
 - **FR-016**: System MUST support multiple simultaneous CRM connections per user
 - **FR-017**: System MUST log all transfer activities for audit purposes
 - **FR-018**: System MUST validate CRM connection status before attempting transfers
@@ -201,6 +440,33 @@ As a user, I want to test my CRM connection and preview field mappings when crea
 - **FR-038**: System MUST include test file uploads when verifying CRM data transfer for forms with file fields
 - **FR-039**: System MUST allow users to select which CRM(s) to test when multiple connections are active
 - **FR-040**: System MUST provide links to view test records in CRM after successful test data transfer
+- **FR-041**: System MUST allow users to explicitly configure CRM field mappings for custom form fields within the form builder interface
+- **FR-042**: System MUST automatically suggest corresponding CRM properties using fuzzy matching algorithms against form field names
+- **FR-043**: System MUST fall back to a "Create as Custom Property" configuration by default when no matching CRM standard property is found
+- **FR-044**: System MUST automatically create custom properties in the respective CRMs via their APIs when a payload with "custom property" mappings is dispatched
+- **FR-045**: System MUST provide a read-only list in global settings displaying where core application fields (name, company, email) are mapped by default
+- **FR-046**: System MUST validate data type compatibility between form fields (text, number, boolean, date, file, json) and CRM property types (string, integer, email, phone, enumeration, datetime, etc.)
+- FR-047: System MUST display persistent warnings in the mapping interface if incompatible data types are selected for mapping
+- FR-048: System MUST provide an "Export Preview" summary indicating the status ('ready', 'warning', 'none') of Contact and Company record creation per CRM provider
+- FR-049: System MUST identify and list missing required identifiers (e.g., 'name' or 'domain' for HubSpot Company) when mapping fields to a CRM object type
+- FR-050: System MUST provide an "Auto-Map Fields" feature that uses fuzzy matching and type validation to suggest mappings for form fields efficiently
+- FR-051: System MUST perform CRM property lookups and matching asynchronously to avoid blocking the main UI thread (using Svelte 5 $effect and $derived runes)
+- FR-052: System MUST allow each user to enable or disable automatic CRM export when a client validates a portal submission
+- FR-053: System MUST skip automatic CRM export for validated portal submissions when that user preference is disabled
+- FR-054: System MUST keep manual CRM export available from the client page even when automatic portal-submission export is disabled
+- FR-055: System MUST display an inline warning on the client edit page when a client is linked to an active CRM connection explaining that CRM fetch is manual and edit-save sync is automatic
+- FR-056: System MUST automatically update the linked CRM contact/company record after a successful local save of a CRM-linked client when the linked connection is active
+- FR-057: System MUST persist dismissal of the linked-client informational edit modal once per browser/device while continuing to show the inline warning on the page
+- FR-058: System MUST allow client creation to remain local or to create/link a CRM lead/contact when a CRM connection is active
+- FR-059: System MUST allow users to search existing CRM contacts/leads by email or name during client creation and link the selected record to the new client
+- FR-060: System MUST prefill client information in the application from the selected CRM record when the user links an existing contact/lead during client creation
+- FR-061: System MUST queue new CRM lead/contact creation asynchronously during client creation and expose the export status in CRM Transfers
+- FR-062: System MUST create or link the associated company in CRM during client creation and later export flows when the CRM connection is active
+- FR-063: System MUST use the company's address for CRM company data by default and only include the client address in CRM when the user explicitly opts in
+- FR-064: System MUST allow clients and companies created locally to be exported and linked to CRM later from the client edit page or validated portal submission flow
+- FR-065: System MUST retry failed create-sync operations idempotently by reusing existing CRM identifiers and avoiding duplicate client/company records
+- FR-066: System MUST provide a "Complete with CRM data" action for linked clients that refreshes all client and company fields from the current CRM data
+- FR-067: System MUST delete only the local application client record when a linked client is deleted and MUST leave CRM records untouched
 
 ### Key Entities
 
@@ -229,6 +495,8 @@ As a user, I want to test my CRM connection and preview field mappings when crea
 - **SC-014**: 95% of CRM connection tests provide accurate error categorization (connection, authentication, field mapping, file upload)
 - **SC-015**: 90% of users can successfully test their CRM connection and verify field mappings on their first attempt
 - **SC-016**: Test records are clearly identifiable in CRM (flagged or using placeholder values) for easy cleanup
+- **SC-017**: CRM automatic portal-sync preference changes are persisted and reflected in the settings UI within 3 seconds
+- **SC-018**: 100% of successful linked-client edit saves with an active CRM link trigger the linked-profile CRM sync workflow
 
 ## Assumptions
 
@@ -240,6 +508,7 @@ As a user, I want to test my CRM connection and preview field mappings when crea
 - Data transfer is one-way (application to CRM) and does not require bidirectional synchronization
 - The 1-day retention period starts from the timestamp of successful transfer completion
 - Cleanup process runs periodically (e.g., hourly) to identify and remove eligible data
+- The linked-client informational modal is advisory only, so dismissing it may remain browser-local instead of being synchronized across devices
 
 ## Dependencies
 

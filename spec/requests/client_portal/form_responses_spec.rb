@@ -1,9 +1,19 @@
 require "rails_helper"
 
 RSpec.describe "ClientPortal::FormResponses", type: :request do
-  let(:user) { create(:user) }
+  include ActiveJob::TestHelper
+
+  let(:user) { create(:user, crm_auto_sync_on_portal_submit: true, plan: :pro) }
   let(:client) { create(:client, user: user) }
   let(:form) { create(:form, user: user) }
+
+  around do |example|
+    clear_enqueued_jobs
+    clear_performed_jobs
+    example.run
+    clear_enqueued_jobs
+    clear_performed_jobs
+  end
 
   before do
     @client_form = create(:client_form, client: client, form: form)
@@ -14,6 +24,27 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
   end
 
   describe "PATCH /client_portal/form_response" do
+    it "creates a pending CRM transfer on validated submit when portal auto-sync is enabled" do
+      connection = create(:crm_connection, user: user, status: "active")
+
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect([ 302, 303 ]).to include(response.status)
+
+      expect {
+        patch client_portal_form_response_path,
+              params: { form_response: { data: { foo: "bar" }, validate: true } }
+      }.to change { CrmTransfer.where(client: client, status: "pending").count }.by(1)
+
+      transfer = CrmTransfer.order(created_at: :desc).first
+
+      expect(transfer.crm_connection).to eq(connection)
+      expect(transfer.trigger).to eq(CrmTransfer::TRIGGER_PORTAL_SUBMIT)
+      expect(transfer.request_context).to include('source' => 'client_portal', 'client_form_id' => @client_form.id)
+      expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly([ transfer.id ])
+      expect(response).to have_http_status(:see_other)
+      expect(response).to redirect_to(client_portal_confirmation_path)
+    end
+
     it "validates, locks, clears session and redirects to confirmation" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
       expect([ 302, 303 ]).to include(response.status)

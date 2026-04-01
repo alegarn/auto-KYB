@@ -19,8 +19,10 @@ import { router } from '@inertiajs/svelte';
 
 // Mock the routes used by the component
 vi.mock('@/routes', () => ({
-  clients_path: vi.fn(() => '/clients'),
   dashboard_path: vi.fn(() => '/dashboard'),
+  clients_path: vi.fn(() => '/clients'),
+  settings_path: vi.fn(() => '/settings'),
+  quickstart_path: vi.fn(() => '/quickstart'),
   edit_client_path: vi.fn((id: string) => `/clients/${id}/edit`),
   client_path: vi.fn((id: string) => `/clients/${id}`),
   client_forms_path: vi.fn(() => '/client_forms'),
@@ -95,7 +97,7 @@ test('does not show export button when client_form is null', () => {
   const withinSection = within(mainSection!);
 
   // The export button should not be in the document when client_form is null
-  const exportButton = withinSection.queryByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.queryByText('Form Responses (CSV)');
   expect(exportButton).not.toBeInTheDocument();
 });
 
@@ -124,7 +126,7 @@ test('shows export button when client_form exists', () => {
   const withinSection = within(mainSection!);
 
   // The export button should be in the document when client_form exists
-  const exportButton = withinSection.getByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Download CSV');
   expect(exportButton).toBeInTheDocument();
 });
 
@@ -153,10 +155,10 @@ test('export button has correct href with client_form.id', () => {
   const withinSection = within(mainSection!);
 
   // Find the export button by its text
-  const exportButton = withinSection.getByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Download CSV');
   
   // Verify the href attribute contains the client_form.id
-  expect(exportButton).toHaveAttribute('href', '/client_forms/42/export_responses.csv');
+  expect(exportButton).toHaveAttribute('href', '/client_forms/42/export_responses');
 });
 
 test('export button has target="_blank" and rel="noopener" attributes', () => {
@@ -184,7 +186,7 @@ test('export button has target="_blank" and rel="noopener" attributes', () => {
   const withinSection = within(mainSection!);
 
   // Find the export button by its text
-  const exportButton = withinSection.getByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Download CSV');
   
   // Verify the target and rel attributes
   expect(exportButton).toHaveAttribute('target', '_blank');
@@ -216,10 +218,10 @@ test('export button has correct CSS classes and aria-label', () => {
   const withinSection = within(mainSection!);
 
   // Find the export button by its text
-  const exportButton = withinSection.getByText('Export Form Responses (CSV)');
+  const exportButton = withinSection.getByText('Download CSV');
   
   // Verify the CSS classes
-  expect(exportButton).toHaveClass('inline-flex', 'items-center', 'rounded-md', 'px-4', 'py-2', 'text-sm', 'font-semibold', 'bg-background', 'border', 'shadow-xs');
+  expect(exportButton).toHaveClass('inline-flex', 'items-center', 'rounded-md', 'px-4', 'py-2', 'text-sm', 'font-medium');
   
   // Verify the aria-label
   expect(exportButton).toHaveAttribute('aria-label', 'Export form responses as CSV');
@@ -302,7 +304,7 @@ test('shows client_form details when client_form exists', () => {
   const mainSection = container.querySelector('section');
   const withinSection = within(mainSection!);
 
-  expect(withinSection.getByText('Has a subspace')).toBeInTheDocument();
+  expect(withinSection.getByText('Active Form')).toBeInTheDocument();
   expect(withinSection.getByText('Customer Onboarding')).toBeInTheDocument();
   expect(withinSection.getByText('validated')).toBeInTheDocument();
 });
@@ -365,7 +367,8 @@ test('renders Export (CSV) button for client', () => {
   const mainSection = container.querySelector('section');
   const withinSection = within(mainSection!);
 
-  expect(withinSection.getByText('Export (CSV)')).toBeInTheDocument();
+  expect(withinSection.getByText('CSV')).toBeInTheDocument();
+  expect(withinSection.getByText('JSON')).toBeInTheDocument();
 });
 
 test('renders Back to clients and Back to dashboard buttons', () => {
@@ -389,4 +392,71 @@ test('renders Back to clients and Back to dashboard buttons', () => {
 
   expect(withinSection.getByText('Back to clients')).toBeInTheDocument();
   expect(withinSection.getByText('Back to dashboard')).toBeInTheDocument();
+});
+
+test('renders and interactions with uploaded files', async () => {
+  const client = { id: '1', name: 'Acme Corp', company_name: 'Acme Inc.', status: 'active' };
+  const uploaded_files = [
+    {
+      id: 'file-123',
+      filename: 'identity_doc.pdf',
+      byte_size: 1024 * 500, // 500 KB
+      content_type: 'application/pdf',
+      uploaded_at: new Date().toISOString()
+    }
+  ];
+
+  const { container } = render(ShowClient, {
+    props: {
+      user: { email: 'test@example.com' },
+      client,
+      uploaded_files,
+      client_form: { id: '42', status: 'validated' }
+    }
+  });
+
+  const mainSection = container.querySelector('section');
+  const withinSection = within(mainSection!);
+
+  expect(withinSection.getByText('identity_doc.pdf')).toBeInTheDocument();
+  expect(withinSection.getByText(/500.0 KB/)).toBeInTheDocument();
+  
+  // Verify download link is enabled when form is validated
+  const downloadLink = withinSection.getByLabelText('Download identity_doc.pdf');
+  expect(downloadLink).toHaveAttribute('href', expect.stringContaining('/uploaded_files/file-123/download'));
+  expect(downloadLink).not.toBeDisabled();
+
+  // Verify delete button opens modal
+  const deleteBtn = withinSection.getByLabelText('Delete identity_doc.pdf');
+  await userEvent.click(deleteBtn);
+  
+  // Note: Using document-wide query for the modal content as it might be rendered in a portal
+  expect(screen.getByText('Delete file')).toBeInTheDocument();
+  expect(screen.getByText(/Are you sure you want to delete identity_doc.pdf/)).toBeInTheDocument();
+});
+
+test('opens CRM export modal when clicking Export Form Answers to CRM', async () => {
+  const client = { id: '1', name: 'Acme Corp', company_name: 'Acme Inc.', status: 'active' };
+  const client_form = { id: '42', status: 'validated' };
+  const crm_connections = [{ provider: 'hubspot' }, { provider: 'salesforce' }];
+
+  const { container } = render(ShowClient, {
+    props: {
+      user: { email: 'test@example.com' },
+      client,
+      client_form,
+      crm_connections
+    }
+  });
+
+  const mainSection = container.querySelector('section');
+  const withinSection = within(mainSection!);
+
+  const crmExportBtn = withinSection.getByText('Export to CRM');
+  await userEvent.click(crmExportBtn);
+
+  // Check if modal title appears
+  expect(screen.getByText('Export Form Answers to CRM', { selector: 'h2' })).toBeInTheDocument();
+  expect(screen.getByText('hubspot')).toBeInTheDocument();
+  expect(screen.getByText('salesforce')).toBeInTheDocument();
 });

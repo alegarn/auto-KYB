@@ -20,16 +20,13 @@ RSpec.describe 'Delete client', type: :system do
     end
     expect(page).to have_content(client.company_name)
 
-    # Trigger deletion: support either native JS confirm or in-page modal
-    # If a native `confirm` is used it will be accepted here; if a modal
-    # opens, we click its Delete button below.
-    page.accept_confirm do
-      click_button 'Delete'
-    end
+    # Trigger deletion
+    click_button 'Delete'
 
-    if page.has_selector?('div[role="dialog"]', wait: 1)
+    # Support either native JS confirm or in-page modal
+    if page.has_selector?('div[role="dialog"]', wait: 2)
       within('div[role="dialog"]') do
-        click_button 'Delete'
+        click_button 'Confirm', match: :first rescue click_button 'Delete'
       end
     end
 

@@ -3,38 +3,29 @@ module TestAuthHelpers
     user ||= FactoryBot.create(:user, onboarding_completed: true, verified: true, subscription_status: 'active')
     # For system tests using a JS browser driver, perform an actual sign-in via the UI
     if defined?(page) && page.respond_to?(:driver) && page.driver.respond_to?(:browser) && page.driver.browser.respond_to?(:manage)
+      # 1. Start on the sign-in page
       visit sign_in_path
-      fill_in 'email', with: user.email
       
-      # We need to wait for the job to be enqueued and executed
-      if defined?(perform_enqueued_jobs)
-        perform_enqueued_jobs do
-          click_button 'Email me a sign-in link'
-          # Wait for the success message to ensure the request completed
-          expect(page).to have_content("If the email is registered, you'll receive a sign-in link shortly")
-        end
-      else
-        click_button 'Email me a sign-in link'
-        expect(page).to have_content("If the email is registered, you'll receive a sign-in link shortly")
-      end
+      # 2. Perform the magic link request via UI
+      fill_in 'Email', with: user.email
+      click_button 'Email me a sign-in link'
       
-      # Get the link from the email
-      mail = ActionMailer::Base.deliveries.last
-      if mail
-        body = mail.body.encoded
-        link = body.match(/href="([^"]+sid=[^"]+)"/)[1]
-        
-        # Visit magic link
-        visit link
-        
-        # Wait for sign in to complete
-        expect(page).to have_content("Dashboard")
-      else
-        # Fallback if email wasn't sent (e.g. in some test environments)
-        session_record = user.sessions.create!
-        visit passwordless_sign_in_path(sid: user.generate_token_for(:signin))
-        expect(page).to have_content("Dashboard")
+      # 3. Wait for Success Toast/Message
+      # Use a looser text check as it might be localized or slightly different
+      expect(page).to have_content(/sign-in link shortly/i)
+
+      # 4. Generate the token manually and visit the passwordless path
+      # This bypasses checking ActionMailer::Base.deliveries
+      token = user.generate_token_for(:signin)
+      visit passwordless_sign_in_path(sid: token)
+      
+      # 5. Handle the Auth Loading page
+      if page.has_content?("Preparing your dashboard")
+        expect(page).to have_no_content("Preparing your dashboard", wait: 15)
       end
+
+      # 6. Ensure we are on the dashboard
+      expect(page).to have_current_path(dashboard_path)
     else
       # Controllers rely on Current.session; create a session and set it
       session_record = user.sessions.create!

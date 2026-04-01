@@ -1,4 +1,5 @@
 require "active_support/core_ext/integer/time"
+require "uri"
 
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
@@ -37,9 +38,22 @@ Rails.application.configure do
   # Make template changes take effect immediately.
   config.action_mailer.perform_caching = false
 
-  # Set localhost to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "localhost", port: 3100 }
-  config.action_controller.default_url_options = { host: "localhost", port: 3100 }
+  # Respect APP_BASE_URL in development so external callbacks can target a tunnel.
+  app_base_uri = begin
+    URI.parse(ENV.fetch("APP_BASE_URL", "http://localhost:3100"))
+  rescue URI::InvalidURIError
+    URI.parse("http://localhost:3100")
+  end
+
+  default_url_options = { host: app_base_uri.host || "localhost" }
+  default_url_options[:port] = app_base_uri.port if app_base_uri.port.present? && ![80, 443].include?(app_base_uri.port)
+
+  config.action_mailer.default_url_options = default_url_options
+  config.action_controller.default_url_options = default_url_options
+  config.hosts << default_url_options[:host] if default_url_options[:host].present?
+  config.hosts << /[a-z0-9-]+\.ngrok-free\.app/
+  config.hosts << /[a-z0-9-]+\.ngrok\.app/
+  config.hosts << /[a-z0-9-]+\.ngrok\.io/
 
   # Open delivered emails in the browser (development)
   config.action_mailer.delivery_method = :letter_opener

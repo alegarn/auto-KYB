@@ -27,6 +27,10 @@
       title: "About",
       href: `${root_path()}#about`,
     },
+    {
+      title: "Privacy",
+      href: "/privacy",
+    },
   ];
 
   let currentPath = $derived($page?.url?.split('?')[0].split('#')[0] || '/');

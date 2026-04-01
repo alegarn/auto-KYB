@@ -5,10 +5,10 @@ class RegistrationsController < ApplicationController
 
   def new
     @user = User.new
-    render inertia: "registrations/new", props: { 
+    render inertia: "registrations/new", props: {
       user: @user,
-      stripe_publishable_key: ENV['STRIPE_PUBLISHABLE_KEY'],
-      stripe_pricing_table_id: ENV['STRIPE_PRICING_TABLE_ID'],
+      stripe_publishable_key: Rails.application.credentials.dig(:stripe, :publishable_key) || ENV['STRIPE_PUBLISHABLE_KEY'],
+      stripe_pricing_table_id: Rails.application.credentials.dig(:stripe, :pricing_table_id) || ENV['STRIPE_PRICING_TABLE_ID'],
       customer_email: Current.user&.email
     }
   end

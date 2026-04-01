@@ -18,7 +18,7 @@ beforeEach(() => {
 
 test('Show form with no fields displays placeholder message', () => {
   const fakeForm = { id: '1', name: 'Empty Form', description: 'desc', form_fields: [] }
-  const component: any = mount(Show as any, { target: document.body, props: { form: fakeForm } })
+  const component: any = mount(Show as any, { props: { form: fakeForm } })
 
   expect(document.body.innerHTML).toContain('This form has no fields yet')
 

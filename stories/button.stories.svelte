@@ -11,6 +11,17 @@
   import Button from '../app/frontend/components/ui/button/button.svelte';
 
   const clickFn = fn();
+
+  type CanvasLike = {
+    getByTestId(testId: string): HTMLElement;
+  };
+
+  type PlayContext = {
+    canvas: CanvasLike;
+    userEvent: {
+      click(element: Element): Promise<void>;
+    };
+  };
 </script>
 
 <Story name="Primary">
@@ -29,7 +40,7 @@
   </div>
 </Story>
 
-<Story name="Clickable" args={{ 'data-testid': 'btn', onclick: clickFn }} play={async ({ canvas, userEvent }) => {
+<Story name="Clickable" args={{ 'data-testid': 'btn', onclick: clickFn }} play={async ({ canvas, userEvent }: PlayContext) => {
   const btn = canvas.getByTestId('btn');
   await userEvent.click(btn);
   await expect(clickFn).toHaveBeenCalled();

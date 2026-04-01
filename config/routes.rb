@@ -11,22 +11,48 @@ Rails.application.routes.draw do
 
   get "dashboard", to: "dashboard#index"
   get "quickstart", to: "quickstart#index"
+  get "privacy", to: "privacy#show"
   get "auth/loading", to: "auth_loading#show", as: :auth_loading
 
   resources :forms do
     member do
       get :confirm_delete
       post :duplicate
+      post :test_crm_mapping
     end
   end
 
   resources :clients do
     member do
       get :export
+      post :export_to_crm
+      get :crm_match_suggestions
+      get :crm_contact_details
+      post :link_crm_contact
+      post :create_crm_contact
     end
   end
 
-  resources :crm_transfers, only: [:index]
+  resources :crm_transfers, only: [:index] do
+    member do
+      post :retry
+    end
+  end
+  
+  namespace :crm do
+    resources :imports, only: [:index]
+  end
+  
+  resources :crm_connections, only: [:create, :destroy] do
+    collection do
+      get "auth/:provider", to: "crm_connections#auth", as: :auth
+      get ":provider/callback", to: "crm_connections#callback", as: :callback,
+          constraints: { provider: /hubspot|salesforce|zoho/ }
+    end
+    member do
+      post :test
+    end
+  end
 
   resources :uploaded_files, only: [ :destroy ] do
     member do
@@ -37,6 +63,7 @@ Rails.application.routes.draw do
   get "settings", to: "settings#index"
   get "settings/auth_setup", to: "settings#auth_setup", as: :auth_setup_settings
   patch "settings/auth_setup", to: "settings#complete_onboarding"
+  patch "settings/crm_preferences", to: "settings#update_crm_preferences"
 
   get  "sign_in", to: "sessions#new"
   post "sign_in", to: "sessions#create"

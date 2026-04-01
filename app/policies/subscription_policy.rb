@@ -15,6 +15,10 @@ class SubscriptionPolicy < ApplicationPolicy
     user.present?
   end
 
+  def active?
+    user.present? && user.subscribed?
+  end
+
   def required?
     user.present?
   end

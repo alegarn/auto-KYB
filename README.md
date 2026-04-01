@@ -211,6 +211,16 @@ Notes & tips
 	- **Output:** Export collected information via email or an API so it can be imported into a CRM or downstream system.
 	- **Unique / value:** Verify submitted information by checking public sources (e.g., business registries, public profiles) to reduce manual review and improve trustworthiness of onboarding data.
 
+	**CRM Integration**
+
+	- **Connect**: Supports OAuth2 connections with Zoho, Salesforce, and HubSpot from the CRM settings page.
+	- **Automatic export**: Client data (form responses and permitted file attachments) can be exported automatically to all active CRM connections when a client validates a form in the portal.
+	- **Manual export**: Export a single client or batch of clients to one or more connected CRMs (choose contact vs lead where the provider differentiates).
+	- **Import from CRM**: Browse and import chosen leads/contacts (CRM naming) including company data into the application as clients; support re-sync/update flows.
+	- **Test & map**: Preview field mappings and send test records (placeholder test data) to verify mapping and file attachment behavior before sending real client data.
+	- **Per-CRM status and history**: Track transfer status per CRM, see detailed errors for partial failures (for example file upload issues), and retry failed transfers.
+	- **Data retention**: Transferred data can be cleaned from application storage after a configurable retention period (default: 1 day) while remaining in the CRM.
+
 	The repository includes example frontend pages and components (forms, hero, pricing, footer) that illustrate how to wire UI inputs to back-end export and verification flows. Use these as a starting point to integrate real APIs or connect to your CRM.
 
 	License

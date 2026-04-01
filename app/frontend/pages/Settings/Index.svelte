@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { router } from "@inertiajs/svelte";
+  import { page, router } from "@inertiajs/svelte";
+  import { crmAllowed, getSharedAuth } from "@/lib/shared-auth";
   import { sign_up_path } from "@/routes";
   import * as Card from "/components/ui/card";
   import { Button, buttonVariants } from "/components/ui/button";
@@ -7,11 +8,14 @@
   import * as Sheet from "/components/ui/sheet";
 
   // Props & state
-  let { user } = $props();
+  let { user, crm_connections = [], available_providers = [] } = $props();
   let deleteConfirmation = $state("");
   let deletingAccount = $state(false);
   let billingLoading = $state(false);
   let billingError = $state<string | null>(null);
+  let crmAutoSyncOnPortalSubmit = $state(false);
+  let crmPreferenceSaving = $state(false);
+  let crmPreferenceError = $state<string | null>(null);
   let oauthLoading = $state(false);
   const csrfToken =
     typeof document === 'undefined'
@@ -20,6 +24,8 @@
 
   const googleConnected = $derived(!!user?.provider);
   const canDeleteAccount = $derived(deleteConfirmation.trim() === "DELETE");
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
 
   const createdAtLabel = $derived.by(() => {
     if (!user?.created_at) return "—";
@@ -52,12 +58,34 @@
     }
   });
 
-  // CRM Dummy State
-  let crmConnections = $state([
-    { provider: 'hubspot', name: 'HubSpot', connected: true, loading: false },
-    { provider: 'salesforce', name: 'Salesforce', connected: false, loading: false },
-    { provider: 'zoho', name: 'Zoho CRM', connected: false, loading: false }
-  ]);
+  // CRM State
+  const providerNames: Record<string, string> = {
+    hubspot: 'HubSpot',
+    salesforce: 'Salesforce',
+    zoho: 'Zoho CRM'
+  };
+
+  let crmLoadingStates = $state<Record<string, boolean>>({});
+
+  const crmConnections = $derived.by(() => {
+    const providers = available_providers.length > 0 ? available_providers : ['hubspot', 'salesforce', 'zoho'];
+    return providers.map((provider: string) => {
+      // Find matching connection from server props
+      const conn = crm_connections?.find((c: any) => c.provider === provider && c.status === 'active');
+      return {
+        id: conn?.id,
+        provider,
+        name: providerNames[provider] || provider,
+        connected: !!conn,
+        status: conn?.status,
+        loading: !!crmLoadingStates[provider]
+      };
+    });
+  });
+
+  $effect(() => {
+    crmAutoSyncOnPortalSubmit = !!user?.crm_auto_sync_on_portal_submit;
+  });
 
 
   function submitAccountDeletion() {
@@ -114,27 +142,77 @@
     });
   }
 
-  // Dummy CRM connections functions
-  function toggleCrmConnection(provider: string) {
-    const crm = crmConnections.find(c => c.provider === provider);
-    if (!crm) return;
-    
-    crm.loading = true;
-    setTimeout(() => {
-      crm.connected = !crm.connected;
-      crm.loading = false;
-    }, 1000);
+  function toggleCrmAutoSyncOnPortalSubmit() {
+    if (crmPreferenceSaving) return;
+
+    const nextValue = !crmAutoSyncOnPortalSubmit;
+    crmAutoSyncOnPortalSubmit = nextValue;
+    crmPreferenceError = null;
+    crmPreferenceSaving = true;
+
+    router.patch(
+      '/settings/crm_preferences',
+      {
+        settings: {
+          crm_auto_sync_on_portal_submit: nextValue,
+        },
+      },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onError: () => {
+          crmAutoSyncOnPortalSubmit = !!user?.crm_auto_sync_on_portal_submit;
+          crmPreferenceError = 'Unable to update CRM sync preference.';
+        },
+        onFinish: () => {
+          crmPreferenceSaving = false;
+        },
+      }
+    );
   }
 
-  function testCrmConnection(provider: string) {
-    const crm = crmConnections.find(c => c.provider === provider);
+  function toggleCrmConnection(provider: string) {
+    const crm = crmConnections.find((c: any) => c.provider === provider);
     if (!crm) return;
     
-    crm.loading = true;
-    setTimeout(() => {
-      crm.loading = false;
-      alert(`Test successful for ${crm.name}! Connection is working.`);
-    }, 1000);
+    if (crm.connected) {
+      if (confirm(`Disconnecting will remove authorization. ${crm.name} data will remain intact. Proceed?`)) {
+        crmLoadingStates[provider] = true;
+        router.delete(`/crm_connections/${crm.id}`, {
+          onFinish: () => { crmLoadingStates[provider] = false; }
+        });
+      }
+    } else {
+      crmLoadingStates[provider] = true;
+      // Use native browser navigation to prevent Inertia XHR headers from interfering with external OAuth state
+      window.location.href = `/crm_connections/auth/${provider}`;
+    }
+  }
+
+  async function testCrmConnection(provider: string) {
+    const crm = crmConnections.find((c: any) => c.provider === provider);
+    if (!crm || !crm.id) return;
+    
+    crmLoadingStates[provider] = true;
+    try {
+      const response = await fetch(`/crm_connections/${crm.id}/test`, {
+        method: 'POST',
+        headers: { 
+          'X-CSRF-Token': csrfToken,
+          'Accept': 'application/json'
+        }
+      });
+      const result = await response.json();
+      if (response.ok) {
+        alert(`Test successful for ${crm.name}! Status: ${result.status || 'OK'}`);
+      } else {
+        alert(`Test failed for ${crm.name}: ${result.error || 'Unknown error'}`);
+      }
+    } catch (e: any) {
+      alert(`Test failed for ${crm.name}: ${e.message}`);
+    } finally {
+      crmLoadingStates[provider] = false;
+    }
   }
 </script>
 
@@ -239,6 +317,7 @@
       </Card.Content>
     </Card.Root>
 
+    {#if canUseCrm}
     <Card.Root>
       <Card.Header>
         <Card.Title>CRM Integrations</Card.Title>
@@ -275,6 +354,55 @@
         {/each}
       </Card.Content>
     </Card.Root>
+
+    <Card.Root>
+      <Card.Header>
+        <Card.Title>CRM sync behavior</Card.Title>
+        <Card.Description>Choose how validated client portal submissions reach your CRM.</Card.Description>
+      </Card.Header>
+      <Card.Content class="space-y-4">
+        <div class="flex items-start justify-between gap-4 rounded-lg border bg-background p-4">
+          <div class="space-y-1">
+            <p class="text-sm font-medium">Automatic sync after client portal submission</p>
+            <p class="text-xs text-muted-foreground">
+              When enabled, validated submissions export automatically. When disabled, you can still push linked clients manually from the client page.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={crmAutoSyncOnPortalSubmit}
+            aria-label="Toggle CRM automatic sync after client portal submission"
+            class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${crmAutoSyncOnPortalSubmit ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'} ${crmPreferenceSaving ? 'cursor-wait opacity-70' : ''}`}
+            onclick={toggleCrmAutoSyncOnPortalSubmit}
+            disabled={crmPreferenceSaving}
+          >
+            <span
+              class={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform ${crmAutoSyncOnPortalSubmit ? 'translate-x-5' : 'translate-x-0'}`}
+            ></span>
+          </button>
+        </div>
+
+        <div class="rounded-lg border border-dashed p-4 text-sm">
+          {#if crmAutoSyncOnPortalSubmit}
+            <p class="font-medium text-foreground">Validated portal submissions sync automatically.</p>
+            <p class="mt-1 text-muted-foreground">
+              Manual CRM export remains available from the client page. Editing a CRM-linked client from the back office still pushes profile changes automatically.
+            </p>
+          {:else}
+            <p class="font-medium text-foreground">Portal submissions stay local until you trigger a manual CRM update.</p>
+            <p class="mt-1 text-muted-foreground">
+              Use the CRM export button on the client page when you want to push the latest linked-client data yourself.
+            </p>
+          {/if}
+        </div>
+
+        {#if crmPreferenceError}
+          <p class="text-sm text-destructive">{crmPreferenceError}</p>
+        {/if}
+      </Card.Content>
+    </Card.Root>
+    {/if}
 
     <Card.Root class="border-destructive/40">
       <Card.Header>
