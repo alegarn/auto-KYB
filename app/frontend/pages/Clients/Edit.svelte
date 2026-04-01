@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth'
   import { router, page } from '@inertiajs/svelte';
   import { onMount, untrack } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
@@ -112,10 +113,13 @@
   });
   let CrmSyncWidgetComponent = $state<CrmSyncWidgetComponentType | null>(null);
 
-  const shouldShowCrmSyncWidget = $derived(has_active_crm_connection && !has_crm_link);
-  const shouldShowCrmPrefillBox = $derived(has_active_crm_connection && has_crm_link);
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
+  const shouldShowCrmSyncWidget = $derived(canUseCrm && has_active_crm_connection && !has_crm_link);
+  const shouldShowCrmPrefillBox = $derived(canUseCrm && has_active_crm_connection && has_crm_link);
   const crmProviderName = $derived(crm_sync_status?.provider_name || 'your CRM');
   const crmSyncNotice = $derived.by(() => {
+    if (!canUseCrm) return null;
     if (!crm_sync_status?.linked) return null;
 
     if (crm_sync_status?.auto_updates_on_edit) {
@@ -184,6 +188,7 @@
   onMount(() => {
     fetchCountries();
 
+    if (!canUseCrm) return;
     if (!shouldShowCrmPrefillBox || !crm_sync_status?.auto_updates_on_edit) return;
 
     const dismissedNotice = window.localStorage.getItem(CRM_LINKED_NOTICE_STORAGE_KEY);

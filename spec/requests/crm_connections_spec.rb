@@ -1,12 +1,10 @@
 require 'rails_helper'
 
 RSpec.describe "CrmConnections", type: :request do
-  let(:user) { create(:user) }
+  let(:user) { create(:user, :subscribed, plan: :pro) }
 
   before do
     sign_in_user(user)
-    # Mock subscription policy so authorize_subscription passes
-    allow_any_instance_of(SubscriptionPolicy).to receive(:active?).and_return(true)
   end
 
   describe "POST /crm_connections" do
@@ -21,6 +19,30 @@ RSpec.describe "CrmConnections", type: :request do
       post "/crm_connections", params: { provider: "unsupported" }
       expect(response).to redirect_to(settings_path)
       expect(flash[:alert]).to include("Unsupported CRM provider.")
+    end
+
+    context "when the user is on the basic plan" do
+      let(:user) { create(:user, :subscribed, plan: :basic) }
+
+      it "redirects to the dashboard with a pro-plan alert" do
+        post "/crm_connections", params: { provider: "hubspot" }
+
+        expect(response).to redirect_to(dashboard_path)
+        expect(response).to have_http_status(:see_other)
+        expect(flash[:alert]).to eq("CRM features require the Pro plan.")
+      end
+    end
+
+    context "when the user has an inactive subscription" do
+      let(:user) { create(:user, :canceled, plan: :pro) }
+
+      it "redirects to the subscription-required page" do
+        post "/crm_connections", params: { provider: "hubspot" }
+
+        expect(response).to redirect_to(subscription_required_path)
+        expect(response).to have_http_status(:see_other)
+        expect(flash[:alert]).to eq("You need an active subscription to use CRM features.")
+      end
     end
   end
 

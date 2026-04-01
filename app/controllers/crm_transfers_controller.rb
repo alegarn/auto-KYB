@@ -1,5 +1,5 @@
 class CrmTransfersController < ApplicationController
-  before_action :authorize_subscription
+  before_action :authorize_crm_access!
   before_action :mark_crm_transfer_signals_seen!, only: :index
   before_action :set_transfer, only: :retry
 
@@ -40,21 +40,12 @@ class CrmTransfersController < ApplicationController
 
   private
 
-  def authorize_subscription
-    authorize :client, :index?
-  end
-
   def set_transfer
     @transfer = current_user_transfers.find(params[:id])
   end
 
   def current_user_transfers
-    CrmTransfer
-      .includes(:client, :crm_connection)
-      .where(
-        client_id: current_user.clients.select(:id),
-        crm_connection_id: current_user.crm_connections.select(:id)
-      )
+    CrmTransfer.for_user(current_user).includes(:client, :crm_connection)
   end
 
   def filter_params

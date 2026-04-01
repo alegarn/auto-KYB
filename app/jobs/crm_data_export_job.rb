@@ -13,6 +13,12 @@ class CrmDataExportJob < ApplicationJob
     client = transfer.client
     connection = transfer.crm_connection
     mark_processing!(transfer)
+    entitlement = Crm::Entitlement.new(client.user)
+    unless entitlement.allowed?
+      mark_authorization_failed!(transfer, entitlement.reason)
+      return
+    end
+
     service = Crm::ConnectionManager.service_for(connection)
 
     if transfer.trigger == CrmTransfer::TRIGGER_CLIENT_CREATE_SYNC
@@ -85,6 +91,14 @@ class CrmDataExportJob < ApplicationJob
       failure_kind: failure_kind,
       error_message: error_message,
       transferred_at: nil
+    )
+  end
+
+  def mark_authorization_failed!(transfer, reason)
+    mark_failed!(
+      transfer,
+      failure_kind: CrmTransfer::FAILURE_KIND_AUTHORIZATION_ERROR,
+      error_message: "CRM access denied: #{reason}"
     )
   end
 

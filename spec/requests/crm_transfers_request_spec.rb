@@ -1,9 +1,9 @@
 require 'rails_helper'
 
-RSpec.describe 'CrmTransfers', type: :request do
+RSpec.describe 'CrmTransfers', type: :request, inertia: true do
   include ActiveJob::TestHelper
 
-  let(:user) { sign_in_user(create(:user, :subscribed)) }
+  let(:user) { sign_in_user(create(:user, :subscribed, plan: :pro)) }
   let(:session_id) { user.sessions.last.id }
   let(:inertia_headers) do
     {
@@ -50,10 +50,9 @@ RSpec.describe 'CrmTransfers', type: :request do
 
       expect(response).to have_http_status(:ok)
 
-      payload = JSON.parse(response.body)
-      expect(payload['component']).to eq('CrmTransfers/Index')
+      expect(inertia.component).to eq('CrmTransfers/Index')
 
-      transfer_payload = payload.dig('props', 'transfers').find { |item| item['id'] == transfer.id }
+      transfer_payload = inertia.props.with_indifferent_access[:transfers].find { |item| item[:id] == transfer.id }
       expect(transfer_payload).to include(
         'id' => transfer.id,
         'provider' => 'hubspot',
@@ -88,11 +87,10 @@ RSpec.describe 'CrmTransfers', type: :request do
 
       get crm_transfers_path, headers: inertia_headers
 
-      payload = JSON.parse(response.body)
-      ids = payload.dig('props', 'transfers').map { |item| item['id'] }
+            ids = inertia.props.with_indifferent_access[:transfers].map { |item| item[:id] }
 
       expect(ids).to contain_exactly(recent_transfer.id)
-      expect(payload.dig('props', 'retention_days')).to eq(3)
+      expect(inertia.props.with_indifferent_access[:retention_days]).to eq(3)
     end
 
     it 'filters by status' do
@@ -112,11 +110,10 @@ RSpec.describe 'CrmTransfers', type: :request do
 
       get crm_transfers_path(status: CrmTransfer::STATUS_FAILED), headers: inertia_headers
 
-      payload = JSON.parse(response.body)
-      ids = payload.dig('props', 'transfers').map { |item| item['id'] }
+            ids = inertia.props.with_indifferent_access[:transfers].map { |item| item[:id] }
 
       expect(ids).to contain_exactly(failed_transfer.id)
-      expect(payload.dig('props', 'filters', 'status')).to eq(CrmTransfer::STATUS_FAILED)
+      expect(inertia.props.with_indifferent_access.dig(:filters, :status)).to eq(CrmTransfer::STATUS_FAILED)
     end
 
     it 'filters by provider' do
@@ -133,11 +130,10 @@ RSpec.describe 'CrmTransfers', type: :request do
 
       get crm_transfers_path(provider: 'hubspot'), headers: inertia_headers
 
-      payload = JSON.parse(response.body)
-      ids = payload.dig('props', 'transfers').map { |item| item['id'] }
+            ids = inertia.props.with_indifferent_access[:transfers].map { |item| item[:id] }
 
       expect(ids).to contain_exactly(hubspot_transfer.id)
-      expect(payload.dig('props', 'filters', 'provider')).to eq('hubspot')
+      expect(inertia.props.with_indifferent_access.dig(:filters, :provider)).to eq('hubspot')
     end
 
     it 'filters by trigger' do
@@ -157,11 +153,10 @@ RSpec.describe 'CrmTransfers', type: :request do
 
       get crm_transfers_path(trigger: CrmTransfer::TRIGGER_PORTAL_SUBMIT), headers: inertia_headers
 
-      payload = JSON.parse(response.body)
-      ids = payload.dig('props', 'transfers').map { |item| item['id'] }
+            ids = inertia.props.with_indifferent_access[:transfers].map { |item| item[:id] }
 
       expect(ids).to contain_exactly(portal_transfer.id)
-      expect(payload.dig('props', 'filters', 'trigger')).to eq(CrmTransfer::TRIGGER_PORTAL_SUBMIT)
+      expect(inertia.props.with_indifferent_access.dig(:filters, :trigger)).to eq(CrmTransfer::TRIGGER_PORTAL_SUBMIT)
     end
 
     it 'paginates results newest first' do
@@ -177,10 +172,9 @@ RSpec.describe 'CrmTransfers', type: :request do
 
       get crm_transfers_path(page: 2), headers: inertia_headers
 
-      payload = JSON.parse(response.body)
-      ids = payload.dig('props', 'transfers').map { |item| item['id'] }
+            ids = inertia.props.with_indifferent_access[:transfers].map { |item| item[:id] }
 
-      expect(payload.dig('props', 'meta')).to include(
+      expect(inertia.props.with_indifferent_access[:meta]).to include(
         'page' => 2,
         'per_page' => 10,
         'total_count' => 12
@@ -225,8 +219,7 @@ RSpec.describe 'CrmTransfers', type: :request do
       expect(Time.zone.parse(observed_toast_seen_at)).to be_within(5.seconds).of(Time.current)
       expect(session[:crm_transfer_failure_toast_seen_at]).to eq(observed_toast_seen_at)
 
-      payload = JSON.parse(response.body)
-      expect(payload.dig('props', 'crm_transfer_signals')).to eq(
+            expect(inertia.props.with_indifferent_access[:crm_transfer_signals]).to eq(
         'unread_failed_count' => 0,
         'unread_retryable_count' => 0,
         'latest_unread_failure_at' => nil,
@@ -297,6 +290,23 @@ RSpec.describe 'CrmTransfers', type: :request do
 
       expect {
         post retry_crm_transfer_path(non_retryable_transfer), headers: auth_headers
+      }.not_to change(CrmTransfer, :count)
+
+      expect(response).to redirect_to(crm_transfers_path)
+      expect(enqueued_jobs).to be_empty
+    end
+
+    it 'rejects authorization failures because they are not retryable' do
+      authorization_failed_transfer = create(
+        :crm_transfer,
+        :failed,
+        failure_kind: CrmTransfer::FAILURE_KIND_AUTHORIZATION_ERROR,
+        client: create(:client, user: user),
+        crm_connection: create(:crm_connection, user: user, provider: 'hubspot', status: 'active')
+      )
+
+      expect {
+        post retry_crm_transfer_path(authorization_failed_transfer), headers: auth_headers
       }.not_to change(CrmTransfer, :count)
 
       expect(response).to redirect_to(crm_transfers_path)

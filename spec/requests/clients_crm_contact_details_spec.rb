@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "GET /clients/:id/crm_contact_details", type: :request do
-  let(:user) { create(:user, :subscribed) }
+  let(:user) { create(:user, :subscribed, plan: :pro) }
   let(:session) { user.sessions.create! }
   let(:client) { create(:client, user: user) }
   let(:connection) { create(:crm_connection, user: user, provider: "hubspot", status: "active") }

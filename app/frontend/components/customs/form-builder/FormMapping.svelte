@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth'
+  import { page } from "@inertiajs/svelte";
   import { Input } from "@/components/ui/input/index.js";
   import { Label } from "@/components/ui/label/index.js";
   import { Button } from "@/components/ui/button/index.js";
@@ -17,6 +19,9 @@
   let { fields, onupdate, showValidation = false, duplicateKeys = [] }: Props = $props();
 
   let showSyncModal = $state(false);
+
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
 
   const dataFields = $derived(
     fields.map((f, i) => ({ field: f, index: i })).filter(
@@ -120,14 +125,16 @@
       <Button variant="outline" size="sm" onclick={() => applyTransformToAll(toCamelCase)}>
         camelCase
       </Button>
-      <Button 
-        variant="outline" 
-        size="sm" 
-        class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100" 
-        onclick={() => showSyncModal = true}
-      >
-        sync with CRM
-      </Button>
+      {#if canUseCrm}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100" 
+          onclick={() => showSyncModal = true}
+        >
+          sync with CRM
+        </Button>
+      {/if}
     </div>
   {/if}
 

@@ -23,18 +23,25 @@ class ApplicationController < ActionController::Base
                  user = current_user
                  next nil unless user
 
-                 {
-                   user: {
-                     id:                   user.id,
-                     email:                user.email,
-                     onboarding_completed: user.onboarding_completed
-                   },
-                   subscription: {
-                     status:      user.subscription_status,
-                     active:      user.active_subscription? || user.trialing?,
-                     canceled_at: user.subscription_canceled_at&.iso8601
-                   }
-                 }
+                 entitlement = Crm::Entitlement.new(user)
+
+                  {
+                    user: {
+                      id:                   user.id,
+                      email:                user.email,
+                      onboarding_completed: user.onboarding_completed,
+                      plan:                 user.plan,
+                      crm_auto_sync_on_portal_submit: user.crm_auto_sync_on_portal_submit
+                    },
+                    subscription: {
+                      status:      user.subscription_status,
+                      active:      user.active_subscription? || user.trialing?,
+                      canceled_at: user.subscription_canceled_at&.iso8601
+                    },
+                    features: {
+                      crm: entitlement.as_json
+                    }
+                  }
                }
 
   def current_user
@@ -48,7 +55,16 @@ class ApplicationController < ActionController::Base
   def user_props
     return nil unless current_user
 
-    { id: current_user.id, email: current_user.email }
+    {
+      id: current_user.id,
+      email: current_user.email,
+      plan: current_user.plan,
+      crm_auto_sync_on_portal_submit: current_user.crm_auto_sync_on_portal_submit
+    }
+  end
+
+  def authorize_crm_access!
+    authorize :crm_feature, :access?, policy_class: CrmFeaturePolicy
   end
 
   def default_inertia_props
@@ -80,6 +96,8 @@ class ApplicationController < ActionController::Base
     def authenticate
       # Allow tests that set Current.session directly to bypass cookie-based lookup
       return if Current.session&.user.present?
+
+      return head(:unauthorized) if api_authentication_request?
 
       redirect_to(sign_in_path) and return
     end
@@ -140,12 +158,71 @@ class ApplicationController < ActionController::Base
         notice: "The page expired, please try again.")
     end
 
-    def pundit_not_authorized
+    def pundit_not_authorized(exception = nil)
+      if crm_policy_violation?(exception)
+        handle_crm_authorization_failure(crm_authorization_reason(exception))
+        return
+      end
+
       if current_user
         redirect_to subscription_required_path,
-                    alert: "You need an active subscription to access this page."
+                    alert: "You need an active subscription to access this page.",
+                    status: authorization_redirect_status
       else
-        redirect_to sign_in_path
+        return head(:unauthorized) if api_authentication_request?
+
+        redirect_to sign_in_path, status: authorization_redirect_status
+      end
+    end
+
+    def api_authentication_request?
+      request.format.json? || (request.xhr? && !inertia_request?)
+    end
+
+    def inertia_request?
+      request.headers["X-Inertia"].present?
+    end
+
+    def authorization_redirect_status
+      request.get? ? :found : :see_other
+    end
+
+    def crm_policy_violation?(exception)
+      exception&.policy.is_a?(CrmFeaturePolicy)
+    end
+
+    def crm_authorization_reason(exception)
+      if exception&.policy&.respond_to?(:reason)
+        exception.policy.reason.to_sym
+      else
+        :plan_insufficient
+      end
+    end
+
+    def handle_crm_authorization_failure(reason)
+      normalized_reason = reason.to_sym
+
+      if request.format.json? && !inertia_request?
+        status = normalized_reason == :unauthenticated ? :unauthorized : :forbidden
+        render json: { error: normalized_reason.to_s }, status: status
+        return
+      end
+
+      case normalized_reason
+      when :unauthenticated
+        redirect_to sign_in_path, status: authorization_redirect_status
+      when :subscription_inactive
+        redirect_to subscription_required_path,
+                    alert: "You need an active subscription to use CRM features.",
+                    status: authorization_redirect_status
+      when :plan_insufficient
+        redirect_to dashboard_path,
+                    alert: "CRM features require the Pro plan.",
+                    status: authorization_redirect_status
+      else
+        redirect_to dashboard_path,
+                    alert: "CRM access is not available.",
+                    status: authorization_redirect_status
       end
     end
 

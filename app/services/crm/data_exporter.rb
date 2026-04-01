@@ -1,5 +1,7 @@
 module Crm
   class DataExporter
+    UNAUTHORIZED = :unauthorized
+
     def initialize(client, scheduler: TransferScheduler)
       @client = client
       @user = client.user
@@ -24,6 +26,8 @@ module Crm
     private
 
     def enqueue_exports_for(connections, trigger:, request_context:)
+      return UNAUTHORIZED unless Entitlement.new(@user).allowed?
+
       connections.each do |connection|
         @scheduler.new(
           client: @client,

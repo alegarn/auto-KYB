@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe "CRM Synchronization during Client workflows", type: :request do
-  let(:user) { create(:user, :subscribed, onboarding_completed: true) }
+  let(:user) { create(:user, :subscribed, onboarding_completed: true, plan: :pro) }
   # Don't use let! for client so we can test create!
   let(:client) { create(:client, user: user, email: "test@example.com") }
   let!(:connection) { create(:crm_connection, user: user, provider: "hubspot", status: "active") }

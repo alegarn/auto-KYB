@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { router } from "@inertiajs/svelte";
+  import { page, router } from "@inertiajs/svelte";
+  import { crmAllowed, getSharedAuth } from "@/lib/shared-auth";
   import { sign_up_path } from "@/routes";
   import * as Card from "/components/ui/card";
   import { Button, buttonVariants } from "/components/ui/button";
@@ -23,6 +24,8 @@
 
   const googleConnected = $derived(!!user?.provider);
   const canDeleteAccount = $derived(deleteConfirmation.trim() === "DELETE");
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
 
   const createdAtLabel = $derived.by(() => {
     if (!user?.created_at) return "—";
@@ -314,6 +317,7 @@
       </Card.Content>
     </Card.Root>
 
+    {#if canUseCrm}
     <Card.Root>
       <Card.Header>
         <Card.Title>CRM Integrations</Card.Title>
@@ -398,6 +402,7 @@
         {/if}
       </Card.Content>
     </Card.Root>
+    {/if}
 
     <Card.Root class="border-destructive/40">
       <Card.Header>

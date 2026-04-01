@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth'
   import { router, page } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
@@ -35,7 +36,9 @@
   let mappingValid = $state(true)
   let showUnmappedCrmWarning = $state(false)
   let showUnmappedCrmWarningModal = $state(false)
-  const unmappedFields = $derived(singleCrmProvider ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>))
+  const canUseCrm = $derived(crmAllowed(sharedAuth))
+  const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
   const hasUnmappedCrmFields = $derived(unmappedFields.length > 0)
 
   // Sync state with props
@@ -289,7 +292,9 @@
         Preview
       </button>
     </div>
-    <Button type="button" variant="outline" size="sm" onclick={openCrmMapping}>🔌 CRM Sync Settings</Button>
+    {#if canUseCrm}
+      <Button type="button" variant="outline" size="sm" onclick={openCrmMapping}> 🔌 CRM Sync Settings</Button>
+    {/if}
   </div>
 
   {#if preview}

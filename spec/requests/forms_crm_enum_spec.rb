@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
   include ActiveJob::TestHelper
 
-  let(:user) { sign_in_user }
+  let(:user) { sign_in_user(create(:user, :subscribed, plan: :pro)) }
   let(:session_id) { user.sessions.last.id }
   let(:headers) { { 'Cookie' => "session_token=#{session_id}" } }
 

@@ -39,7 +39,7 @@ module ClientPortal
     private
 
     def enqueue_crm_exports(client)
-      return unless client.user.crm_auto_sync_on_portal_submit
+      return unless Crm::Entitlement.new(client.user).auto_sync_allowed?
 
       Crm::DataExporter.new(client).export_to_all_active!(
         trigger: CrmTransfer::TRIGGER_PORTAL_SUBMIT,
