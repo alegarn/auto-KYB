@@ -7,9 +7,17 @@
 
 <script lang="ts">
   import { expect, fn } from 'storybook/test';
+  import type { Queries, BoundFunctions } from '@testing-library/dom';
   import Input from '../app/frontend/components/ui/input/input.svelte';
 
   const changeFn = fn();
+
+  type PlayContext = {
+    canvas: BoundFunctions<Queries>;
+    userEvent: {
+      type(element: Element, text: string): Promise<void>;
+    };
+  };
 </script>
 
 <Story name="Empty">
@@ -20,7 +28,7 @@
   <Story args={{ 'data-testid': 'input-with', value: 'hello@example.com' }} />
 </Story>
 
-<Story name="Typing" args={{ 'data-testid': 'input-typing' }} play={async ({ canvas, userEvent }) => {
+<Story name="Typing" args={{ 'data-testid': 'input-typing' }} play={async ({ canvas, userEvent }: PlayContext) => {
   const input = canvas.getByTestId('input-typing') as HTMLInputElement;
   await userEvent.type(input, 'user@example.com');
   await expect(input).toHaveValue('user@example.com');

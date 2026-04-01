@@ -1,6 +1,7 @@
 import { fireEvent, waitFor, screen } from '@testing-library/svelte'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { page } from '@inertiajs/svelte'
+import type { Writable } from 'svelte/store'
 import { tick } from 'svelte'
 import Edit from '@/pages/forms/edit.svelte'
 import { renderPage } from '../helpers/renderPage'
@@ -291,7 +292,7 @@ describe('Forms Edit Page', () => {
 
     // set the flash on the mocked `page` store
     // The app's components expect the `page` store value to be the `props` object
-    page.set({
+    ;(page as unknown as Writable<any>).set({
       user: { id: '1', email: 'test@example.com', name: 'Test User' },
       session_id: 'test-session-123',
       flash: { toast: { message: 'Form saved', type: 'notice' } }

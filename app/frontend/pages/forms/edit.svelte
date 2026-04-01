@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getSharedAuth } from '@/lib/shared-auth'
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth'
   import { router, page } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
@@ -20,7 +20,7 @@
   import Modal from '@/components/ui/modal.svelte';
   import CrmMappingModal from '@/components/customs/CrmMappingModal.svelte';
 
-  let { form: initial, errors: serverErrors, error: serverError, crmProperties, activeCrmProviders = [], auth = {} } = $props()
+  let { form: initial, errors: serverErrors, error: serverError, crmProperties, activeCrmProviders = [] } = $props()
 
   // Track if crmProperties is still being deferred/loaded
   const loadingProperties = $derived(crmProperties === undefined);
@@ -36,8 +36,8 @@
   let mappingValid = $state(true)
   let showUnmappedCrmWarning = $state(false)
   let showUnmappedCrmWarningModal = $state(false)
-  const sharedAuth = getSharedAuth()
-  const canUseCrm = $derived(sharedAuth?.features?.crm?.allowed)
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>))
+  const canUseCrm = $derived(crmAllowed(sharedAuth))
   const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
   const hasUnmappedCrmFields = $derived(unmappedFields.length > 0)
 

@@ -3,24 +3,25 @@
 class StripeWebhooksController < ApplicationController
   # Webhook endpoints are called by Stripe; disable CSRF and authentication
   skip_before_action :verify_authenticity_token
+  skip_before_action :set_current_user
   skip_before_action :authenticate
   before_action :skip_authorization
 
   # POST /webhooks/stripe
   def create
-    payload = request.body.read
+    payload = request.raw_post
     sig_header = request.env['HTTP_STRIPE_SIGNATURE'] || request.headers['Stripe-Signature']
-    secret = ENV['STRIPE_WEBHOOK_SECRET']
+    secrets = webhook_secrets
 
     Rails.logger.info("[Stripe] Webhook received; sig_header_present=#{sig_header.present?}")
 
-    if secret.blank?
+    if secrets.empty?
       Rails.logger.error("[Stripe] STRIPE_WEBHOOK_SECRET is not configured")
       head :internal_server_error and return
     end
 
     begin
-      event = Stripe::Webhook.construct_event(payload, sig_header, secret)
+      event = construct_event(payload, sig_header, secrets)
 
       Rails.logger.info("[Stripe] Received event: type=#{event.type} id=#{event.id}")
 
@@ -49,4 +50,25 @@ class StripeWebhooksController < ApplicationController
       head :internal_server_error
     end
   end
+
+  private
+
+    def construct_event(payload, sig_header, secrets)
+      last_error = nil
+
+      secrets.each do |secret|
+        return Stripe::Webhook.construct_event(payload, sig_header, secret)
+      rescue Stripe::SignatureVerificationError => e
+        last_error = e
+      end
+
+      raise last_error if last_error
+    end
+
+    def webhook_secrets
+      [
+        ENV['STRIPE_WEBHOOK_SECRET'],
+        ENV['STRIPE_CLI_WEBHOOK_SECRET']
+      ].filter_map { |secret| secret&.strip&.presence }.uniq
+    end
 end
