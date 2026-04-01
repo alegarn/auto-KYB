@@ -20,5 +20,6 @@ RAILS_SERVE_STATIC_FILES = "true"
 ACTIVE_STORAGE_SERVICE = "render_local"
 ACTIVE_STORAGE_ROOT = "/rails/storage"
 RUN_SOLID_QUEUE_IN_WEB = "1"
+APP_BASE_URL = "https://${{RAILWAY_PUBLIC_DOMAIN}}"
 # Required by Railway to prevent permission issues on mounted volumes when the Docker image uses a non-root USER
 RAILWAY_RUN_UID = "0"
