@@ -6,6 +6,10 @@ local:
   service: Disk
   root: <%= Rails.root.join("storage") %>
 
+render_local:
+  service: Disk
+  root: <%= ENV.fetch("ACTIVE_STORAGE_ROOT", Rails.root.join("storage").to_s) %>
+
 # Use bin/rails credentials:edit to set the AWS secrets (as aws:access_key_id|secret_access_key)
 # Enable in production with: config.active_storage.service = :amazon
 # Requires aws-sdk-s3 gem
