@@ -14,6 +14,7 @@ class User < ApplicationRecord
   has_many :sessions, dependent: :destroy
   has_many :forms, dependent: :destroy
   has_many :clients, dependent: :destroy
+  has_many :crm_connections, dependent: :destroy
 
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :provider, presence: true, if: -> { uid.present? }
@@ -31,6 +32,15 @@ class User < ApplicationRecord
   after_create :initialize_default_forms
 
   # Subscription statuses from Stripe / application state
+  enum :plan, {
+    basic: "basic",
+    pro: "pro"
+  }
+
+  def crm_plan_eligible?
+    pro?
+  end
+
   enum :subscription_status, {
     incomplete: 'incomplete',
     trialing:   'trialing',
@@ -67,6 +77,12 @@ class User < ApplicationRecord
 
   def canceled_within_retention_window?
     canceled? && subscription_canceled_at.present? && subscription_canceled_at > 1.year.ago
+  end
+
+  def crm_transfers_seen_at
+    return Time.at(0).in_time_zone unless has_attribute?(:crm_transfers_last_seen_at)
+
+    self[:crm_transfers_last_seen_at] || Time.at(0).in_time_zone
   end
 
   private

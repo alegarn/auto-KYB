@@ -1,6 +1,21 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, fireEvent, cleanup } from '@testing-library/svelte'
 import FormMapping from '@/components/customs/form-builder/FormMapping.svelte'
+import type { FormField } from '@/components/customs/form-builder/types'
+
+function buildField(overrides: Partial<FormField> = {}): FormField {
+  const { metadata, ...rest } = overrides
+
+  return {
+    id: 'field-1',
+    label: 'Test field',
+    field_type: 'text',
+    required: false,
+    position: 1,
+    ...rest,
+    metadata: metadata ?? {},
+  }
+}
 
 describe('FormMapping', () => {
   afterEach(() => {
@@ -8,9 +23,9 @@ describe('FormMapping', () => {
   })
 
   it('renders the mapping panel with fields', () => {
-    const fields = [
-      { id: '1', label: 'First Name', field_type: 'text', position: 1 },
-      { id: '2', label: 'Last Name', field_type: 'text', position: 2 }
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'First Name', position: 1 }),
+      buildField({ id: '2', label: 'Last Name', position: 2 })
     ]
     const onupdate = vi.fn()
 
@@ -22,9 +37,9 @@ describe('FormMapping', () => {
   })
 
   it('filters out layout fields', () => {
-    const fields = [
-      { id: '1', label: 'First Name', field_type: 'text', position: 1 },
-      { id: '2', label: 'Section', field_type: 'section', position: 2 }
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'First Name', position: 1 }),
+      buildField({ id: '2', label: 'Section', field_type: 'section', position: 2 })
     ]
     const onupdate = vi.fn()
 
@@ -34,9 +49,30 @@ describe('FormMapping', () => {
     expect(queryByLabelText('Section')).not.toBeInTheDocument()
   })
 
+  it('filters out all layout field types (section, subtitle, static_text, separator, logo)', () => {
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'Text', position: 1 }),
+      buildField({ id: '2', label: 'My Section', field_type: 'section', position: 2 }),
+      buildField({ id: '3', label: 'My Subtitle', field_type: 'subtitle', position: 3 }),
+      buildField({ id: '4', label: 'My Info', field_type: 'static_text', position: 4 }),
+      buildField({ id: '5', label: 'My Separator', field_type: 'separator', position: 5 }),
+      buildField({ id: '6', label: 'My Logo', field_type: 'logo', position: 6 })
+    ]
+    const onupdate = vi.fn()
+
+    const { queryByLabelText, getByLabelText } = render(FormMapping, { fields, onupdate })
+
+    expect(getByLabelText('Text')).toBeInTheDocument()
+    expect(queryByLabelText('My Section')).not.toBeInTheDocument()
+    expect(queryByLabelText('My Subtitle')).not.toBeInTheDocument()
+    expect(queryByLabelText('My Info')).not.toBeInTheDocument()
+    expect(queryByLabelText('My Separator')).not.toBeInTheDocument()
+    expect(queryByLabelText('My Logo')).not.toBeInTheDocument()
+  })
+
   it('updates export_key when input changes', async () => {
-    const fields = [
-      { id: '1', label: 'First Name', field_type: 'text', position: 1 }
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'First Name', position: 1 })
     ]
     const onupdate = vi.fn()
 
@@ -51,9 +87,9 @@ describe('FormMapping', () => {
   })
 
   it('applies snake_case transformation to all fields', async () => {
-    const fields = [
-      { id: '1', label: 'First Name', field_type: 'text', position: 1 },
-      { id: '2', label: 'Last Name', field_type: 'text', position: 2 }
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'First Name', position: 1 }),
+      buildField({ id: '2', label: 'Last Name', position: 2 })
     ]
     const onupdate = vi.fn()
 
@@ -67,8 +103,8 @@ describe('FormMapping', () => {
   })
 
   it('applies kebab-case transformation to all fields', async () => {
-    const fields = [
-      { id: '1', label: 'First Name', field_type: 'text', position: 1 }
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'First Name', position: 1 })
     ]
     const onupdate = vi.fn()
 
@@ -81,8 +117,8 @@ describe('FormMapping', () => {
   })
 
   it('applies camelCase transformation to all fields', async () => {
-    const fields = [
-      { id: '1', label: 'First Name', field_type: 'text', position: 1 }
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'First Name', position: 1 })
     ]
     const onupdate = vi.fn()
 
@@ -95,8 +131,8 @@ describe('FormMapping', () => {
   })
 
   it('resets to default (removes export_key)', async () => {
-    const fields = [
-      { id: '1', label: 'First Name', field_type: 'text', position: 1, metadata: { export_key: 'custom_key' } }
+    const fields: FormField[] = [
+      buildField({ id: '1', label: 'First Name', position: 1, metadata: { export_key: 'custom_key' } })
     ]
     const onupdate = vi.fn()
 

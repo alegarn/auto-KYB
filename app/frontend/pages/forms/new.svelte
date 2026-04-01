@@ -1,16 +1,25 @@
 <script lang="ts">
-  import { router } from '@inertiajs/svelte'
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth'
+  import { router, page } from '@inertiajs/svelte'
   import { Button } from "/components/ui/button/index.js"
   import { Input } from "/components/ui/input/index.js"
   import { Label } from "/components/ui/label/index.js"
   import FormBuilder from "/components/customs/FormBuilder.svelte"
+  import Modal from '@/components/ui/modal.svelte'
+  import CrmMappingModal from '@/components/customs/CrmMappingModal.svelte'
   import FormFieldRenderer from "@/components/customs/FormFieldRenderer.svelte"
-  import { isLayoutField, type FormSettings } from "@/components/customs/form-builder/types"
+  import {
+    crmProviderDisplayName,
+    isLayoutField,
+    singleActiveCrmProvider as getSingleActiveCrmProvider,
+    unmappedCrmFields as getUnmappedCrmFields,
+    type FormSettings,
+  } from "@/components/customs/form-builder/types"
   import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
   import type { FormField } from "/components/customs/form-builder/types"
   import { forms_path } from '@/routes';
 
-  const { errors: serverErrors } = $props()
+  const { errors: serverErrors, activeCrmProviders = [], crmProperties } = $props()
 
   let name = $state("")
   let fields = $state<FormField[]>([])
@@ -19,6 +28,16 @@
   let submitting = $state(false)
   let showMappingWarning = $state(false)
   let mappingValid = $state(true)
+  let showCrmMappingModal = $state(false)
+  let showUnmappedCrmWarning = $state(false)
+  let showUnmappedCrmWarningModal = $state(false)
+  const loadingProperties = $derived(crmProperties === undefined)
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>))
+  const canUseCrm = $derived(crmAllowed(sharedAuth))
+  const singleCrmProvider = $derived(getSingleActiveCrmProvider(activeCrmProviders))
+  const singleCrmProviderName = $derived(singleCrmProvider ? crmProviderDisplayName(singleCrmProvider) : 'your CRM')
+  const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
+  const hasUnmappedCrmFields = $derived(unmappedFields.length > 0)
 
   // preview state
   let preview = $state(false)
@@ -87,6 +106,10 @@
   }
 
   function handleSubmit() {
+    submitForm()
+  }
+
+  function submitForm(options: { skipUnmappedCrmWarning?: boolean } = {}) {
     clientError = ""
     if (!name.trim()) {
       clientError = "Name is required"
@@ -99,7 +122,15 @@
       return
     }
 
+    if (!options.skipUnmappedCrmWarning && singleCrmProvider && hasUnmappedCrmFields) {
+      showUnmappedCrmWarning = true
+      showUnmappedCrmWarningModal = true
+      return
+    }
+
     showMappingWarning = false
+    showUnmappedCrmWarning = false
+    showUnmappedCrmWarningModal = false
 
     submitting = true
     router.post(forms_path(), {
@@ -125,6 +156,18 @@
   function cancel() {
     history.back()
   }
+
+  function openCrmMapping() {
+    showCrmMappingModal = true
+    showUnmappedCrmWarningModal = false
+  }
+
+  $effect(() => {
+    if (!singleCrmProvider || !hasUnmappedCrmFields) {
+      showUnmappedCrmWarning = false
+      showUnmappedCrmWarningModal = false
+    }
+  })
 </script>
 
 <section class="mx-auto max-w-7xl">
@@ -161,13 +204,18 @@
         <Input id="form-name" bind:value={name} placeholder="Enter form name" />
       </div>
 
-      <div class="mb-4 flex items-center gap-2">
-        <button type="button" class="px-3 py-1 rounded" class:font-semibold={!preview} onclick={() => { preview = false; results = {} }}>
-          Edit
-        </button>
-        <button type="button" class="px-3 py-1 rounded" class:font-semibold={preview} onclick={() => { preview = true; results = {} }}>
-          Preview
-        </button>
+      <div class="mb-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <button type="button" class="px-3 py-1 rounded" class:font-semibold={!preview} onclick={() => { preview = false; results = {} }}>
+            Edit
+          </button>
+          <button type="button" class="px-3 py-1 rounded" class:font-semibold={preview} onclick={() => { preview = true; results = {} }}>
+            Preview
+          </button>
+        </div>
+        {#if activeCrmProviders.length > 0 && canUseCrm}
+          <Button type="button" variant="outline" size="sm" onclick={openCrmMapping}>🔌 CRM Sync Settings</Button>
+        {/if}
       </div>
 
       {#if preview}
@@ -239,6 +287,10 @@
             bind:fields
             bind:settings
             {showMappingWarning}
+            showCrmMappingWarning={showUnmappedCrmWarning}
+            crmMappingWarningProviderName={singleCrmProviderName}
+            unmappedCrmFieldLabels={unmappedFields.map((field) => field.label || 'Unnamed field')}
+            onopencrmmapping={openCrmMapping}
             onmappingvaliditychange={(isValid) => {
               mappingValid = isValid
               if (isValid) {
@@ -252,3 +304,38 @@
         {/if}
       {/if}
 </section>
+
+<Modal
+  bind:showModal={showUnmappedCrmWarningModal}
+  title="Some fields will not export to your CRM"
+  description={`Quick KYB will save this form, but ${unmappedFields.length} field${unmappedFields.length === 1 ? '' : 's'} ${unmappedFields.length === 1 ? 'is' : 'are'} still set to Do not map for ${singleCrmProviderName}.`}
+  confirmText="Save Form Anyway"
+  confirmTone="default"
+  onConfirm={() => submitForm({ skipUnmappedCrmWarning: true })}
+>
+  {#snippet children()}
+    <div class="space-y-3 text-sm text-muted-foreground">
+      <p>Those fields will not be exported to {singleCrmProviderName} until you assign a CRM field mapping.</p>
+      <p>
+        <button type="button" class="font-medium text-primary underline underline-offset-4" onclick={openCrmMapping}>
+          Open CRM field mapping
+        </button>
+        to update the mapping before saving.
+      </p>
+    </div>
+  {/snippet}
+</Modal>
+
+<CrmMappingModal
+  bind:open={showCrmMappingModal}
+  form={{}}
+  {crmProperties}
+  {loadingProperties}
+  {fields}
+  showTestAction={false}
+  ontestcrm={() => {}}
+  onsave={({ fields: updatedFields }: { fields: FormField[] }) => {
+    fields = updatedFields
+    showCrmMappingModal = false
+  }}
+/>

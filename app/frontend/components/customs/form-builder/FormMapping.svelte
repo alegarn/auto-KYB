@@ -1,8 +1,13 @@
 <script lang="ts">
+  import { crmAllowed, getSharedAuth } from '@/lib/shared-auth'
+  import { page } from "@inertiajs/svelte";
   import { Input } from "@/components/ui/input/index.js";
   import { Label } from "@/components/ui/label/index.js";
   import { Button } from "@/components/ui/button/index.js";
-  import type { FormField } from "./types";
+  import { Info, AlertCircle } from "@lucide/svelte";
+  import Modal from "@/components/ui/modal.svelte";
+  import { isLayoutField, type FormField } from "./types";
+  import { fromCrmKey } from "@/lib/crm-utils";
 
   interface Props {
     fields: FormField[];
@@ -13,10 +18,21 @@
 
   let { fields, onupdate, showValidation = false, duplicateKeys = [] }: Props = $props();
 
+  let showSyncModal = $state(false);
+
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
+
   const dataFields = $derived(
     fields.map((f, i) => ({ field: f, index: i })).filter(
-      ({ field }) => !['section', 'subtitle', 'static_text', 'separator', 'logo'].includes(field.field_type)
+      ({ field }) => !isLayoutField(field.field_type)
     )
+  );
+
+  const activeProviders = $derived(
+    Array.from(new Set(
+      dataFields.flatMap(({ field }) => Object.keys(field.metadata?.crm_mapping || {}))
+    ))
   );
 
   const hasDuplicateKeys = $derived(duplicateKeys.length > 0);
@@ -51,6 +67,25 @@
         delete newMeta.export_key;
       }
       onupdate(index, { metadata: newMeta });
+    });
+  }
+
+  function syncAllKeysWithCrm() {
+    dataFields.forEach(({ field, index }) => {
+      const crmMapping = field.metadata?.crm_mapping;
+      if (crmMapping) {
+        // Find first provider that has a property name and is NOT read-only
+        const firstActiveMapping: any = Object.values(crmMapping).find((m: any) => m.property_name && !m.read_only);
+        if (firstActiveMapping?.property_name && firstActiveMapping.type === 'existing') {
+          // Strip compound key prefix — export_key is user-facing (CSV/JSON)
+          onupdate(index, { 
+            metadata: { 
+              ...field.metadata, 
+              export_key: fromCrmKey(firstActiveMapping.property_name).propertyName 
+            } 
+          });
+        }
+      }
     });
   }
 
@@ -90,8 +125,26 @@
       <Button variant="outline" size="sm" onclick={() => applyTransformToAll(toCamelCase)}>
         camelCase
       </Button>
+      {#if canUseCrm}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100" 
+          onclick={() => showSyncModal = true}
+        >
+          sync with CRM
+        </Button>
+      {/if}
     </div>
   {/if}
+
+  <Modal
+    bind:showModal={showSyncModal}
+    title="Sync with CRM?"
+    description={`This will overwrite your current Export Keys with the technical property names from your ${activeProviders.length > 0 ? activeProviders.join(' & ') : 'CRM'}. This action cannot be undone.`}
+    confirmText="Confirm Sync"
+    onConfirm={syncAllKeysWithCrm}
+  />
 
   <div class="space-y-4">
     {#each dataFields as { field, index }}
@@ -99,6 +152,7 @@
         <Label for={`mapping-${field.id || index}`} class="text-xs font-medium">
           {field.label || `Field ${index + 1}`}
         </Label>
+        
         <Input
           id={`mapping-${field.id || index}`}
           type="text"
@@ -111,6 +165,29 @@
             });
           }}
         />
+
+        {#each Object.entries(field.metadata?.crm_mapping || {}) as [provider, mapping]}
+          {#if mapping.type === 'custom'}
+            <div class="flex items-start gap-2 rounded-md bg-blue-50/50 p-2 text-[10px] text-blue-700 border border-blue-100/50">
+              <Info class="size-3 shrink-0 mt-0.5" />
+              <p>
+                Mapped to a <strong>{provider}</strong> custom property. This field will create a new property in your CRM upon export.
+              </p>
+            </div>
+          {:else if mapping.read_only}
+            <div class="flex items-start gap-2 rounded-md bg-destructive/5 p-2 text-[10px] text-destructive border border-destructive/20">
+              <AlertCircle class="size-3 shrink-0 mt-0.5" />
+              <div class="space-y-1">
+                <p>
+                  Mapped to <strong>{mapping.property_name}</strong> ({provider}), which is <strong>read-only</strong> on the CRM. 
+                </p>
+                <p class="font-medium opacity-90">
+                  Tip: Use the "Mapping" button to switch to a <strong>Custom Property</strong> or another writable field.
+                </p>
+              </div>
+            </div>
+          {/if}
+        {/each}
       </div>
     {/each}
 

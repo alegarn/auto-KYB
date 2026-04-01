@@ -158,7 +158,7 @@ class FormService
     return if fields.blank?
 
     layout_types = %w[section subtitle static_text separator logo]
-    seen_by_normalized_key = {}
+    seen_by_scope = {}
     duplicates = []
 
     fields.each do |field|
@@ -173,10 +173,17 @@ class FormService
       normalized = effective_key.to_s.strip.downcase
       next if normalized.blank?
 
-      if seen_by_normalized_key.key?(normalized)
+      # Scope uniqueness by CRM object_type — same key is allowed across different objects
+      crm_mapping = metadata[:crm_mapping] || metadata["crm_mapping"] || {}
+      object_type = crm_mapping.values
+                      .filter_map { |m| m["object_type"] || m[:object_type] }
+                      .first || "contact"
+
+      seen_by_scope[object_type] ||= {}
+      if seen_by_scope[object_type].key?(normalized)
         duplicates << effective_key.to_s.strip
       else
-        seen_by_normalized_key[normalized] = true
+        seen_by_scope[object_type][normalized] = true
       end
     end
 

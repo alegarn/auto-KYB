@@ -5,18 +5,10 @@
     "useDefineForClassFields": true,
     "module": "ESNext",
     "resolveJsonModule": true,
-    /**
-     * Typecheck JS in `.svelte` and `.js` files by default.
-     * Disable checkJs if you'd like to use dynamic types in JS.
-     * Note that setting allowJs false does not prevent the use
-     * of JS in `.svelte` files.
-     */
     "allowJs": true,
     "checkJs": true,
     "isolatedModules": true,
     "moduleDetection": "force",
-
-    /* Aliases */
     "baseUrl": ".",
     "types": ["node", "vitest", "@testing-library/jest-dom"],
     "paths": {
@@ -29,13 +21,15 @@
       "/routes/*": ["./app/frontend/routes/*"]
     }
   },
-
   "include": [
     "app/frontend/**/*.ts",
     "app/frontend/**/*.js",
     "app/frontend/**/*.svelte",
     "test/frontend/**/*.ts",
     "test/frontend/**/*.svelte",
+    "spec/frontend/**/*.ts",
+    "spec/frontend/**/*.svelte",
+    "vitest.shims.d.ts",
     "src/types",
     "stories/**/*.svelte"
   ],

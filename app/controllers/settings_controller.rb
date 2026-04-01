@@ -2,8 +2,12 @@ class SettingsController < ApplicationController
 
   def index
     authorize :settings, :show?
+
+    entitlement = Crm::Entitlement.new(current_user)
+
     render inertia: "Settings/Index", props: {
-      user: current_user
+      user: SettingsUserSerializer.new(current_user, crm_entitlement: entitlement).as_json,
+      crm_connections: settings_crm_connections(entitlement)
     }
   end
 
@@ -23,7 +27,26 @@ class SettingsController < ApplicationController
     redirect_to auth_loading_path, notice: "You're all set!", status: :see_other
   end
 
+  def update_crm_preferences
+    authorize :settings, :update?
+    authorize_crm_access!
+
+    current_user.update!(crm_preference_params)
+    redirect_to settings_path, status: :see_other
+  end
+
   private
   # `current_user` and `current_session_id` provided by ApplicationController
+
+  def crm_preference_params
+    params.require(:settings).permit(:crm_auto_sync_on_portal_submit)
+  end
+
+  def settings_crm_connections(entitlement)
+    return [] unless entitlement.allowed?
+
+    authorize_crm_access!
+    current_user.crm_connections.as_json(only: [:id, :provider, :status, :updated_at])
+  end
 
 end
