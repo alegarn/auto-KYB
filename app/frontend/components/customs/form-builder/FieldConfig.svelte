@@ -77,13 +77,13 @@
 
   // --- File types helpers (kept out of template) ---
   const defaultFileAllowed = DEFAULT_ALLOWED_FILE_TYPES;
-  const fileTypesInput = $derived((field.metadata.file?.allowed_types || defaultFileAllowed).map(t => t.replace(/^\./, '')).join(', '));
-  const supportedTypesLabel = $derived(ALLOWED_FILE_EXTENSIONS.map(t => t.replace(/^\./, '').toUpperCase()).join(', '));
+  const fileTypesInput = $derived((field.metadata.file?.allowed_types || defaultFileAllowed).map(t => t.replace(/^\.+/, '')).join(', '));
+  const supportedTypesLabel = $derived(ALLOWED_FILE_EXTENSIONS.map(t => t.replace(/^\.+/, '').toUpperCase()).join(', '));
 
   function handleFileTypesInput(e: Event) {
     const raw = (e.target as HTMLInputElement).value || '';
     const tokens = raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-    const normalized = tokens.map(t => '.' + t.replace(/^\./, ''));
+    const normalized = tokens.map(t => '.' + t.replace(/^\.+/, ''));
     const filtered = normalized.filter((t): t is typeof ALLOWED_FILE_EXTENSIONS[number] => ALLOWED_FILE_EXTENSIONS.includes(t as typeof ALLOWED_FILE_EXTENSIONS[number]));
     emitMeta('file', { ...field.metadata.file, allowed_types: filtered });
   }

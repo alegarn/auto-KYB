@@ -145,4 +145,30 @@ describe('Forms New Page', () => {
       )
     })
   })
+
+  it('warns before saving when a single active CRM has unmapped fields', async () => {
+    const { router } = await import('@inertiajs/svelte')
+    const { getByRole, getByLabelText, getByText, queryByText } = render(NewForm, {
+      props: {
+        errors: null,
+        session_id: 'test-session-123',
+        activeCrmProviders: ['hubspot'],
+        crmProperties: {
+          hubspot: {
+            contact: [],
+            company: [],
+          },
+        },
+      }
+    })
+
+    await fireEvent.input(getByLabelText('Form Name'), { target: { value: 'CRM Form' } })
+    await fireEvent.click(getByText('Text'))
+    await fireEvent.click(getByRole('button', { name: 'Create Form' }))
+
+    await waitFor(() => {
+      expect(queryByText('Some fields will not export to your CRM')).toBeInTheDocument()
+      expect(router.post).not.toHaveBeenCalled()
+    })
+  })
 })

@@ -30,10 +30,27 @@ module ClientPortal
       end
 
       response = @client_form.save_response!(data: data, validate: @validate)
+      
+      enqueue_crm_exports(@client_form.client) if @validate
+      
       Result.new(response: response, merged_data: data, conflict: false)
     end
 
     private
+
+    def enqueue_crm_exports(client)
+      return unless Crm::Entitlement.new(client.user).auto_sync_allowed?
+
+      Crm::DataExporter.new(client).export_to_all_active!(
+        trigger: CrmTransfer::TRIGGER_PORTAL_SUBMIT,
+        request_context: {
+          source: "client_portal",
+          client_form_id: @client_form.id
+        }
+      )
+    rescue StandardError => e
+      Rails.logger.error("Failed to enqueue CRM export: #{e.message}")
+    end
 
     def normalize_data(data)
       data = data.to_unsafe_h if data.respond_to?(:to_unsafe_h)

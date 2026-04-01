@@ -106,3 +106,4 @@ Thumbs.db
 *.gem
 
 .github/agents
+credentials.yml

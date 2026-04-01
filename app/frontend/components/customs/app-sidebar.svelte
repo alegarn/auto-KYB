@@ -7,6 +7,7 @@
   import BookOpenIcon from "@lucide/svelte/icons/book-open";
   import ArrowRightLeftIcon from "@lucide/svelte/icons/arrow-right-left";
   import { Link, page } from "@inertiajs/svelte";
+  import { crmAllowed, getSharedAuth } from "@/lib/shared-auth";
   import { clients_path, dashboard_path, forms_path, quickstart_path } from "@/routes";
 
   // Menu items.
@@ -43,6 +44,15 @@
     },
   ];
 
+  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
+  const canUseCrm = $derived(crmAllowed(sharedAuth));
+
+  const filteredItems = $derived(
+    items.filter(item => 
+      item.title !== "CRM Transfers" || canUseCrm
+    )
+  );
+
   const currentPath = $derived.by(() => {
     const url = $page?.url ?? "";
     try {
@@ -57,6 +67,10 @@
     return currentPath === url || currentPath.startsWith(`${url}/`);
   };
 
+  const crmSignals = $derived(($page?.props as any)?.crm_transfer_signals);
+  const unreadFailedCount = $derived(crmSignals?.unread_failed_count ?? 0);
+  const badgeLabel = $derived(unreadFailedCount > 99 ? '99+' : `${unreadFailedCount}`);
+
   let { session_id } = $props();
 </script>
  
@@ -66,7 +80,7 @@
       <Sidebar.GroupLabel>Application</Sidebar.GroupLabel>
       <Sidebar.GroupContent>
         <Sidebar.Menu>
-          {#each items as item (item.title)}
+          {#each filteredItems as item (item.title)}
             <Sidebar.MenuItem>
               <Sidebar.MenuButton isActive={isActiveRoute(item.url)}>
                 {#snippet child({ props }: { props: Record<string, unknown> })}
@@ -76,6 +90,12 @@
                   </Link>
                 {/snippet}
               </Sidebar.MenuButton>
+              {#if item.title === 'CRM Transfers' && unreadFailedCount > 0}
+                <Sidebar.MenuBadge
+                  class="bg-destructive text-white ring-1 ring-destructive/30 shadow-sm"
+                  aria-label={`${badgeLabel} failed CRM transfers`}
+                >{badgeLabel}</Sidebar.MenuBadge>
+              {/if}
             </Sidebar.MenuItem>
           {/each}
           <Sidebar.MenuItem>

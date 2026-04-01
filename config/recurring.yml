@@ -18,3 +18,14 @@ production:
     class: PurgeCanceledAccountsJob
     queue: default
     schedule: every day at 3am
+
+  crm_token_refresh:
+    class: CrmTokenRefreshJob
+    schedule: every 15 minutes
+    queue: default
+
+  crm_transfer_cleanup:
+    class: CrmTransferCleanupJob
+    queue: default
+    schedule: every day at 2am
+

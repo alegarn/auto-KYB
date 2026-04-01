@@ -77,6 +77,10 @@ gem "csv", "~> 3.0"
 # Stripe API client
 gem "stripe", "~> 18.3.0"
 
+
+gem "oauth2", "~> 1.2"
+gem "hubspot-api-client", "~> 20.0"
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
@@ -119,4 +123,4 @@ group :test do
   gem "selenium-webdriver"
 end
 
-gem "oauth2", "~> 2.0"
+gem "webmock", "~> 3.26", group: :test

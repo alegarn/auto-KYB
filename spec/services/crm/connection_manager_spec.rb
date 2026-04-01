@@ -30,7 +30,7 @@ RSpec.describe Crm::ConnectionManager do
     it 'returns only active connections for a user' do
       user = create(:user)
       active = create(:crm_connection, user: user, status: 'active')
-      inactive = create(:crm_connection, user: user, status: 'inactive')
+      inactive = create(:crm_connection, user: user, status: 'inactive', provider: 'salesforce')
 
       results = described_class.active_connections_for(user)
       expect(results).to include(active)

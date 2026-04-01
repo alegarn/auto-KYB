@@ -56,6 +56,7 @@ module ClientPortal
 
       if validate
         ClientPortal::SessionService.clear_cookie(cookies)
+
         redirect_to client_portal_confirmation_path, status: :see_other
       else
         render inertia: "ClientPortal/FormResponse", props: {

@@ -78,6 +78,7 @@ export interface FieldMetadata {
   logo?: LogoConfig;
   text_content?: string;
   export_key?: string;
+  crm_mapping?: Record<string, any>;
 }
 
 export interface FormField {
@@ -129,6 +130,40 @@ export function isLayoutField(fieldType: FieldType): boolean {
   return ['section', 'subtitle', 'static_text', 'separator', 'logo'].includes(fieldType);
 }
 
+export function crmProviderDisplayName(provider: string): string {
+  switch (provider) {
+    case 'hubspot':
+      return 'HubSpot';
+    case 'salesforce':
+      return 'Salesforce';
+    default:
+      return provider
+        .split(/[_-]/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+  }
+}
+
+export function singleActiveCrmProvider(providers: string[]): string | null {
+  return providers.length === 1 ? providers[0] : null;
+}
+
+export function hasCrmMappingForProvider(field: FormField, provider: string): boolean {
+  const mapping = field.metadata?.crm_mapping?.[provider];
+  if (!mapping) return false;
+
+  return mapping.type === 'custom' || !!mapping.property_name?.toString().trim();
+}
+
+export function unmappedCrmFields(fields: FormField[], provider: string): FormField[] {
+  return fields.filter((field) => {
+    if (isLayoutField(field.field_type)) return false;
+
+    return !hasCrmMappingForProvider(field, provider);
+  });
+}
+
 export function effectiveExportKey(field: FormField, fallbackIndex = 0): string {
   const explicit = field.metadata?.export_key?.toString().trim();
   if (explicit) return explicit;
@@ -140,7 +175,7 @@ export function effectiveExportKey(field: FormField, fallbackIndex = 0): string 
 }
 
 export function duplicateExportKeys(fields: FormField[]): string[] {
-  const seen = new Set<string>();
+  const seenByScope = new Map<string, Set<string>>();
   const duplicates = new Set<string>();
 
   fields.forEach((field, index) => {
@@ -150,6 +185,19 @@ export function duplicateExportKeys(fields: FormField[]): string[] {
     if (!key) return;
 
     const normalized = key.toLowerCase();
+
+    // Scope uniqueness by CRM object_type — same key allowed across different objects
+    const crmMapping = field.metadata?.crm_mapping ?? {};
+    const objectTypes = Object.values(crmMapping)
+      .map((m: any) => m?.object_type || 'contact')
+      .filter((v, i, a) => a.indexOf(v) === i);
+    const scope = objectTypes[0] || 'contact';
+
+    if (!seenByScope.has(scope)) {
+      seenByScope.set(scope, new Set());
+    }
+    const seen = seenByScope.get(scope)!;
+
     if (seen.has(normalized)) {
       duplicates.add(key);
       return;

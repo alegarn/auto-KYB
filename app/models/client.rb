@@ -5,6 +5,7 @@ class Client < ApplicationRecord
   has_many :form_responses, through: :client_forms
   has_many :uploaded_files, dependent: :destroy
   has_many :crm_transfers, dependent: :destroy
+  has_one :crm_client_link, dependent: :destroy
 
   validates :name, presence: true
   validates :company_name, presence: true

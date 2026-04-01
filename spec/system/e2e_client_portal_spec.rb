@@ -18,8 +18,9 @@ RSpec.describe 'E2E Client Portal', type: :system, js: true do
     expect(page).to have_content(/New client/i)
     
     # Fill in the client details
-    fill_in 'Name', with: 'Portal E2E Client' rescue fill_in 'name', with: 'Portal E2E Client' rescue find('input[name="name"]').set('Portal E2E Client')
-    fill_in 'Company name', with: 'Portal Company' rescue fill_in 'company_name', with: 'Portal Company' rescue find('input[name="company_name"]').set('Portal Company')
+    fill_in 'Full Name (Contact Person)', with: 'Portal E2E Client'
+    fill_in 'Registered Company Name', with: 'Portal Company'
+    fill_in 'Company Registration ID', with: '123'
     fill_in 'Email', with: 'portal-client@example.com' rescue fill_in 'email', with: 'portal-client@example.com' rescue find('input[name="email"]').set('portal-client@example.com')
     
     # Select a form
@@ -32,7 +33,7 @@ RSpec.describe 'E2E Client Portal', type: :system, js: true do
     ")
     
     # Click the Create Client button
-    click_button 'Create client' rescue click_button 'Save' rescue find('button', text: /Create|Save/i).click rescue page.execute_script("Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Create client')).click()")
+    click_button 'Create Client Profile'
     
     # Wait for the Password Reveal page
     expect(page).to have_content('Password Reveal')
