@@ -67,8 +67,8 @@ class StripeWebhooksController < ApplicationController
 
     def webhook_secrets
       [
-        ENV['STRIPE_WEBHOOK_SECRET'],
-        ENV['STRIPE_CLI_WEBHOOK_SECRET']
+        Rails.application.credentials.dig(:stripe, :webhook_secret) || ENV['STRIPE_WEBHOOK_SECRET'],
+        ENV['STRIPE_WEBHOOK_SECRET']
       ].filter_map { |secret| secret&.strip&.presence }.uniq
     end
 end

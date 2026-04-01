@@ -56,7 +56,7 @@ class SubscriptionsController < ApplicationController
       return_url: settings_url
     }
 
-    configuration_id = ENV["STRIPE_BILLING_PORTAL_CONFIGURATION_ID"]
+    configuration_id = Rails.application.credentials.dig(:stripe, :billing_portal_configuration_id) || ENV["STRIPE_BILLING_PORTAL_CONFIGURATION_ID"]
     params[:configuration] = configuration_id if configuration_id.present?
 
     Stripe::BillingPortal::Session.create(params)
