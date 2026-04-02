@@ -40,7 +40,8 @@ RUN apt-get update -qq && \
 
 # Install JS dependencies
 COPY package.json package-lock.json ./
-RUN npm ci --omit=optional
+RUN npm ci 
+#--omit=optional
 
 # Install application gems
 COPY vendor/* ./vendor/
