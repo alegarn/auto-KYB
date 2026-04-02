@@ -56,14 +56,14 @@ RUN bundle install && \
 COPY . .
 
 # Create the routes directory before generating routes to ensure it exists for Rails.root.join
-RUN mkdir -p /rails/app/frontend/routes && touch /rails/app/frontend/routes/.keep
+RUN mkdir -p app/frontend/routes && touch app/frontend/routes/.keep
 
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
-# Generate js-routes file
-RUN SECRET_KEY_BASE_DUMMY=1 bundle exec rake js:routes
+# Generate js-routes file - use runner to avoid shell-only rake tasks that might defer execution
+RUN SECRET_KEY_BASE_DUMMY=1 bundle exec rails runner "JsRoutes.generate!"
 
 # Precompiling assets for production without requiring secret RAILS_MASTER_KEY
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile

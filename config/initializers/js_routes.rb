@@ -27,3 +27,9 @@ JsRoutes.setup do |c|
   # More options:
   # @see https://github.com/railsware/js-routes#available-options
 end
+
+# Ensure the routes file is generated during initialization if it's missing,
+# which is common during Docker/CI asset precompilation.
+if Rails.env.production? && ENV["SECRET_KEY_BASE_DUMMY"].present?
+  JsRoutes.generate!
+end
