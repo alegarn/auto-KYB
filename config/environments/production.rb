@@ -71,11 +71,11 @@ Rails.application.configure do
   config.action_mailer.delivery_method = :smtp
   config.action_mailer.smtp_settings = {
     address:         "smtp.gmail.com",
-    port:            587,
+    port:            465,
     user_name:       Rails.application.credentials.dig(:smtp, :user_name),
     password:        Rails.application.credentials.dig(:smtp, :password),
     authentication:  "plain",
-    enable_starttls: true,
+    tls:             true,
     open_timeout:    10,
     read_timeout:    20
   }
