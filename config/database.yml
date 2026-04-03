@@ -93,9 +93,9 @@ production:
     <<: *default
     url: <%= ENV["DATABASE_URL"] %>
     database: quick_kyb_production
-    host: <%= ENV.fetch("DB_HOST", "localhost") %>
-    username: <%= ENV.fetch("DB_USER", "quick_kyb") %>
-    password: <%= ENV.fetch("QUICK_KYB_DATABASE_PASSWORD") { ENV["DB_PASSWORD"] } %>
+    host: <%= ENV.fetch("PGHOST", "localhost") %>
+    username: <%= ENV.fetch("PGUSER", "quick_kyb") %>
+    password: <%= ENV.fetch("PGPASSWORD") { ENV["DB_PASSWORD"] } %>
   cache:
     <<: *primary_production
     database: quick_kyb_production_cache
