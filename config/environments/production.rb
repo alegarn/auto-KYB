@@ -57,7 +57,7 @@ Rails.application.configure do
   # config.action_mailer.raise_delivery_errors = false
 
   # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
+  config.action_mailer.default_url_options = { host: Rails.application.credentials.dig(:app, :base_url) || ENV.fetch("APP_BASE_URL", "auto-kyb-production.up.railway.app").gsub("https://", "") }
 
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
   # config.action_mailer.smtp_settings = {
@@ -76,8 +76,8 @@ Rails.application.configure do
     password:        Rails.application.credentials.dig(:smtp, :password),
     authentication:  "plain",
     enable_starttls: true,
-    open_timeout:    5,
-    read_timeout:    5 
+    open_timeout:    10,
+    read_timeout:    20
   }
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
