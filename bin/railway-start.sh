@@ -9,12 +9,7 @@ mkdir -p /rails/storage
 echo "Running database preparation..."
 bundle exec rails db:prepare
 
-# Start background jobs (Solid Queue) in the background if requested
-if [ "$RUN_SOLID_QUEUE_IN_WEB" = "1" ]; then
-  echo "Starting Solid Queue..."
-  bundle exec ./bin/jobs &
-fi
-
-# Start the Rails server via Thruster
-echo "Starting Rails server..."
+# Start the Rails server via Thruster, enabling the Solid Queue Puma plugin
+echo "Starting Rails server with Puma and Solid Queue plugin..."
+export SOLID_QUEUE_IN_PUMA="true"
 exec ./bin/thrust ./bin/rails server
