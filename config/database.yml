@@ -25,9 +25,10 @@ development:
     <<: *default
     database: quick_kyb_development
   queue:
-   <<: *default
-   database: quick_kyb_development_queue
-   migrations_paths: db/queue_migrate
+    <<: *default
+    database: quick_kyb_development_queue
+    migrations_paths: db/queue_migrate
+
   # The specified database role being used to connect to PostgreSQL.
   # To create additional roles in PostgreSQL see `$ createuser --help`.
   # When left blank, PostgreSQL will use the default role. This is

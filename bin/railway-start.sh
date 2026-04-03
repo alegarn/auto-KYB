@@ -8,6 +8,8 @@ mkdir -p /rails/storage
 # Run database migrations/preparation
 echo "Running database preparation..."
 bundle exec rails db:prepare
+bundle exec rails db:create:queue || true
+bundle exec rails db:schema:load:queue || true
 
 # Start background jobs (Solid Queue) in the background if requested
 if [ "$RUN_SOLID_QUEUE_IN_WEB" = "1" ]; then
