@@ -56,7 +56,7 @@ Rails.application.routes.draw do
 
   resources :uploaded_files, only: [ :destroy ] do
     member do
-      post :download
+      get :download
     end
   end
 
