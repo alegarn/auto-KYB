@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-# Railway volumes are mounted to /rails/storage by default if configured
-# Ensure the directory exists and is writable (incl. subdirectories)
-mkdir -p /rails/storage
-chmod -R 755 /rails/storage
-chown -R "$(id -u):$(id -g)" /rails/storage
+# Railway mounts the volume root as /rails/storage. Keep that root untouched and
+# use an app-owned subdirectory for Active Storage files.
+storage_root="${ACTIVE_STORAGE_ROOT:-${RAILWAY_VOLUME_MOUNT_PATH:-/rails/storage}/active_storage}"
+export ACTIVE_STORAGE_ROOT="$storage_root"
+mkdir -p "$ACTIVE_STORAGE_ROOT"
 
 # Run database migrations/preparation
 echo "Running database preparation..."
