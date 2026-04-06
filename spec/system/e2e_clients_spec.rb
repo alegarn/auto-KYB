@@ -21,7 +21,7 @@ RSpec.describe 'E2E Clients CRUD', type: :system, js: true do
     fill_in 'Full Name (Contact Person)', with: 'My New E2E Client'
     fill_in 'Registered Company Name', with: 'E2E Company'
     fill_in 'Company Registration ID', with: '123456789'
-    fill_in 'Personal/Work Email', with: 'e2e-client@example.com'
+    fill_in 'Work Email', with: 'e2e-client@example.com'
     
     # Select a form
     page.execute_script("

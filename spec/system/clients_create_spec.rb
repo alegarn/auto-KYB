@@ -14,7 +14,7 @@ RSpec.describe 'Create client', type: :system, js: true do
     fill_in 'Full Name (Contact Person)', with: 'Acme'
     fill_in 'Registered Company Name', with: 'Acme Co'
     fill_in 'Company Registration ID', with: '123456789'
-    fill_in 'Personal/Work Email', with: 'info@acme.test'
+    fill_in 'Work Email', with: 'info@acme.test'
 
     # Store initial count
     initial_count = Client.count

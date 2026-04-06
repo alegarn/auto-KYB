@@ -148,7 +148,7 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
       fill_in 'Full Name (Contact Person)', with: 'John Doe'
       fill_in 'Registered Company Name', with: 'Acme Corp'
       fill_in 'Company Registration ID', with: '12345'
-      fill_in 'Personal/Work Email', with: 'john.doe@example.com'
+      fill_in 'Work Email', with: 'john.doe@example.com'
 
       click_button 'Create Client Profile'
 
@@ -170,7 +170,7 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
       fill_in 'Full Name (Contact Person)', with: 'Jane Smith'
       fill_in 'Registered Company Name', with: 'Acme Corp'
       fill_in 'Company Registration ID', with: '12345'
-      fill_in 'Personal/Work Email', with: 'jane@example.com'
+      fill_in 'Work Email', with: 'jane@example.com'
 
       click_button 'Create Client Profile'
 
