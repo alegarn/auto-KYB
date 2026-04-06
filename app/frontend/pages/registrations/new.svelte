@@ -4,24 +4,9 @@
   import { root_path, sign_in_path } from "@/routes";
   import { page } from "@inertiajs/svelte";
   import logo from "@/assets/quick_kyb_icon.svg";
-  import { onMount } from "svelte";
+  import Pricing from "@/components/customs/pricing.svelte";
 
-  let { stripe_publishable_key, stripe_pricing_table_id, customer_email } = $props();
-
-  onMount(() => {
-    // Dynamically load the Stripe pricing table script
-    const script = document.createElement("script");
-    script.src = "https://js.stripe.com/v3/pricing-table.js";
-    script.async = true;
-    document.head.appendChild(script);
-
-    return () => {
-      // Cleanup if needed
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  });
+  let { customer_email } = $props();
 </script>
 
 {#if $page?.flash?.alert}
@@ -36,7 +21,7 @@
 <section
   class="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent"
 >
-  <div class="m-auto w-full max-w-4xl">
+  <div class="m-auto w-full max-w-6xl">
     <div class="text-center mb-8">
       <Button href={root_path()} aria-label="go home" variant="ghost">
         <img
@@ -53,20 +38,9 @@
       <p class="text-lg text-muted-foreground">Select a plan to create your Quick KYB account</p>
     </div>
 
-    {#if stripe_publishable_key && stripe_pricing_table_id}
-      <div class="bg-card rounded-[calc(var(--radius)+.125rem)] border p-4 shadow-md dark:[--color-muted:var(--color-zinc-900)]">
-        <stripe-pricing-table 
-          pricing-table-id={stripe_pricing_table_id}
-          publishable-key={stripe_publishable_key}
-          customer-email={customer_email || undefined}
-        >
-        </stripe-pricing-table>
-      </div>
-    {:else}
-      <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md text-center">
-        Stripe configuration is missing. Please check your environment variables.
-      </div>
-    {/if}
+    <div class="bg-card rounded-[calc(var(--radius)+.125rem)] border p-4 shadow-md dark:[--color-muted:var(--color-zinc-900)]">
+      <Pricing {customer_email} />
+    </div>
 
     <div class="mt-8 text-center">
       <p class="text-accent-foreground text-sm">

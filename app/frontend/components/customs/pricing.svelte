@@ -31,6 +31,8 @@
     ],
   };
 
+  const { customer_email = undefined } = $props();
+
   const handleSubscribe = async (plan: string) => {
     try {
       const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
@@ -44,7 +46,7 @@
       const response = await fetch("/checkout_sessions", {
         method: "POST",
         headers,
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, email: customer_email }),
       });
       const data = await response.json();
       if (data.url) {
