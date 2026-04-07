@@ -6,17 +6,17 @@ class DashboardController < ApplicationController
     @pagy, clients_page = pagy(q.clients_scope.order(created_at: :desc), items: 10, page: params[:page])
     clients = ClientSerializer.collection(clients_page)
 
-    render inertia: "Dashboard/Dashboard", props: {
-      user: current_user,
+    render inertia: "Dashboard/Dashboard", props: default_inertia_props.merge(
       clients: clients,
       recent_forms: FormSerializer.collection(q.recent_forms),
       stats: q.stats,
+      onboarding: InertiaRails.defer { q.onboarding_summary },
       meta: {
         page: @pagy.page,
         per_page: (@pagy.vars[:items] || clients_page.size),
-        total_count: q.clients_scope.count
+        total_count: q.total_clients_count
       }
-    }
+    )
   end
 
   private

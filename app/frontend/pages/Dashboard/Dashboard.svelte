@@ -6,7 +6,10 @@
   import Modal from "/components/ui/modal.svelte";
   import { Skeleton } from "/components/ui/skeleton";
   import { new_form_path, form_path, new_client_path, client_path, edit_client_path, quickstart_path } from "@/routes";
+  import type { DashboardOnboarding } from '@/types/dashboard-onboarding';
   import BookOpenIcon from "@lucide/svelte/icons/book-open";
+
+  type DashboardOnboardingCardComponentType = typeof import('/components/onboarding/DashboardOnboardingCard.svelte').default;
 
   type Client = {
     id: string;
@@ -23,16 +26,46 @@
     updated_at: string;
   };
 
-  let { user, clients: initialClients, recent_forms: initialForms, meta, stats } = $props();
+  let { user, clients: initialClients, recent_forms: initialForms, meta, stats, onboarding = undefined } = $props();
 
   let clients = $derived<Client[]>(initialClients ?? []);
   let forms = $derived<Form[]>(initialForms ?? []);
+  let resolvedOnboarding = $derived<DashboardOnboarding | null>(onboarding ?? null);
+  let shouldShowOnboarding = $derived(Boolean(resolvedOnboarding?.visible));
   let loadingClients = $state(false);
   let loadingForms = $state(false);
   let search = $state("");
   let activeOnly = $state(false);
   let showModal = $state(false);
   let selectedToDelete = $state(null as any);
+  let DashboardOnboardingCardComponent = $state<DashboardOnboardingCardComponentType | null>(null);
+  let onboardingLoadFailed = $state(false);
+
+  $effect(() => {
+    if (!shouldShowOnboarding) {
+      DashboardOnboardingCardComponent = null;
+      onboardingLoadFailed = false;
+      return;
+    }
+
+    let active = true;
+    onboardingLoadFailed = false;
+
+    import('/components/onboarding/DashboardOnboardingCard.svelte')
+      .then((module) => {
+        if (active) {
+          DashboardOnboardingCardComponent = module.default;
+        }
+      })
+      .catch((error) => {
+        onboardingLoadFailed = true;
+        console.error('Failed to load dashboard onboarding card', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  });
 
 
   const filteredClients = $derived.by(() =>
@@ -161,6 +194,27 @@
 
   </div>
 </section>
+
+{#if resolvedOnboarding?.visible}
+  <section class="mt-6">
+    {#if DashboardOnboardingCardComponent}
+      <DashboardOnboardingCardComponent onboarding={resolvedOnboarding} />
+    {:else if !onboardingLoadFailed}
+      <Card.Root>
+        <Card.Content class="space-y-4 p-6">
+          <Skeleton class="h-4 w-36" />
+          <Skeleton class="h-7 w-72" />
+          <Skeleton class="h-4 w-full" />
+          <div class="grid gap-3 lg:grid-cols-3">
+            <Skeleton class="h-28 w-full" />
+            <Skeleton class="h-28 w-full" />
+            <Skeleton class="h-28 w-full" />
+          </div>
+        </Card.Content>
+      </Card.Root>
+    {/if}
+  </section>
+{/if}
 
 <section class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
   <Card.Root>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { areTypesCompatible, getCrmObjectLabel, getFieldDataType, analyzeMappings, autoMapFields, toCrmKey, fromCrmKey, isCompoundKey, CRM_KEY_SEP } from './crm-utils';
+import { areTypesCompatible, getCrmObjectLabel, getFieldDataType, analyzeMappings, autoMapFields, toCrmKey, fromCrmKey, isCompoundKey } from './crm-utils';
 
 describe('getFieldDataType', () => {
   it('identifies string types', () => {
