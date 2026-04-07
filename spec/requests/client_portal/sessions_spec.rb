@@ -26,7 +26,8 @@ RSpec.describe "ClientPortal::Sessions", type: :request do
     it "does not set cookie with invalid password" do
       post client_portal_login_path(@client_form.access_token), params: { password: "wrong" }
 
-      expect(response).to have_http_status(:unauthorized)
+      expect(response).to have_http_status(:found)
+      expect(response).to redirect_to(client_portal_login_path(@client_form.access_token))
       set_cookie = response.headers["Set-Cookie"] || ""
       expect(set_cookie).not_to include("client_form_session=")
     end
@@ -37,7 +38,7 @@ RSpec.describe "ClientPortal::Sessions", type: :request do
 
       5.times do
         post client_portal_login_path(@client_form.access_token), params: { password: "wrong" }, headers: headers
-        expect(response).to have_http_status(:unauthorized)
+        expect(response).to redirect_to(client_portal_login_path(@client_form.access_token))
       end
 
       post client_portal_login_path(@client_form.access_token), params: { password: "wrong" }, headers: headers

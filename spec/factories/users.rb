@@ -4,9 +4,13 @@ FactoryBot.define do
     password { 'a_secure_password_123' }
     crm_auto_sync_on_portal_submit { true }
     verified { false }
-    subscription_status { 'incomplete' }
+    subscription_status { 'active' }
     onboarding_completed { false }
     subscription_canceled_at { nil }
+
+    trait :incomplete do
+      subscription_status { 'incomplete' }
+    end
 
     trait :verified do
       verified { true }

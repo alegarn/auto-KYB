@@ -3,9 +3,9 @@ require 'rails_helper'
 RSpec.describe "Countries", type: :request do
   describe "GET /countries" do
     context "when unauthenticated" do
-      it "is not accessible (redirects to sign_in)" do
+      it "is not accessible (returns 401)" do
         get '/countries', as: :json
-        expect(response).to redirect_to(sign_in_path)
+        expect(response).to have_http_status(:unauthorized)
       end
     end
 

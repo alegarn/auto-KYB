@@ -4,7 +4,7 @@ require 'securerandom'
 
 RSpec.describe 'Form view performance', type: :request do
   it 'renders form view within 1s (SC-005)' do
-    user = User.create!(email: "view-#{SecureRandom.hex(6)}@example.com", password: 'securepassword123')
+    user = User.create!(email: "view-#{SecureRandom.hex(6)}@example.com", password: 'securepassword123', subscription_status: 'active')
     form = user.forms.create!(name: 'ViewForm')
 
     # ensure request is authenticated for controller to render

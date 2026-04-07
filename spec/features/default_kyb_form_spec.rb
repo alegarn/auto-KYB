@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-RSpec.feature "Default KYB Form UI", type: :feature do
+RSpec.feature "Default KYB Form UI", type: :feature, js: true do
   scenario "index shows default form created by initializer" do
     sign_in_user
     visit "/forms"

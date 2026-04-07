@@ -3,7 +3,7 @@ require 'securerandom'
 
 RSpec.describe 'Form list performance' do
   it 'returns forms list within 2s (SC-001)' do
-    user = User.create!(email: "perf-#{SecureRandom.hex(4)}@example.com", password: 'securepassword123')
+    user = User.create!(email: "perf-#{SecureRandom.hex(4)}@example.com", password: 'securepassword123', subscription_status: 'active')
     # create a moderate number of forms to emulate load
     1000.times do |i|
       user.forms.create!(name: "Form #{i}")

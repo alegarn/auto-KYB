@@ -40,7 +40,7 @@ RSpec.describe "Sessions", type: :request do
     end
 
     context "with an unverified user" do
-      let!(:unverified_user) { create(:user, verified: false) }
+      let!(:unverified_user) { create(:user, verified: false, subscription_status: "active") }
 
       it "enqueues the email_verification mail" do
         expect {
@@ -74,7 +74,7 @@ RSpec.describe "Sessions", type: :request do
   # GET /sign_in/:sid  (Passwordless magic link click)
   # ─────────────────────────────────────────────────────────────
   describe "GET /sign_in/:sid" do
-    let(:user) { create(:user, :subscribed) }
+    let(:user) { create(:user, :subscribed, onboarding_completed: true) }
 
     context "with a valid signin token" do
       it "creates a session and redirects to auth_loading" do
@@ -138,7 +138,7 @@ RSpec.describe "Sessions", type: :request do
     let(:email)    { "oauth@example.com" }
 
     context "existing oauth user (provider + uid match)" do
-      let!(:oauth_user) { create(:user, :subscribed, email: email, provider: provider, uid: uid) }
+      let!(:oauth_user) { create(:user, :subscribed, email: email, provider: provider, uid: uid, onboarding_completed: true) }
 
       before { mock_omniauth(provider, uid: uid, email: email) }
 
@@ -156,7 +156,7 @@ RSpec.describe "Sessions", type: :request do
     end
 
     context "user exists by email but has no provider linked yet" do
-      let!(:email_user) { create(:user, :subscribed, email: email, provider: nil, uid: nil) }
+      let!(:email_user) { create(:user, :subscribed, email: email, provider: nil, uid: nil, onboarding_completed: true) }
 
       before { mock_omniauth(provider, uid: uid, email: email) }
 
@@ -178,21 +178,12 @@ RSpec.describe "Sessions", type: :request do
     context "no matching user exists (brand-new OAuth signup)" do
       before { mock_omniauth(provider, uid: uid, email: email) }
 
-      it "creates a new user with provider/uid" do
+      it "redirects to sign_in without creating a user" do
         expect {
           get "/auth/#{provider}/callback"
-        }.to change(User, :count).by(1)
+        }.not_to change(User, :count)
 
-        user = User.find_by(email: email)
-        expect(user.provider).to eq(provider)
-        expect(user.uid).to eq(uid)
-      end
-
-      it "creates a session and redirects to auth_loading" do
-        expect {
-          get "/auth/#{provider}/callback"
-        }.to change(Session, :count).by(1)
-        expect(response).to redirect_to(auth_loading_path)
+        expect(response).to redirect_to(sign_in_path)
       end
     end
 
