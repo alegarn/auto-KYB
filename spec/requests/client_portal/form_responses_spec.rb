@@ -74,6 +74,34 @@ RSpec.describe "ClientPortal::FormResponses", type: :request do
       expect(body.dig('props', 'flash_message', 'type')).to eq('notice')
     end
 
+    it "merges repeated partial saves so later requests can send only new fields" do
+      post client_portal_login_path(@client_form.access_token), params: { password: @password }
+      expect([ 302, 303 ]).to include(response.status)
+
+      patch client_portal_form_response_path,
+            params: { form_response: { data: { foo: 'bar' }, partial: true } },
+            headers: { 'X-Inertia' => 'true' }
+
+      expect(response).to have_http_status(:ok)
+      first_body = JSON.parse(response.body)
+      expect(first_body.dig('props', 'last_response', 'data')).to include('foo' => 'bar')
+
+      patch client_portal_form_response_path,
+            params: { form_response: { data: { baz: 'qux' }, partial: true } },
+            headers: { 'X-Inertia' => 'true' }
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body.dig('props', 'last_response', 'data')).to include(
+        'foo' => 'bar',
+        'baz' => 'qux'
+      )
+      expect(FormResponse.order(:created_at).last.data).to include(
+        'foo' => 'bar',
+        'baz' => 'qux'
+      )
+    end
+
     it "rejects updates when client_form is locked (validated)" do
       post client_portal_login_path(@client_form.access_token), params: { password: @password }
       expect([ 302, 303 ]).to include(response.status)

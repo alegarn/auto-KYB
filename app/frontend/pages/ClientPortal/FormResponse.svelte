@@ -5,7 +5,6 @@
   import FormFieldRenderer from '@/components/customs/FormFieldRenderer.svelte'
   import { isLayoutField, type FormSettings } from '@/components/customs/form-builder/types'
   import { Field, FieldLabel, FieldContent } from "@/components/ui/field/index";
-  import Button from '@/components/ui/button/button.svelte';
 
   // props ------------------------------------------------------------
   const props = $props()
@@ -28,7 +27,6 @@
   let autosaveHelpers: null | typeof import('@/lib/form-response/autosave') = $state(null)
   let autosaveController: null | { schedule: () => void; cancel: () => void; flush: () => Promise<void> } = $state(null)
   let initialized = $state(false)
-  let lastVersionSeen = $state<number | null>(null)
   let autosavedFieldIds = $state<string[]>([])
   let autosavedFieldTimeout: ReturnType<typeof setTimeout> | null = $state(null)
 
@@ -81,9 +79,7 @@
 
   function markAutosavedFields(fieldIds: string[]) {
     if (fieldIds.length === 0) return
-    const next = new Set(autosavedFieldIds)
-    for (const id of fieldIds) next.add(String(id))
-    autosavedFieldIds = Array.from(next)
+    autosavedFieldIds = Array.from(new Set(fieldIds.map((id) => String(id))))
 
     if (autosavedFieldTimeout) clearTimeout(autosavedFieldTimeout)
     autosavedFieldTimeout = setTimeout(() => {
@@ -97,6 +93,17 @@
     return autosavedFieldIds.includes(String(fieldId))
   }
 
+  function mergeSavedIntoBaseState(savedData: Record<string, any>) {
+    if (Object.keys(savedData).length === 0) return
+
+    if (autosaveHelpers) {
+      baseState = autosaveHelpers.mergeBase(baseState, savedData)
+      return
+    }
+
+    baseState = { ...baseState, ...savedData }
+  }
+
   async function ensureSubmitter() {
     if (submitter) return submitter
     const helpers = await import('@/lib/form-response/form-submit')
@@ -108,7 +115,10 @@
       getPartialData: () => buildPartialData(),
       setFlashMessage: (message) => { flashMessage = message },
       cancelAutosave: () => autosaveController?.cancel(),
-      onAutosaveSuccess: (fields) => markAutosavedFields(fields),
+      onAutosaveSuccess: (savedData) => {
+        mergeSavedIntoBaseState(savedData)
+        markAutosavedFields(Object.keys(savedData))
+      },
     })
     return submitter
   }
@@ -122,7 +132,6 @@
       ;($form as Record<string, any>)[key] = value
     }
     baseState = { ...initial }
-    lastVersionSeen = lastResponse?.version ?? null
     initialized = true
   })
 
@@ -132,12 +141,8 @@
   })
 
   $effect(() => {
-    if (!lastResponse?.version) return
-    if (lastVersionSeen === lastResponse.version) return
-    lastVersionSeen = lastResponse.version
-    if (lastResponse?.data) {
-      baseState = { ...baseState, ...lastResponse.data }
-    }
+    if (!portalForm?.form_fields || !initialized) return
+    baseState = buildInitialState()
   })
 
   // Functions ------------------------------------------------------------
