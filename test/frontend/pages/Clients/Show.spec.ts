@@ -38,6 +38,23 @@ vi.mock('/lib/countries', () => ({
   fetchCountriesData: vi.fn(() => Promise.resolve([{ name: 'USA', code: 'US', flag: '🇺🇸' }]))
 }));
 
+vi.mock('@/lib/shared-auth', () => ({
+  sharedAuth: {
+    subscribe: (cb: any) => {
+      cb({
+        user: { plan: 'pro', role: 'admin' },
+        crm_integrations: [{ provider: 'hubspot' }]
+      });
+      return () => {};
+    }
+  },
+  getSharedAuth: () => ({
+    user: { plan: 'pro', role: 'admin' },
+    crm_integrations: [{ provider: 'hubspot' }]
+  }),
+  crmAllowed: () => true
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
 });

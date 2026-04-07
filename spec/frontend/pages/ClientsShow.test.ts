@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import ClientsShow from '@/pages/Clients/Show.svelte';
 
+vi.mock('@/lib/shared-auth', () => ({
+  getSharedAuth: vi.fn(() => ({ features: { crm: { allowed: true } } })),
+  crmAllowed: vi.fn(() => true)
+}));
+
 const mockFetch = vi.fn();
 
 global.fetch = mockFetch;

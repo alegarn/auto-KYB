@@ -24,7 +24,7 @@ RSpec.describe "Delete Form", type: :request, inertia: true do
     expect(names).not_to include('DeleteMe')
 
     # flash is included in props under `flash` (may be string or symbol keys)
-    toast = inertia.props.dig('flash', 'inertia', 'toast') || inertia.props.dig(:flash, :inertia, :toast) || inertia.props.dig('flash', 'toast') || inertia.props.dig(:flash, :toast)
+    toast = inertia.props.dig(:flash, 'inertia', 'toast') || inertia.props.dig('flash', 'inertia', 'toast') || inertia.props.dig(:flash, :inertia, :toast) || inertia.props.dig('flash', 'toast') || inertia.props.dig(:flash, :toast)
     expect(toast).to be_present
     expect(toast['message']).to eq('Form deleted')
   end

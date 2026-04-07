@@ -4,7 +4,7 @@ RSpec.describe "Forms", type: :request do
   describe "GET /index" do
     context "when authenticated" do
       it "returns http success" do
-        user = User.create!(email: "test@example.com", password: "password123456")
+        user = User.create!(email: "test@example.com", password: "password123456", subscription_status: 'active')
         session = user.sessions.create!
 
         # Set the session token cookie properly using Rails' cookie methods
@@ -15,7 +15,7 @@ RSpec.describe "Forms", type: :request do
       end
 
       it "renders the response with proper content" do
-        user = User.create!(email: "test@example.com", password: "password123456")
+        user = User.create!(email: "test@example.com", password: "password123456", subscription_status: 'active')
         session = user.sessions.create!
 
         cookies[:session_token] = session.id

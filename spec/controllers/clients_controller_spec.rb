@@ -216,7 +216,7 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
     end
 
     context "with CRM sync parameters" do
-      let!(:crm_connection) { create(:crm_connection, user: user, provider: "hubspot") }
+    let(:user) { create(:user, plan: "pro", subscription_status: "active") }
       let(:client) { create(:client, user: user) }
 
       it "triggers CrmSyncService with the provided flags" do
@@ -237,17 +237,19 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
     end
 
     context "with a linked CRM client" do
-      let!(:crm_connection) { create(:crm_connection, user: user, provider: "hubspot", status: "active") }
+      let(:user) { create(:user, plan: "pro", subscription_status: "active") }
       let(:client) { create(:client, user: user) }
+      let(:crm_connection) { create(:crm_connection, user: user) }
 
       before do
         create(:crm_client_link, client: client, crm_connection: crm_connection)
       end
 
       it "triggers linked profile sync after a successful update" do
-        expect(Crm::ClientProfileSyncService).to receive(:call).with(instance_of(Client))
-
-        patch :update, params: { id: client.id, client: { phone: "+33 1 23 45 67 89" } }
+        require 'active_job'
+        expect {
+          patch :update, params: { id: client.id, client: { phone: "+33 1 23 45 67 89" } }
+        }.to have_enqueued_job(ClientProfileSyncJob).with(client.id, anything)
 
         expect(response).to redirect_to(client_path(client))
       end
@@ -327,7 +329,7 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
 
       expect(response).to redirect_to(clients_path)
       expect(response.status).to eq(303)
-      expect(flash[:notice]).to eq("Client deleted")
+      expect(flash.inertia[:toast][:message]).to eq("Client deleted")
     end
 
     it "raises when destroying another user's client" do
@@ -357,7 +359,7 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
       expect(response.content_type).to include("text/csv")
       expect(response.headers["Content-Disposition"]).to include("client-#{client.id}.csv")
       # CSV should contain header and at least the client name
-      expect(response.body).to include("name,company_name,email,phone,address,created_at,updated_at")
+      expect(response.body).to include("name,company_name,company_id,country,email,phone,address,created_at,updated_at")
       expect(response.body).to include(client.name)
     end
 
