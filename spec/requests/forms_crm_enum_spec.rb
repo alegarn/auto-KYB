@@ -18,27 +18,27 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
   HS_LEAD_STATUS = {
     "name" => "hs_lead_status", "type" => "enumeration", "fieldType" => "radio",
     "options" => [
-      {"label"=>"New","value"=>"NEW","displayOrder"=>0,"hidden"=>false},
-      {"label"=>"In Progress","value"=>"IN_PROGRESS","displayOrder"=>2,"hidden"=>false},
-      {"label"=>"Connected","value"=>"CONNECTED","displayOrder"=>6,"hidden"=>false}
+      { "label"=>"New", "value"=>"NEW", "displayOrder"=>0, "hidden"=>false },
+      { "label"=>"In Progress", "value"=>"IN_PROGRESS", "displayOrder"=>2, "hidden"=>false },
+      { "label"=>"Connected", "value"=>"CONNECTED", "displayOrder"=>6, "hidden"=>false }
     ], "readOnlyValue"=>false, "calculated"=>false
   }
 
   HS_BUYING_ROLE = {
     "name" => "hs_buying_role", "type" => "enumeration", "fieldType" => "checkbox",
     "options" => [
-      {"label"=>"Blocker","value"=>"BLOCKER","displayOrder"=>0,"hidden"=>false},
-      {"label"=>"Budget Holder","value"=>"BUDGET_HOLDER","displayOrder"=>1,"hidden"=>false},
-      {"label"=>"Champion","value"=>"CHAMPION","displayOrder"=>2,"hidden"=>false}
+      { "label"=>"Blocker", "value"=>"BLOCKER", "displayOrder"=>0, "hidden"=>false },
+      { "label"=>"Budget Holder", "value"=>"BUDGET_HOLDER", "displayOrder"=>1, "hidden"=>false },
+      { "label"=>"Champion", "value"=>"CHAMPION", "displayOrder"=>2, "hidden"=>false }
     ], "readOnlyValue"=>false, "calculated"=>false
   }
 
   HS_ANALYTICS_SOURCE = {
     "name" => "hs_analytics_source", "type" => "enumeration", "fieldType" => "select",
     "options" => [
-      {"label"=>"Organic Search","value"=>"ORGANIC_SEARCH","displayOrder"=>0,"hidden"=>false},
-      {"label"=>"Paid Search","value"=>"PAID_SEARCH","displayOrder"=>1,"hidden"=>false},
-      {"label"=>"Direct Traffic","value"=>"DIRECT_TRAFFIC","displayOrder"=>2,"hidden"=>false}
+      { "label"=>"Organic Search", "value"=>"ORGANIC_SEARCH", "displayOrder"=>0, "hidden"=>false },
+      { "label"=>"Paid Search", "value"=>"PAID_SEARCH", "displayOrder"=>1, "hidden"=>false },
+      { "label"=>"Direct Traffic", "value"=>"DIRECT_TRAFFIC", "displayOrder"=>2, "hidden"=>false }
     ], "readOnlyValue"=>false, "calculated"=>false
   }
 
@@ -47,13 +47,13 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
     let(:service_mock) { instance_double('Crm::HubspotService') }
 
     before do
-      allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([connection_mock])
+      allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([ connection_mock ])
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection_mock).and_return(service_mock)
     end
 
     it 'US-12: exports single-choice enumeration as internal value (radio)' do
       # Provide HubSpot properties so TestPayloadBuilder uses internal values
-      allow_any_instance_of(FormsController).to receive(:crm_properties).and_return({ hubspot: { contact: [HS_LEAD_STATUS], company: [] } })
+      allow_any_instance_of(FormsController).to receive(:crm_properties).and_return({ hubspot: { contact: [ HS_LEAD_STATUS ], company: [] } })
 
       called_args = nil
       allow(service_mock).to receive(:export_data) do |*args|
@@ -67,12 +67,12 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
             label: 'Lead Status',
             field_type: 'radio',
             metadata: {
-              options: ['New', 'In Progress', 'Connected'],
+              options: [ 'New', 'In Progress', 'Connected' ],
               crm_mapping: { hubspot: { property_name: 'hs_lead_status' } }
             }
           }
         ],
-        crms: ['hubspot']
+        crms: [ 'hubspot' ]
       }
 
       post "/forms/#{form.id}/test_crm_mapping", params: test_params, headers: headers, as: :json
@@ -88,7 +88,7 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
     end
 
     it 'US-12: exports multi-select enumeration as joined internal values (checkbox)' do
-      allow_any_instance_of(FormsController).to receive(:crm_properties).and_return({ hubspot: { contact: [HS_BUYING_ROLE], company: [] } })
+      allow_any_instance_of(FormsController).to receive(:crm_properties).and_return({ hubspot: { contact: [ HS_BUYING_ROLE ], company: [] } })
 
       called_args = nil
       allow(service_mock).to receive(:export_data) do |*args|
@@ -102,13 +102,13 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
             label: 'Buying Role',
             field_type: 'checkbox',
             metadata: {
-              options: ['Blocker', 'Budget Holder', 'Champion'],
+              options: [ 'Blocker', 'Budget Holder', 'Champion' ],
               allow_multiple: true,
               crm_mapping: { hubspot: { property_name: 'hs_buying_role' } }
             }
           }
         ],
-        crms: ['hubspot']
+        crms: [ 'hubspot' ]
       }
 
       post "/forms/#{form.id}/test_crm_mapping", params: test_params, headers: headers, as: :json
@@ -125,7 +125,7 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
     it 'US-13: existing select->string mapping still exports without error' do
       # Simulate a plain string HubSpot property
       hs_string = { "name" => "hs_industry", "type" => "string", "fieldType" => "text" }
-      allow_any_instance_of(FormsController).to receive(:crm_properties).and_return({ hubspot: { contact: [hs_string], company: [] } })
+      allow_any_instance_of(FormsController).to receive(:crm_properties).and_return({ hubspot: { contact: [ hs_string ], company: [] } })
 
       allow(service_mock).to receive(:export_data).and_return({ success: true })
 
@@ -140,7 +140,7 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
             }
           }
         ],
-        crms: ['hubspot']
+        crms: [ 'hubspot' ]
       }
 
       post "/forms/#{form.id}/test_crm_mapping", params: test_params, headers: headers, as: :json
@@ -161,7 +161,7 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
                 label: 'Lead Status',
                 field_type: 'radio',
                 metadata: {
-                  options: ['New', 'In Progress'],
+                  options: [ 'New', 'In Progress' ],
                   crm_mapping: { hubspot: { type: 'custom', object_type: 'contact' } }
                 }
               }
@@ -172,7 +172,7 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
 
       expect {
         patch "/forms/#{form.id}", params: update_params, headers: headers, as: :json
-      }.to have_enqueued_job(CrmPropertyCreationJob).with(user.id, array_including(hash_including(field_type: 'radio', options: ['New', 'In Progress'])))
+      }.to have_enqueued_job(CrmPropertyCreationJob).with(user.id, array_including(hash_including(field_type: 'radio', options: [ 'New', 'In Progress' ])))
 
       expect(response).to have_http_status(:ok)
     end
@@ -187,7 +187,7 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
                 field_type: 'checkbox',
                 allow_multiple: true,
                 metadata: {
-                  options: ['Blocker', 'Champion'],
+                  options: [ 'Blocker', 'Champion' ],
                   crm_mapping: { hubspot: { type: 'custom' } }
                 }
               }
@@ -198,7 +198,7 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
 
       expect {
         patch "/forms/#{form.id}", params: update_params, headers: headers, as: :json
-      }.to have_enqueued_job(CrmPropertyCreationJob).with(user.id, array_including(hash_including(field_type: 'checkbox', options: ['Blocker', 'Champion'], allow_multiple: true)))
+      }.to have_enqueued_job(CrmPropertyCreationJob).with(user.id, array_including(hash_including(field_type: 'checkbox', options: [ 'Blocker', 'Champion' ], allow_multiple: true)))
 
       expect(response).to have_http_status(:ok)
     end

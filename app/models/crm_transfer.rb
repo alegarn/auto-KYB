@@ -1,4 +1,5 @@
 class CrmTransfer < ApplicationRecord
+
   belongs_to :client
   belongs_to :crm_connection
 
@@ -103,4 +104,5 @@ class CrmTransfer < ApplicationRecord
     self.attempts_count = attempts_count.presence || 0
     self.request_context = (request_context || {}).deep_stringify_keys
   end
+
 end

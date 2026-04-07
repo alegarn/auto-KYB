@@ -130,7 +130,7 @@ def duplicate
 
   def update
     form = current_user.forms.find(params[:id])
-    
+
     # Store the parameters locally so we can mutate them
     current_params = form_params.to_h
 
@@ -148,9 +148,9 @@ def duplicate
           obj_type = mapping["object_type"] || "contact"
           # Store compound key as property_name for disambiguation
           mapping["property_name"] = Crm::KeyParser.build(obj_type, prop_name)
-          custom_mappings << { 
-            provider: provider, 
-            label: (f["label"] || f[:label]), 
+          custom_mappings << {
+            provider: provider,
+            label: (f["label"] || f[:label]),
             property_name: prop_name,
             object_type: obj_type,
             field_type: (f["field_type"] || f[:field_type]).to_s,

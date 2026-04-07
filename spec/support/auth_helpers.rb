@@ -5,11 +5,11 @@ module TestAuthHelpers
     if defined?(page) && page.respond_to?(:driver) && page.driver.respond_to?(:browser) && page.driver.browser.respond_to?(:manage)
       # 1. Start on the sign-in page
       visit sign_in_path
-      
+
       # 2. Perform the magic link request via UI
       fill_in 'Email', with: user.email
       click_button 'Email me a sign-in link'
-      
+
       # 3. Wait for Success Toast/Message
       # Use a looser text check as it might be localized or slightly different
       expect(page).to have_content(/sign-in link shortly/i)
@@ -18,7 +18,7 @@ module TestAuthHelpers
       # This bypasses checking ActionMailer::Base.deliveries
       token = user.generate_token_for(:signin)
       visit passwordless_sign_in_path(sid: token)
-      
+
       # 5. Handle the Auth Loading page
       if page.has_content?("Preparing your dashboard")
         expect(page).to have_no_content("Preparing your dashboard", wait: 15)

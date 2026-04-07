@@ -46,7 +46,7 @@ Rails.application.configure do
   end
 
   default_url_options = { host: app_base_uri.host || "localhost" }
-  default_url_options[:port] = app_base_uri.port if app_base_uri.port.present? && ![80, 443].include?(app_base_uri.port)
+  default_url_options[:port] = app_base_uri.port if app_base_uri.port.present? && ![ 80, 443 ].include?(app_base_uri.port)
 
   config.action_mailer.default_url_options = default_url_options
   config.action_controller.default_url_options = default_url_options

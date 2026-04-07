@@ -163,9 +163,9 @@ module Crm
       mapper = Crm::Hubspot::ContactMapper.new(client, { sync_address_to_contact: sync_address_to_contact })
       properties = mapper.to_hubspot_properties
       type_lookup, metadata_lookup = ensure_properties("contacts", properties, field_metadata: field_metadata)
-      
+
       return nil if properties.empty?
-      
+
       formatted_props = coerce_and_format_v1(properties, type_lookup, metadata_lookup)
 
       res = hubspot_client.api_request(
@@ -252,20 +252,20 @@ module Crm
     # removes read-only properties from the hash, and returns a type lookup
     # hash: { "prop_name" => "datetime", ... } used for value coercion.
     def ensure_properties(object_type, properties_hash, field_metadata: {})
-      return [{}, {}] if properties_hash.empty?
+      return [ {}, {} ] if properties_hash.empty?
 
       res = hubspot_client.api_request(method: "GET", path: "/properties/v1/#{object_type}/properties")
-      return [{}, {}] unless res.code.to_i == 200
+      return [ {}, {} ] unless res.code.to_i == 200
 
       all_props = JSON.parse(res.body)
       all_props = [] unless all_props.is_a?(Array)
 
       existing = all_props.map { |p| p["name"] }
       read_only_props = all_props.select { |p| p["readOnlyValue"] || p["calculated"] }.map { |p| p["name"] }
-      
+
       # type_lookup: backward-compatible string-only format
       type_lookup = all_props.each_with_object({}) { |p, h| h[p["name"]] = p["type"] }
-      
+
       # metadata_lookup: enriched format for coercion
       metadata_lookup = all_props.each_with_object({}) do |p, h|
         h[p["name"]] = {
@@ -288,11 +288,11 @@ module Crm
         # Build creation payload — use field_metadata if available for enum properties
         fm = field_metadata[prop_name] || field_metadata[k.to_s] || {}
         group = object_type == "contacts" ? "contactinformation" : "companyinformation"
-        
+
         if fm[:options].present? && %w[select radio checkbox buttons].include?(fm[:field_type].to_s)
           hs_field_type = fm[:allow_multiple] ? "checkbox" : (fm[:field_type] || "select")
           hs_options = Crm::Hubspot::OptionNormalizer.build_options(fm[:options])
-          
+
           payload = {
             name:       prop_name,
             label:      k.to_s.titleize,
@@ -327,7 +327,7 @@ module Crm
         end
       end
 
-      [type_lookup, metadata_lookup]
+      [ type_lookup, metadata_lookup ]
     end
 
     def search_company(client)

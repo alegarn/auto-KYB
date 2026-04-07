@@ -378,7 +378,6 @@ RSpec.describe "Registrations", type: :request do
         expect(flash[:alert]).to be_present
       end
     end
-
   end
 
   # ─────────────────────────────────────────────────────────────

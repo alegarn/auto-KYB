@@ -40,7 +40,7 @@ RSpec.describe Crm::DataExporter, type: :service do
 
     exporter = described_class.new(client, scheduler: scheduler_class)
 
-    exporter.export_to_selected!(['hubspot'])
+    exporter.export_to_selected!([ 'hubspot' ])
 
     expect(scheduler_class).to have_received(:new).with(
       client: client,

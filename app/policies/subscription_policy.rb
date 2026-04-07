@@ -3,6 +3,7 @@
 # SubscriptionPolicy allows any authenticated user to manage their subscription,
 # including resubscribing after cancellation.
 class SubscriptionPolicy < ApplicationPolicy
+
   def show?
     user.present?
   end
@@ -22,4 +23,5 @@ class SubscriptionPolicy < ApplicationPolicy
   def required?
     user.present?
   end
+
 end

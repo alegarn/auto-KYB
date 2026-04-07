@@ -46,7 +46,7 @@ class SettingsController < ApplicationController
     return [] unless entitlement.allowed?
 
     authorize_crm_access!
-    current_user.crm_connections.as_json(only: [:id, :provider, :status, :updated_at])
+    current_user.crm_connections.as_json(only: [ :id, :provider, :status, :updated_at ])
   end
 
 end

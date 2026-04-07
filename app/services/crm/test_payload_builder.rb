@@ -1,5 +1,6 @@
 module Crm
   class TestPayloadBuilder
+
     # Build test contact data, company data, and field_metadata for a test CRM export.
     #
     # @param fields [Array<Hash>]          Form structure fields from form.structure["fields"]
@@ -89,9 +90,9 @@ module Crm
     def self.parse_compound_key(raw_prop, fallback_object_type)
       if raw_prop.include?("::")
         parts = raw_prop.split("::", 2)
-        [parts[0], parts[1]]
+        [ parts[0], parts[1] ]
       else
-        [fallback_object_type || "contact", raw_prop]
+        [ fallback_object_type || "contact", raw_prop ]
       end
     end
 
@@ -102,5 +103,6 @@ module Crm
     def self.choice_field?(field_type)
       %w[select radio checkbox buttons].include?(field_type)
     end
+
   end
 end

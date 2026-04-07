@@ -1,4 +1,5 @@
 class ClientProfileSyncJob < ApplicationJob
+
   queue_as :default
 
   def perform(client_id, changed_attribute_keys = [])
@@ -7,4 +8,5 @@ class ClientProfileSyncJob < ApplicationJob
 
     Crm::ClientProfileSyncService.call(client, changed_attribute_keys: changed_attribute_keys)
   end
+
 end

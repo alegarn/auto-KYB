@@ -20,7 +20,7 @@ RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
     it 'returns unauthorized when the request is unauthenticated' do
       anonymous_client = create(:client)
 
-      post "/clients/#{anonymous_client.id}/export_to_crm", params: { crms: ['hubspot'] }, as: :json
+      post "/clients/#{anonymous_client.id}/export_to_crm", params: { crms: [ 'hubspot' ] }, as: :json
 
       expect(response).to have_http_status(:unauthorized)
       expect(response.body).to be_blank
@@ -35,7 +35,7 @@ RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
       expect(Crm::ConnectionManager).not_to receive(:service_for)
 
       expect {
-        post "/clients/#{client.id}/export_to_crm", params: { crms: ['hubspot', 'salesforce'] }, headers: headers, as: :json
+        post "/clients/#{client.id}/export_to_crm", params: { crms: [ 'hubspot', 'salesforce' ] }, headers: headers, as: :json
       }.to change { CrmTransfer.count }.by(2)
 
       expect(response).to have_http_status(:ok)
@@ -58,8 +58,8 @@ RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
       expect(transfers.pluck(:crm_connection_id)).to contain_exactly(hubspot_connection.id, salesforce_connection.id)
       expect(enqueued_jobs.count { |job| job[:job] == CrmDataExportJob }).to eq(2)
       expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly(
-        [transfers.find_by!(crm_connection: hubspot_connection).id],
-        [transfers.find_by!(crm_connection: salesforce_connection).id]
+        [ transfers.find_by!(crm_connection: hubspot_connection).id ],
+        [ transfers.find_by!(crm_connection: salesforce_connection).id ]
       )
     end
 
@@ -76,7 +76,7 @@ RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
     it 'returns unprocessable_entity if valid crms selected but no active connections found' do
       create(:crm_connection, user: user, provider: 'zoho', status: 'inactive')
 
-      post "/clients/#{client.id}/export_to_crm", params: { crms: ['zoho'] }, headers: headers, as: :json
+      post "/clients/#{client.id}/export_to_crm", params: { crms: [ 'zoho' ] }, headers: headers, as: :json
 
       expect(response).to have_http_status(:unprocessable_entity)
       json = JSON.parse(response.body)
@@ -90,7 +90,7 @@ RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
       basic_client = create(:client, user: basic_user)
       create(:crm_connection, user: basic_user, provider: 'hubspot', status: 'active')
 
-      post "/clients/#{basic_client.id}/export_to_crm", params: { crms: ['hubspot'] }, headers: { 'Cookie' => "session_token=#{basic_user.sessions.last.id}" }, as: :json
+      post "/clients/#{basic_client.id}/export_to_crm", params: { crms: [ 'hubspot' ] }, headers: { 'Cookie' => "session_token=#{basic_user.sessions.last.id}" }, as: :json
 
       expect(response).to have_http_status(:forbidden)
       expect(JSON.parse(response.body)).to eq('error' => 'plan_insufficient')
@@ -103,7 +103,7 @@ RSpec.describe 'Clients Requests (CRM Exports)', type: :request do
       canceled_client = create(:client, user: canceled_user)
       create(:crm_connection, user: canceled_user, provider: 'hubspot', status: 'active')
 
-      post "/clients/#{canceled_client.id}/export_to_crm", params: { crms: ['hubspot'] }, headers: { 'Cookie' => "session_token=#{canceled_user.sessions.last.id}" }, as: :json
+      post "/clients/#{canceled_client.id}/export_to_crm", params: { crms: [ 'hubspot' ] }, headers: { 'Cookie' => "session_token=#{canceled_user.sessions.last.id}" }, as: :json
 
       expect(response).to have_http_status(:forbidden)
       expect(JSON.parse(response.body)).to eq('error' => 'subscription_inactive')

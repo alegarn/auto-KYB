@@ -35,25 +35,25 @@ RSpec.describe 'CRM Mapping Read Only Properties', type: :system, js: true do
 
     # Open dropdown
     find("[data-testid=\"crm-mapping-select-#{field.id}-hubspot\"]").click
-    
+
     within find('[data-testid="crm-mapping-modal"]') do
       # Should show (Read Only)
       expect(page).to have_content('Score Value (Read Only)')
       expect(page).to have_content('Email')
-      
+
       # The read-only item is visually disabled / has a specific disabled attribute (depends on exactly how Radix UI/Bits UI renders it)
       # Wait... our implementation added: disabled={property.read_only} to Select.Item
       # Let's verify it has disabled or aria-disabled
       read_only_item = find('[data-slot="select-item"]', text: /Score Value/i)
       expect(read_only_item).to match_css('[data-disabled]')
-      
+
       # Try clicking it, it shouldn't actually select it or close the dropdown if the UI lib prevents it.
       # However, click might just work in Selenium if it doesn't strictly adhere to pointer-events: none, so we just check the attribute.
-      
+
       # Can click email
       find('[data-slot="select-item"]', text: /^Email$/i).click
     end
-    
+
     # Dropdown closes
     expect(page).to have_no_selector('[data-slot="select-item"]')
   end

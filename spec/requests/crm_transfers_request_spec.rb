@@ -262,7 +262,7 @@ RSpec.describe 'CrmTransfers', type: :request, inertia: true do
         'client_form_id' => 'form_123'
       )
       expect(failed_transfer.reload.status).to eq(CrmTransfer::STATUS_FAILED)
-      expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly([retried_transfer.id])
+      expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly([ retried_transfer.id ])
     end
 
     it 'returns not_found when retrying a transfer owned by another user' do

@@ -1,5 +1,6 @@
 module Crm
   class SalesforceService < BaseService
+
     def authorize_url
       # Dummy implementation
       "https://login.salesforce.com/services/oauth2/authorize?client_id=dummy&redirect_uri=dummy&response_type=code"
@@ -35,5 +36,6 @@ module Crm
       # Dummy implementation
       true
     end
+
   end
 end

@@ -33,17 +33,17 @@ Rails.application.routes.draw do
     end
   end
 
-  resources :crm_transfers, only: [:index] do
+  resources :crm_transfers, only: [ :index ] do
     member do
       post :retry
     end
   end
-  
+
   namespace :crm do
-    resources :imports, only: [:index]
+    resources :imports, only: [ :index ]
   end
-  
-  resources :crm_connections, only: [:create, :destroy] do
+
+  resources :crm_connections, only: [ :create, :destroy ] do
     collection do
       get "auth/:provider", to: "crm_connections#auth", as: :auth
       get ":provider/callback", to: "crm_connections#callback", as: :callback,

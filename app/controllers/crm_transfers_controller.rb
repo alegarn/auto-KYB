@@ -1,4 +1,5 @@
 class CrmTransfersController < ApplicationController
+
   before_action :authorize_crm_access!
   before_action :mark_crm_transfer_signals_seen!, only: :index
   before_action :set_transfer, only: :retry
@@ -64,4 +65,5 @@ class CrmTransfersController < ApplicationController
     current_user.update_column(:crm_transfers_last_seen_at, seen_at) if current_user.has_attribute?(:crm_transfers_last_seen_at)
     advance_crm_transfer_toast_marker!(seen_at)
   end
+
 end

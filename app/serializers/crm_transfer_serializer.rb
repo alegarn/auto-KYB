@@ -1,4 +1,5 @@
 class CrmTransferSerializer
+
   def initialize(transfer)
     @transfer = transfer
   end
@@ -26,4 +27,5 @@ class CrmTransferSerializer
   def self.collection(relation)
     relation.map { |transfer| new(transfer).as_json }
   end
+
 end

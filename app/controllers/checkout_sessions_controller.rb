@@ -1,5 +1,6 @@
 class CheckoutSessionsController < ApplicationController
-  skip_before_action :authenticate, only: [:create, :success, :cancel]
+
+  skip_before_action :authenticate, only: [ :create, :success, :cancel ]
   before_action :skip_authorization
 
   # Creates a Stripe Checkout Session
@@ -27,7 +28,7 @@ class CheckoutSessionsController < ApplicationController
         success_url: complete_registration_url + '?session_id={CHECKOUT_SESSION_ID}',
         cancel_url: checkout_sessions_cancel_url,
       }
-      
+
       # Pre-fill email if provided
       session_params[:customer_email] = customer_email if customer_email.present?
 
@@ -69,4 +70,5 @@ class CheckoutSessionsController < ApplicationController
   def cancel
     render inertia: "CheckoutSessions/Cancel", props: { user: Current.user }
   end
+
 end

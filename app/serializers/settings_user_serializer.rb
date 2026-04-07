@@ -1,4 +1,5 @@
 class SettingsUserSerializer
+
   def initialize(user, crm_entitlement: Crm::Entitlement.new(user))
     @user = user
     @crm_entitlement = crm_entitlement
@@ -17,4 +18,5 @@ class SettingsUserSerializer
       "can_use_crm" => @crm_entitlement.allowed?
     }
   end
+
 end

@@ -56,7 +56,7 @@ RSpec.describe "CrmConnections", type: :request do
 
     it "creates a connection and redirects to settings on success" do
       valid_state = session[:crm_oauth_state]
-      
+
       tokens = {
         access_token: "acc",
         refresh_token: "ref",
@@ -70,7 +70,7 @@ RSpec.describe "CrmConnections", type: :request do
 
       expect(response).to redirect_to(settings_path)
       expect(flash[:notice]).to eq("HubSpot connected successfully!")
-      
+
       conn = user.crm_connections.last
       expect(conn.access_token).to eq("acc")
       expect(conn.status).to eq("active")

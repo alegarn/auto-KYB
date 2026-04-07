@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class StripeWebhooksController < ApplicationController
+
   # Webhook endpoints are called by Stripe; disable CSRF and authentication
   skip_before_action :verify_authenticity_token
   skip_before_action :set_current_user
@@ -71,4 +72,5 @@ class StripeWebhooksController < ApplicationController
         ENV['STRIPE_WEBHOOK_SECRET']
       ].filter_map { |secret| secret&.strip&.presence }.uniq
     end
+
 end

@@ -1,4 +1,5 @@
 class Crm::ImportsController < ApplicationController
+
   before_action :authorize_crm_access!
 
   def index

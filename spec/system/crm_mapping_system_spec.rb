@@ -73,7 +73,7 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
       find("input[placeholder*=\"Filter\"]").set('City')
       expect(page).to have_selector('[data-slot="select-item"]', text: /City/i)
       expect(page).not_to have_selector('[data-slot="select-item"]', text: /Email/i)
-  
+
       # Select 'City' to close dropdown and move to field 2
       find('[data-slot="select-item"]', text: /City/i).click
     end
@@ -85,7 +85,7 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     within find('[data-testid="crm-mapping-modal"]') do
       expect(page).to have_selector('[data-slot="select-item"]', text: /City/i)
       expect(page).to have_selector('[data-slot="select-item"]', text: /Email/i)
-  
+
       # Close field 2 dropdown before finishing
       find('[data-slot="select-item"]', text: /City/i).click
     end
@@ -135,7 +135,7 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     within find('[data-testid="crm-mapping-modal"]') do
       find('[data-slot="select-item"]', text: /Subscribed/i).click
     end
-    
+
     expect(page).not_to have_selector("p[data-testid=\"type-mismatch-#{checkbox_field.id}-hubspot\"]")
   end
 
@@ -199,7 +199,7 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
 
     # use auto-map to ensure preview is ready, then send test
     find('[data-testid="auto-map-fields"]').click
-    
+
     # Wait for summaries to be ready
     expect(page).to have_content('Contact (1 field)')
     expect(page).to have_content('Company (1 field)')

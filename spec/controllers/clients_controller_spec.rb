@@ -226,8 +226,8 @@ RSpec.describe ClientsController, type: :controller, inertia: true do
           hash_including(sync_address_to_contact: "true")
         )
 
-        patch :update, params: { 
-          id: client.id, 
+        patch :update, params: {
+          id: client.id,
           client: { name: "Updated Name" },
           crm: { strategy: "update", sync_address_to_contact: "true" }
         }

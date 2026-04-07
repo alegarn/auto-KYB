@@ -1,4 +1,5 @@
 class CrmTransferSignalsQuery
+
   def initialize(user:, toast_seen_at:)
     @user = user
     @toast_seen_at = normalize_timestamp(toast_seen_at)
@@ -80,4 +81,5 @@ class CrmTransferSignalsQuery
   rescue ArgumentError, TypeError
     nil
   end
+
 end

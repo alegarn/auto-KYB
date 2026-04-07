@@ -3,6 +3,7 @@
 module Crm
   module Hubspot
     class FieldMapper
+
       HUBSPOT_CONTACT_MAP = {
         email: "email",
         phone: "phone",
@@ -20,7 +21,7 @@ module Crm
           email: properties["email"],
           phone: properties["phone"],
           company_name: properties["company"],
-          name: [properties["firstname"], properties["lastname"]].compact_join(" "),
+          name: [ properties["firstname"], properties["lastname"] ].compact_join(" "),
           first_name: properties["firstname"],
           last_name: properties["lastname"],
           address: {
@@ -35,22 +36,22 @@ module Crm
 
       def self.map_to_hubspot(client, extra_data = {})
         props = {}
-        
+
         # Merge client data with overrides from extra_data if available
         # This allows form submission data to override stored client data during export
         country = extra_data[:country] || client.country
-        
-        # sync_address_to_contact: If true (e.g. checkbox checked), 
+
+        # sync_address_to_contact: If true (e.g. checkbox checked),
         # we sync the address to the Contact object in HubSpot.
         # is_company: If true (e.g. from CompanyMapper),
         # we always sync the address to the Company object in HubSpot.
         sync_address = (extra_data[:sync_address_to_contact].to_s == "true") || (extra_data[:is_company] == true)
-        
+
         # Basic fields
         props[:email] = client.email if client.email.present?
         props[:phone] = client.phone if client.phone.present?
         props[:company] = client.company_name if client.company_name.present?
-        
+
         # Name splitting
         if client.name.present?
           parts = client.name.split(" ", 2)
@@ -76,6 +77,7 @@ module Crm
 
         props.compact
       end
+
     end
   end
 end

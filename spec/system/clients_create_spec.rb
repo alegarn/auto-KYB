@@ -20,10 +20,10 @@ RSpec.describe 'Create client', type: :system, js: true do
     initial_count = Client.count
 
     click_button 'Create Client Profile'
-    
+
     # Wait for success UI
     expect(page).to have_current_path(%r{/clients/.*})
-    
+
     # Verify DB insertion
     expect(Client.where(name: 'Acme', company_name: 'Acme Co').count).to eq(1)
 
@@ -36,7 +36,7 @@ RSpec.describe 'Create client', type: :system, js: true do
   it 'shows validation errors when required fields are missing' do
     sign_in_user
     visit '/clients/new'
-    
+
     # Disable HTML5 validation to test backend validation
     page.execute_script('document.querySelector("form").setAttribute("novalidate", "novalidate")')
 
