@@ -3,6 +3,7 @@
 module Crm
   module Hubspot
     class Client
+
       attr_reader :connection
 
       def initialize(connection)
@@ -74,6 +75,7 @@ module Crm
         # Reset the memoized SDK so it picks up the new token
         @sdk = nil
       end
+
     end
   end
 end

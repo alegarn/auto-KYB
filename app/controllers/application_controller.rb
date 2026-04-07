@@ -1,4 +1,5 @@
 class ApplicationController < ActionController::Base
+
   CRM_TRANSFER_TOAST_SEEN_AT_SESSION_KEY = :crm_transfer_failure_toast_seen_at
 
   include Pagy::Backend

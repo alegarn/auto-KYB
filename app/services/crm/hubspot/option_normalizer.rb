@@ -3,6 +3,7 @@ require "set"
 module Crm
   module Hubspot
     class OptionNormalizer
+
       # Generate a stable HubSpot internal value from a display label.
       # Rules: lowercase, alphanumeric + underscore only, no leading/trailing underscores,
       #        no consecutive underscores.
@@ -31,6 +32,7 @@ module Crm
           { label: label.to_s, value: value, displayOrder: i }
         end
       end
+
     end
   end
 end

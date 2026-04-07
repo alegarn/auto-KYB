@@ -128,13 +128,13 @@ RSpec.describe Crm::HubspotService do
       it "creates the company and associates it with the contact" do
         allow(client_double).to receive(:api_request).and_return(double(code: 200, body: '{}'))
         create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "cont_456", external_company_id: nil)
-        
+
         allow(client_double).to receive(:api_request).with(
           hash_including(method: "POST", path: %r{/contacts/v1/contact/vid/cont_456/profile})
         ).and_return(double(code: 200, body: '{}'))
 
         allow(service).to receive(:search_company).and_return(nil)
-        
+
         allow(client_double).to receive(:api_request).with(
           hash_including(method: "POST", path: "/crm/v3/objects/companies")
         ).and_return(double(code: 201, body: %Q({"id":"comp_456"})))
@@ -164,13 +164,13 @@ RSpec.describe Crm::HubspotService do
       it "creates the company and associates it with the contact" do
         allow(client_double).to receive(:api_request).and_return(double(code: 200, body: '{}'))
         create(:crm_client_link, client: client, crm_connection: connection, external_contact_id: "cont_456", external_company_id: nil)
-        
+
         allow(client_double).to receive(:api_request).with(
           hash_including(method: "POST", path: %r{/contacts/v1/contact/vid/cont_456/profile})
         ).and_return(double(code: 200, body: '{}'))
 
         allow(service).to receive(:search_company).and_return(nil)
-        
+
         allow(client_double).to receive(:api_request).with(
           hash_including(method: "POST", path: "/crm/v3/objects/companies")
         ).and_return(double(code: 201, body: %Q({"id":"comp_456"})))
@@ -322,7 +322,7 @@ RSpec.describe Crm::HubspotService do
 
       expect(client_double).to receive(:api_request).with(hash_including(method: "POST", path: "/properties/v1/contacts/properties", body: hash_including(type: "enumeration"))).and_return(double(code: 201, body: '{}'))
 
-      type_lookup, metadata_lookup = service.send(:ensure_properties, "contacts", { "hs_lead_status" => "New" }, field_metadata: { "hs_lead_status" => { field_type: "radio", options: ["New", "In Progress"], object_type: "contact" } })
+      type_lookup, metadata_lookup = service.send(:ensure_properties, "contacts", { "hs_lead_status" => "New" }, field_metadata: { "hs_lead_status" => { field_type: "radio", options: [ "New", "In Progress" ], object_type: "contact" } })
 
       expect(type_lookup["hs_lead_status"]).to eq("enumeration")
       expect(metadata_lookup["hs_lead_status"]) .to be_present
@@ -332,22 +332,22 @@ RSpec.describe Crm::HubspotService do
     it "coerce_and_format_v1 uses metadata_lookup for enum resolution" do
       properties = { "hs_lead_status" => "New" }
       type_lookup = { "hs_lead_status" => "enumeration" }
-      metadata_lookup = { "hs_lead_status" => { type: "enumeration", field_type: "radio", options: [{ label: "New", value: "NEW" }] } }
+      metadata_lookup = { "hs_lead_status" => { type: "enumeration", field_type: "radio", options: [ { label: "New", value: "NEW" } ] } }
 
       formatted = service.coerce_and_format_v1(properties, type_lookup, metadata_lookup)
       expect(formatted).to include({ property: "hs_lead_status", value: "NEW" })
     end
 
     it "export_data threads field_metadata through to ensure_properties" do
-      fm = { "hs_lead_status" => { object_type: "contact", field_type: "radio", options: ["New"] } }
+      fm = { "hs_lead_status" => { object_type: "contact", field_type: "radio", options: [ "New" ] } }
 
       # Stub ensure_properties to assert the passed field_metadata and allow export to proceed
       allow(client_double).to receive(:api_request).and_return(double(code: 201, body: %Q({"vid":"cont_1"})))
 
       called = []
       allow(service).to receive(:ensure_properties) do |object_type, properties, opts|
-        called << [object_type, properties, opts]
-        [{}, {}]
+        called << [ object_type, properties, opts ]
+        [ {}, {} ]
       end
 
       result = service.export_data(create(:client), {}, [], field_metadata: fm)

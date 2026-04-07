@@ -4,6 +4,7 @@
 # Hard-deletes user accounts that have been in a "canceled" state for more than 1 year.
 # The cascade on sessions/forms/clients in the DB ensures all related data is removed.
 class PurgeCanceledAccountsJob < ApplicationJob
+
   queue_as :default
 
   def perform
@@ -35,4 +36,5 @@ class PurgeCanceledAccountsJob < ApplicationJob
     # Already canceled or not found — safe to continue
     Rails.logger.warn("[PurgeCanceledAccountsJob] Stripe cancel skipped for user_id=#{user.id}: #{e.message}")
   end
+
 end

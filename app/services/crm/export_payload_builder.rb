@@ -1,5 +1,6 @@
 module Crm
   class ExportPayloadBuilder
+
     Payload = Struct.new(:contact_data, :company_data, :files, keyword_init: true)
 
     def initialize(client, provider: nil, client_form_id: nil)
@@ -67,5 +68,6 @@ module Crm
       type = field_type.to_s
       type.start_with?("lay_") || type.start_with?("section") || type == "layout" || type == "title"
     end
+
   end
 end

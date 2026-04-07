@@ -116,7 +116,7 @@ RSpec.describe Crm::Hubspot::ValueCoercer do
         end
 
         it 'does NOT use the options list for resolution (booleancheckbox ignores options)' do
-          meta_with_options = { field_type: "booleancheckbox", options: [{ label: "Yes", value: "YES" }] }
+          meta_with_options = { field_type: "booleancheckbox", options: [ { label: "Yes", value: "YES" } ] }
           expect(described_class.coerce("yes", "enumeration", property_metadata: meta_with_options)).to eq("true")
         end
       end
@@ -148,7 +148,7 @@ RSpec.describe Crm::Hubspot::ValueCoercer do
         let(:metadata) { { field_type: "checkbox", options: options } }
 
         it 'handles array values' do
-          result = described_class.coerce(["United States", "CA", "France"], "enumeration", property_metadata: metadata)
+          result = described_class.coerce([ "United States", "CA", "France" ], "enumeration", property_metadata: metadata)
           expect(result).to eq("US;CA;France")
         end
 
@@ -173,18 +173,18 @@ RSpec.describe Crm::Hubspot::ValueCoercer do
             ]
           }
 
-          expect(described_class.coerce(["Budget Holder"], "enumeration", property_metadata: hs_buying)).to eq("BUDGET_HOLDER")
+          expect(described_class.coerce([ "Budget Holder" ], "enumeration", property_metadata: hs_buying)).to eq("BUDGET_HOLDER")
 
-          expect(described_class.coerce(["Blocker", "Champion"], "enumeration", property_metadata: hs_buying)).to eq("BLOCKER;CHAMPION")
+          expect(described_class.coerce([ "Blocker", "Champion" ], "enumeration", property_metadata: hs_buying)).to eq("BLOCKER;CHAMPION")
 
           expect(described_class.coerce("Blocker;Champion", "enumeration", property_metadata: hs_buying)).to eq("BLOCKER;CHAMPION")
 
-          expect(described_class.coerce(["Connected"], "enumeration", property_metadata: hs_buying.merge(options: [{ label: "Connected", value: "CONNECTED" }]))).to eq("CONNECTED")
+          expect(described_class.coerce([ "Connected" ], "enumeration", property_metadata: hs_buying.merge(options: [ { label: "Connected", value: "CONNECTED" } ]))).to eq("CONNECTED")
 
           expect(described_class.coerce([], "enumeration", property_metadata: hs_buying)).to eq("")
         end
       end
-      
+
       it 'resolves HubSpot radio label "New" to internal "NEW" for hs_lead_status' do
         hs_lead = {
           field_type: "radio",

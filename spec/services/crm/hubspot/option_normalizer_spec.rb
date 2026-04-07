@@ -31,7 +31,7 @@ RSpec.describe Crm::Hubspot::OptionNormalizer do
 
   describe '.build_options' do
     it 'returns an array of hubsot options' do
-      labels = ['Option A', 'Option B']
+      labels = [ 'Option A', 'Option B' ]
       options = described_class.build_options(labels)
 
       expect(options).to eq([
@@ -41,7 +41,7 @@ RSpec.describe Crm::Hubspot::OptionNormalizer do
     end
 
     it 'handles slug collisions' do
-      labels = ['Test', 'Test !!', '   Test']
+      labels = [ 'Test', 'Test !!', '   Test' ]
       options = described_class.build_options(labels)
 
       expect(options).to eq([
@@ -52,7 +52,7 @@ RSpec.describe Crm::Hubspot::OptionNormalizer do
     end
 
     it 'handles exact duplicate labels by appending incremental suffixes' do
-      labels = ['Test', 'Test']
+      labels = [ 'Test', 'Test' ]
       options = described_class.build_options(labels)
 
       expect(options).to eq([
@@ -62,7 +62,7 @@ RSpec.describe Crm::Hubspot::OptionNormalizer do
     end
 
     it 'uses "option" for empty labels in build_options' do
-      labels = ['']
+      labels = [ '' ]
       options = described_class.build_options(labels)
       expect(options.first[:value]).to eq('option')
     end

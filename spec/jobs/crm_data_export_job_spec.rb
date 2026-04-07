@@ -18,7 +18,7 @@ RSpec.describe CrmDataExportJob, type: :job do
       expect(service).to receive(:export_data).with(
         client,
         { 'registration_number' => 'REG-123' },
-        [uploaded_file],
+        [ uploaded_file ],
         company_data: {}
       ).and_return({ success: true, external_id: 'ext_123' })
 
@@ -42,7 +42,7 @@ RSpec.describe CrmDataExportJob, type: :job do
       expect(service).to receive(:export_data).with(
         client,
         { 'registration_number' => 'REG-123' },
-        [uploaded_file],
+        [ uploaded_file ],
         company_data: {}
       ).and_return({ success: true })
 
@@ -99,7 +99,7 @@ RSpec.describe CrmDataExportJob, type: :job do
 
       # Job discards the error so perform_now should not raise
       described_class.perform_now(transfer.id)
-      
+
       transfer.reload
       expect(transfer.status).to eq('failed')
       expect(transfer.failure_kind).to eq(CrmTransfer::FAILURE_KIND_AUTHENTICATION_ERROR)
@@ -171,7 +171,7 @@ RSpec.describe CrmDataExportJob, type: :job do
       service = double
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(service)
       allow(service).to receive(:create_contact).and_return({ id: 'ext_123', action: :created })
-      allow(service).to receive(:search_companies).and_return([{ hubspot_id: 'comp_456', company_name: client.company_name }])
+      allow(service).to receive(:search_companies).and_return([ { hubspot_id: 'comp_456', company_name: client.company_name } ])
       allow(service).to receive(:associate_contact_to_company).and_raise(StandardError.new('association failed'))
 
       expect(service).to receive(:create_contact).with(client, sync_address_to_contact: nil)
@@ -203,7 +203,7 @@ RSpec.describe CrmDataExportJob, type: :job do
       expect(service).to receive(:export_data).with(
         client,
         { 'registration_number' => 'REG-123' },
-        [uploaded_file],
+        [ uploaded_file ],
         company_data: {}
       ).and_return({ success: true })
 
@@ -211,4 +211,3 @@ RSpec.describe CrmDataExportJob, type: :job do
     end
   end
 end
-

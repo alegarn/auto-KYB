@@ -7,14 +7,14 @@ RSpec.describe Crm::TestPayloadBuilder do
         "hubspot" => {
           "contact" => [
             { "name" => "firstname", "type" => "string", "field_type" => "text" },
-            { 
-              "name" => "favorite_color", 
-              "type" => "enumeration", 
-              "field_type" => "select", 
+            {
+              "name" => "favorite_color",
+              "type" => "enumeration",
+              "field_type" => "select",
               "options" => [
                 { "label" => "Red", "value" => "red" },
                 { "label" => "Blue", "value" => "blue" }
-              ] 
+              ]
             },
             {
               "name" => "interests",
@@ -47,7 +47,7 @@ RSpec.describe Crm::TestPayloadBuilder do
           "field_type" => "select",
           "label" => "Color",
           "metadata" => {
-            "options" => ["Red", "Orange"],
+            "options" => [ "Red", "Orange" ],
             "crm_mapping" => { "hubspot" => { "object_type" => "contact", "property_name" => "favorite_color" } }
           }
         },
@@ -56,7 +56,7 @@ RSpec.describe Crm::TestPayloadBuilder do
           "label" => "Interests",
           "metadata" => {
             "allow_multiple" => true,
-            "options" => ["Music", "Dance"],
+            "options" => [ "Music", "Dance" ],
             "crm_mapping" => { "hubspot" => { "object_type" => "contact", "property_name" => "interests" } }
           }
         },
@@ -99,7 +99,7 @@ RSpec.describe Crm::TestPayloadBuilder do
       expect(result[:field_metadata]).to have_key("favorite_color")
       expect(result[:field_metadata]["favorite_color"]).to include(
         field_type: "select",
-        options: ["Red", "Orange"],
+        options: [ "Red", "Orange" ],
         allow_multiple: false,
         object_type: "contact"
       )
@@ -107,12 +107,12 @@ RSpec.describe Crm::TestPayloadBuilder do
       expect(result[:field_metadata]).to have_key("interests")
       expect(result[:field_metadata]["interests"]).to include(
         field_type: "checkbox",
-        options: ["Music", "Dance"],
+        options: [ "Music", "Dance" ],
         allow_multiple: true,
         object_type: "contact"
       )
     end
-    
+
     context "with parsed compound keys" do
       let(:fields) do
         [
@@ -125,7 +125,7 @@ RSpec.describe Crm::TestPayloadBuilder do
           }
         ]
       end
-      
+
       it "routes compound keys correctly" do
         expect(result[:company]["phone"]).to eq("Test Phone")
         expect(result[:contact]).not_to have_key("phone")
@@ -183,7 +183,7 @@ RSpec.describe Crm::TestPayloadBuilder do
             "field_type" => "select",
             "label" => "Lead Status",
             "metadata" => {
-              "options" => ["New", "In Progress"],
+              "options" => [ "New", "In Progress" ],
               "crm_mapping" => { "hubspot" => { "object_type" => "contact", "property_name" => "hs_lead_status" } }
             }
           },
@@ -191,7 +191,7 @@ RSpec.describe Crm::TestPayloadBuilder do
             "field_type" => "checkbox",
             "label" => "Buying Role",
             "metadata" => {
-              "options" => ["Blocker", "Budget Holder"],
+              "options" => [ "Blocker", "Budget Holder" ],
               "allow_multiple" => true,
               "crm_mapping" => { "hubspot" => { "object_type" => "contact", "property_name" => "hs_buying_role" } }
             }
@@ -200,7 +200,7 @@ RSpec.describe Crm::TestPayloadBuilder do
             "field_type" => "select",
             "label" => "Source",
             "metadata" => {
-              "options" => ["Organic Search"],
+              "options" => [ "Organic Search" ],
               "crm_mapping" => { "hubspot" => { "object_type" => "contact", "property_name" => "hs_analytics_source" } }
             }
           },

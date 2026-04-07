@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class CrmFeaturePolicy < ApplicationPolicy
+
   def access?
     entitlement.allowed?
   end
@@ -14,4 +15,5 @@ class CrmFeaturePolicy < ApplicationPolicy
   def entitlement
     @entitlement ||= Crm::Entitlement.new(user)
   end
+
 end

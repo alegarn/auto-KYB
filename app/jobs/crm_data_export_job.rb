@@ -3,7 +3,7 @@ class CrmDataExportJob < ApplicationJob
   queue_as :default
 
   # Retry logic with exponential backoff (30s, 2min, 10min)
-  retry_on StandardError, wait: ->(executions) { [30, 120, 600][[[executions - 1, 0].max, 2].min] }, attempts: 3
+  retry_on StandardError, wait: ->(executions) { [ 30, 120, 600 ][[ [ executions - 1, 0 ].max, 2 ].min] }, attempts: 3
 
   # Discard on OAuth errors (non-retryable without user intervention)
   discard_on Crm::Hubspot::OAuthError
@@ -117,4 +117,5 @@ class CrmDataExportJob < ApplicationJob
       CrmTransfer::FAILURE_KIND_UNKNOWN_ERROR
     end
   end
+
 end

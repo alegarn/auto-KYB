@@ -16,14 +16,14 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
   before do
     # WebMock by default blocks all net connections. We must allow localhost for Capybara's server
     WebMock.disable_net_connect!(allow_localhost: true)
-    
+
     # We use the build-in sign_in_user helper but ensure the user state is fully prepared
     # and we wait for the redirect to complete
     sign_in_user(user)
-    
+
     # For debugging the search failure
     # puts "Connection: #{user.crm_connections.active.count}"
-    
+
     # Mocking CRM search endpoint (Internal API)
     stub_request(:any, /crm\/imports/).to_return(
       status: 200,
@@ -127,18 +127,18 @@ RSpec.describe 'CRM Contact Sync Workflows', type: :system, js: true do
       visit new_client_path
 
       expect(page).to have_content('CRM Integration')
-      
+
       find('label', text: 'Link existing CRM contact').click
-      
+
       fill_in 'Search by email or name...', with: 'John'
-      
+
       # We know the search is handled by CrmSyncWidget which does a fetch to /crm/imports
       # In system tests, we might need to trigger the search explicitly if the $effect doesn't fire
       click_button 'Search'
 
       # Svelte 5 result list
       expect(page).to have_content('John Doe', wait: 5)
-      
+
       # Select based on the name to be more specific
       within('li', text: 'John Doe') do
         click_button 'Select'

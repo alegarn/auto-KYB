@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class CrmTokenRefreshJob < ApplicationJob
+
   queue_as :default
 
   def perform
@@ -16,4 +17,5 @@ class CrmTokenRefreshJob < ApplicationJob
       end
     end
   end
+
 end

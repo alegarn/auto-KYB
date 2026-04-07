@@ -31,7 +31,7 @@ RSpec.describe Crm::TransferScheduler, type: :service do
       request_context: { 'source' => 'clients#export_to_crm' }
     )
     expect(@transfer.last_attempt_at).to be_nil
-    expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly([@transfer.id])
+    expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly([ @transfer.id ])
   end
 
   context 'client_create_sync deduplication' do

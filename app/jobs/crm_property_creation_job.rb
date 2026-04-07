@@ -1,4 +1,5 @@
 class CrmPropertyCreationJob < ApplicationJob
+
   queue_as :default
 
   def perform(user_id, field_mappings)
@@ -56,32 +57,33 @@ class CrmPropertyCreationJob < ApplicationJob
   def derive_hubspot_property(field_type, options, allow_multiple)
     case field_type
     when "number"
-      ["number", "number", []]
+      [ "number", "number", [] ]
     when "date"
-      ["date", "date", []]
+      [ "date", "date", [] ]
     when "textarea", "long_text"
-      ["string", "textarea", []]
+      [ "string", "textarea", [] ]
     when "select"
       if options.any?
-        ["enumeration", "select", Crm::Hubspot::OptionNormalizer.build_options(options)]
+        [ "enumeration", "select", Crm::Hubspot::OptionNormalizer.build_options(options) ]
       else
-        ["string", "text", []]
+        [ "string", "text", [] ]
       end
     when "radio"
       if options.any?
-        ["enumeration", "radio", Crm::Hubspot::OptionNormalizer.build_options(options)]
+        [ "enumeration", "radio", Crm::Hubspot::OptionNormalizer.build_options(options) ]
       else
-        ["string", "text", []]
+        [ "string", "text", [] ]
       end
     when "checkbox", "buttons"
       if options.any?
         hs_field_type = allow_multiple ? "checkbox" : "select"
-        ["enumeration", hs_field_type, Crm::Hubspot::OptionNormalizer.build_options(options)]
+        [ "enumeration", hs_field_type, Crm::Hubspot::OptionNormalizer.build_options(options) ]
       else
-        ["string", "text", []]
+        [ "string", "text", [] ]
       end
     else
-      ["string", "text", []]
+      [ "string", "text", [] ]
     end
   end
+
 end

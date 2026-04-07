@@ -1,5 +1,6 @@
 module Crm
   class BaseService
+
     attr_reader :connection
 
     def initialize(connection)
@@ -55,5 +56,6 @@ module Crm
         refresh_token!
       end
     end
+
   end
 end

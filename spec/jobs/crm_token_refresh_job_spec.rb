@@ -30,7 +30,7 @@ RSpec.describe CrmTokenRefreshJob, type: :job do
       allow(service).to receive(:refresh_token!).and_raise(StandardError.new('Ouch!'))
 
       expect(Rails.logger).to receive(:error).with(/Token refresh failed for connection #{active_connection.id}/)
-      
+
       expect { described_class.perform_now }.not_to raise_error
     end
   end

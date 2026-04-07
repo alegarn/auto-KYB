@@ -48,7 +48,7 @@ RSpec.describe "CRM Synchronization during Client workflows", type: :request do
       allow(hubspot_service).to receive(:search_contact_by_email).with("test@example.com").and_return({ external_contact_id: "match1" })
 
       get crm_match_suggestions_client_path(client)
-      
+
       expect(response).to have_http_status(:success)
       expect(JSON.parse(response.body)["match"]["external_contact_id"]).to eq("match1")
     end
@@ -58,7 +58,7 @@ RSpec.describe "CRM Synchronization during Client workflows", type: :request do
     it "creates a link for the client" do
       allow(hubspot_service).to receive(:fetch_contact).with("XYZ").and_return({ name: "Jane Linked" })
       post link_crm_contact_client_path(client), params: { external_contact_id: "XYZ" }
-      
+
       expect(client.reload.crm_client_link.external_contact_id).to eq("XYZ")
       expect(response).to redirect_to(edit_client_path(client))
     end

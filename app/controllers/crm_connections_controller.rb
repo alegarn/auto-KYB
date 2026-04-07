@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class CrmConnectionsController < ApplicationController
+
   before_action :authorize_crm_access!
 
   # GET /crm_connections/auth/:provider
@@ -97,4 +98,5 @@ class CrmConnectionsController < ApplicationController
     Rails.logger.error("[HubSpot OAuth] #{e.message}")
     redirect_to settings_path, alert: "Failed to connect HubSpot: #{e.message}"
   end
+
 end

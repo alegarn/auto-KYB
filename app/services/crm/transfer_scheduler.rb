@@ -1,5 +1,6 @@
 module Crm
   class TransferScheduler
+
     def self.retry!(transfer)
       new(
         client: transfer.client,
@@ -47,8 +48,9 @@ module Crm
         client: @client,
         crm_connection: @connection,
         trigger: @trigger,
-        status: [CrmTransfer::STATUS_PENDING, CrmTransfer::STATUS_PROCESSING]
+        status: [ CrmTransfer::STATUS_PENDING, CrmTransfer::STATUS_PROCESSING ]
       ).order(created_at: :desc).first
     end
+
   end
 end
