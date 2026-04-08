@@ -7,6 +7,7 @@ module OnboardingTracking
     detailed_view_seen_at
     demo_seeded_at
     restarted_at
+    data_exported_at
     version
   ].freeze
 
@@ -28,6 +29,14 @@ module OnboardingTracking
 
   def dashboard_onboarding_restarted_at
     dashboard_onboarding_timestamp(:restarted_at)
+  end
+
+  def dashboard_onboarding_data_exported_at
+    dashboard_onboarding_timestamp(:data_exported_at)
+  end
+
+  def dashboard_onboarding_data_exported?
+    dashboard_onboarding_current_version? && dashboard_onboarding_data_exported_at.present?
   end
 
   def dashboard_onboarding_version
@@ -54,13 +63,18 @@ module OnboardingTracking
     set_dashboard_onboarding_timestamp!(:detailed_view_seen_at, at: at)
   end
 
-  def reset_dashboard_onboarding!
+  def mark_dashboard_onboarding_exported!(at: Time.current)
+    set_dashboard_onboarding_timestamp!(:data_exported_at, at: at)
+  end
+
+  def reset_dashboard_onboarding!(reset_progress: false)
     with_lock do
       reload
       state = normalized_dashboard_onboarding_state
       state["dismissed_at"] = nil
       state["detailed_view_seen_at"] = nil
-      state["restarted_at"] = Time.current.iso8601
+      state["restarted_at"] = reset_progress ? Time.current.iso8601 : state["restarted_at"]
+      state["data_exported_at"] = nil if reset_progress
       state["version"] = DASHBOARD_ONBOARDING_STATE_VERSION
       
       update!(onboarding_state: state)
@@ -81,6 +95,7 @@ module OnboardingTracking
       "detailed_view_seen_at" => nil,
       "demo_seeded_at" => nil,
       "restarted_at" => nil,
+      "data_exported_at" => nil,
       "version" => DASHBOARD_ONBOARDING_STATE_VERSION
     }
   end

@@ -13,7 +13,8 @@ class OnboardingController < ApplicationController
   end
 
   def reset
-    current_user.reset_dashboard_onboarding!
+    reset_progress = params[:reset_progress] == true || params[:reset_progress] == "true"
+    current_user.reset_dashboard_onboarding!(reset_progress: reset_progress)
 
     redirect_back fallback_location: dashboard_path, status: :see_other
   end

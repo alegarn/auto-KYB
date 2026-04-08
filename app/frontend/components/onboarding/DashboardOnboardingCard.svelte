@@ -84,7 +84,9 @@
           </p>
         </div>
 
-        {#if onboarding.can_dismiss}
+        {#if remainingStepsCount === 0}
+          <Button variant="default" size="sm" onclick={dismissOnboarding} class="w-full sm:w-auto">Finish Tutorial</Button>
+        {:else if onboarding.can_dismiss}
           <Button variant="ghost" size="sm" onclick={dismissOnboarding}>Dismiss</Button>
         {/if}
       </div>

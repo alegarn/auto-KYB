@@ -35,7 +35,7 @@ const VARIANT_CONTENT: Record<DashboardOnboardingVariant, VariantContent> = {
 
 const STEP_CONTENT: Record<DashboardOnboardingStepKey, StepContent> = {
   form: {
-    quickLabel: 'Review your form',
+    quickLabel: 'Review or create a new form',
     quickDescription: 'A default form already exists, so the next move is to review it and shape it to your workflow.',
     detailsTitle: 'Review or customize your default form',
     detailsBody: 'Open your existing form, rename it if needed, and adjust the fields so the first client receives a workflow that matches your onboarding process.',

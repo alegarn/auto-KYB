@@ -13,7 +13,7 @@ RSpec.describe 'E2E Onboarding Flow', type: :system, js: true do
 
     # Verify the Onboarding Card is visible
     expect(page).to have_content('Launch your first client workflow', wait: 5)
-    expect(page).to have_content('Review your form')
+    expect(page).to have_content('Review or create a new form')
     expect(page).to have_content('Add a client')
 
     # Dismiss onboarding
@@ -25,7 +25,7 @@ RSpec.describe 'E2E Onboarding Flow', type: :system, js: true do
     
     # The card should disappear
     expect(page).not_to have_content('Launch your first client workflow', wait: 5)
-    expect(page).not_to have_content('Review your form', wait: 5)
+    expect(page).not_to have_content('Review or create a new form', wait: 5)
 
     # Reset the onboarding
     accept_confirm do
@@ -38,6 +38,6 @@ RSpec.describe 'E2E Onboarding Flow', type: :system, js: true do
 
     # The card should be visible again
     expect(page).to have_content('Launch your first client workflow', wait: 5)
-    expect(page).to have_content('Review your form', wait: 5)
+    expect(page).to have_content('Review or create a new form', wait: 5)
   end
 end

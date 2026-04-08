@@ -44,7 +44,7 @@ afterEach(() => {
 test('renders the basic quick steps correctly', () => {
   render(DashboardOnboardingCard, { props: { onboarding: basicOnboarding } });
 
-  expect(screen.getByText('Review your form')).toBeInTheDocument();
+  expect(screen.getByText('Review or create a new form')).toBeInTheDocument();
   expect(screen.getByText('Add a client')).toBeInTheDocument();
   expect(screen.getByText('Share secure access')).toBeInTheDocument();
   expect(screen.queryByText('Connect your CRM')).not.toBeInTheDocument();

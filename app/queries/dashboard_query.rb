@@ -34,10 +34,12 @@ class DashboardQuery
   end
 
   def onboarding_summary
+    return { visible: false } if @user.dashboard_onboarding_dismissed?
+
     quick_steps = onboarding_steps
 
     {
-      visible: onboarding_visible?(quick_steps),
+      visible: true,
       variant: onboarding_variant,
       progress_percent: onboarding_progress_percent(quick_steps),
       completion_rule: onboarding_completion_rule,
@@ -62,7 +64,7 @@ class DashboardQuery
       onboarding_step(FORM_STEP_KEY, has_workspace_form?, form_step_href),
       onboarding_step(CLIENT_STEP_KEY, has_clients?, client_step_href),
       onboarding_step(INVITE_STEP_KEY, has_invited_client?, invite_step_href),
-      onboarding_step(REVIEW_STEP_KEY, has_submitted_client?, review_step_href)
+      onboarding_step(REVIEW_STEP_KEY, has_reviewed_and_exported?, review_step_href)
     ]
 
     steps << onboarding_step(CRM_STEP_KEY, crm_connected?, settings_path) if onboarding_variant == "pro"
@@ -78,10 +80,7 @@ class DashboardQuery
   end
 
   def onboarding_visible?(quick_steps)
-    return false if @user.dashboard_onboarding_dismissed?
-    return true if @user.dashboard_onboarding_restarted_at.present?
-
-    quick_steps.any? { |step| !step[:complete] }
+    !@user.dashboard_onboarding_dismissed?
   end
 
   def onboarding_progress_percent(quick_steps)
@@ -91,23 +90,43 @@ class DashboardQuery
   end
 
   def has_workspace_form?
-    @has_workspace_form ||= form_scope.exists?
+    return @has_workspace_form if defined?(@has_workspace_form)
+
+    scope = form_scope
+    scope = scope.where('forms.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+    
+    @has_workspace_form = scope.exists?
   end
 
   def has_clients?
-    @has_clients ||= client_scope.exists?
+    return @has_clients if defined?(@has_clients)
+    
+    scope = client_scope
+    scope = scope.where('clients.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+    
+    @has_clients = scope.exists?
   end
 
   def has_invited_client?
-    @has_invited_client ||= ClientForm.joins(:client).where(clients: { user_id: @user.id }).exists?
+    return @has_invited_client if defined?(@has_invited_client)
+    
+    scope = ClientForm.joins(:client).where(clients: { user_id: @user.id })
+    scope = scope.where('client_forms.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+    
+    @has_invited_client = scope.exists?
   end
 
-  def has_submitted_client?
-    @has_submitted_client ||= client_scope.where(form_status: %w[active validated]).exists?
+  def has_reviewed_and_exported?
+    @user.dashboard_onboarding_data_exported?
   end
 
   def crm_connected?
-    @crm_connected ||= @user.crm_connections.active.exists?
+    return @crm_connected if defined?(@crm_connected)
+
+    scope = @user.crm_connections.active
+    scope = scope.where('crm_connections.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+    
+    @crm_connected = scope.exists?
   end
 
   def crm_entitlement
@@ -115,11 +134,19 @@ class DashboardQuery
   end
 
   def latest_form_id
-    @latest_form_id ||= form_scope.order(updated_at: :desc).pick(:id)
+    return @latest_form_id if defined?(@latest_form_id)
+
+    scope = form_scope
+    scope = scope.where('forms.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+    @latest_form_id = scope.order(updated_at: :desc).pick(:id)
   end
 
   def latest_client_id
-    @latest_client_id ||= client_scope.order(updated_at: :desc).pick(:id)
+    return @latest_client_id if defined?(@latest_client_id)
+
+    scope = client_scope
+    scope = scope.where('clients.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+    @latest_client_id = scope.order(updated_at: :desc).pick(:id)
   end
 
   def form_step_href

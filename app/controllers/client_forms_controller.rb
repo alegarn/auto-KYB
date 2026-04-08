@@ -57,6 +57,8 @@ class ClientFormsController < ApplicationController
 
   # GET /client_forms/:id/export_responses(.csv)
   def export_responses
+    current_user.mark_dashboard_onboarding_exported! if current_user
+
     respond_to do |format|
       format.csv do
         csv_data = FormResponseExportService.call(@client_form)
