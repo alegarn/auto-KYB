@@ -13,9 +13,11 @@
   import { clients_path, dashboard_path, forms_path, quickstart_path } from "@/routes";
   import { getPathname } from "@/lib/utils";
   import DashboardOnboardingDetailsSheet from "/components/onboarding/DashboardOnboardingDetailsSheet.svelte";
+  import ResetOnboardingModal from "/components/onboarding/ResetOnboardingModal.svelte";
   import type { DashboardOnboarding } from "@/types/dashboard-onboarding";
 
   let isGuideOpen = $state(false);
+  let isResetModalOpen = $state(false);
 
   // Menu items.
   const items = [
@@ -52,11 +54,10 @@
     },
     {
       title: "Reset Onboarding",
-      url: "/onboarding/reset",
-      method: "patch",
+      url: "#",
       icon: BookOpenIcon,
       group: "Resources",
-      confirm: "Are you sure you want to restart the onboarding guide? Your existing forms and clients will NOT be deleted."
+      action: () => isResetModalOpen = true
     },
     {
       title: "Settings",
@@ -191,19 +192,6 @@
                       <item.icon />
                       <span>{item.title}</span>
                     </button>
-                  {:else if item.method}
-                    <button 
-                      class="flex items-center gap-2 clickable w-full text-left"
-                      onclick={() => {
-                        if (!item.confirm || confirm(item.confirm)) {
-                          router.visit(item.url, { method: item.method as any, preserveScroll: true });
-                        }
-                      }}
-                      {...props}
-                    >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </button>
                   {:else}
                     <Link 
                       href={item.url} 
@@ -266,3 +254,5 @@
     bind:open={isGuideOpen}
   />
 {/if}
+
+<ResetOnboardingModal bind:open={isResetModalOpen} />

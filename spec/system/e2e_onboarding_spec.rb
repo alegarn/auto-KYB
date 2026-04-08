@@ -28,13 +28,14 @@ RSpec.describe 'E2E Onboarding Flow', type: :system, js: true do
     expect(page).not_to have_content('Review or create a new form', wait: 5)
 
     # Reset the onboarding
-    accept_confirm do
-      page.execute_script("
-        const btns = Array.from(document.querySelectorAll('button'));
-        const resetBtn = btns.find(b => b.textContent.includes('Reset Onboarding'));
-        if (resetBtn) resetBtn.click();
-      ")
-    end
+    page.execute_script("
+      const btns = Array.from(document.querySelectorAll('button'));
+      const resetBtn = btns.find(b => b.textContent.includes('Reset Onboarding'));
+      if (resetBtn) resetBtn.click();
+    ")
+
+    expect(page).to have_content('Are you sure you want to restart the onboarding guide?', wait: 5)
+    click_button('Reset Guide')
 
     # The card should be visible again
     expect(page).to have_content('Launch your first client workflow', wait: 5)
