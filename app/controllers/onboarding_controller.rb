@@ -12,6 +12,12 @@ class OnboardingController < ApplicationController
     redirect_back fallback_location: dashboard_path, status: :see_other
   end
 
+  def reset
+    current_user.reset_dashboard_onboarding!
+
+    redirect_back fallback_location: dashboard_path, status: :see_other
+  end
+
   private
 
   def authorize_dashboard

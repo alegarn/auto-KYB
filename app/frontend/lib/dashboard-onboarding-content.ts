@@ -55,6 +55,13 @@ const STEP_CONTENT: Record<DashboardOnboardingStepKey, StepContent> = {
     detailsBody: 'From the client page, create the client subspace, reveal the one-time password, and share the secure portal access so the client can begin the onboarding flow.',
     ctaLabel: 'Open client page'
   },
+  review: {
+    quickLabel: 'Monitor & Export data',
+    quickDescription: 'Once a client fills out their form, their status changes. Validate their data and export the results to CSV.',
+    detailsTitle: 'Monitor submissions and export results',
+    detailsBody: 'After you share the link, your client will fill out the form. The client state evolves to "Active", and once approved, to "Validated". At that point, you can easily export the data to integrate into your existing tools.',
+    ctaLabel: 'View clients'
+  },
   crm: {
     quickLabel: 'Connect your CRM',
     quickDescription: 'Enable the CRM connection so you can manage manual export and automatic sync from the real settings flow.',

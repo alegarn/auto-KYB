@@ -1,4 +1,4 @@
-export type DashboardOnboardingStepKey = 'form' | 'client' | 'invite' | 'crm';
+export type DashboardOnboardingStepKey = 'form' | 'client' | 'invite' | 'review' | 'crm';
 
 export type DashboardOnboardingVariant = 'basic' | 'pro';
 

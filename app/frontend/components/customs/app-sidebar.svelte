@@ -8,9 +8,14 @@
   import BookOpenIcon from "@lucide/svelte/icons/book-open";
   import ArrowRightLeftIcon from "@lucide/svelte/icons/arrow-right-left";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
-  import { Link, page } from "@inertiajs/svelte";
+  import { Link, page, router } from "@inertiajs/svelte";
   import { crmAllowed, getSharedAuth } from "@/lib/shared-auth";
   import { clients_path, dashboard_path, forms_path, quickstart_path } from "@/routes";
+  import { getPathname } from "@/lib/utils";
+  import DashboardOnboardingDetailsSheet from "/components/onboarding/DashboardOnboardingDetailsSheet.svelte";
+  import type { DashboardOnboarding } from "@/types/dashboard-onboarding";
+
+  let isGuideOpen = $state(false);
 
   // Menu items.
   const items = [
@@ -39,10 +44,19 @@
       group: "Integration",
     },
     {
-      title: "Quickstart",
-      url: quickstart_path(),
+      title: "Detailed Onboarding",
+      url: "#",
       icon: BookOpenIcon,
       group: "Resources",
+      action: () => isGuideOpen = true
+    },
+    {
+      title: "Reset Onboarding",
+      url: "/onboarding/reset",
+      method: "patch",
+      icon: BookOpenIcon,
+      group: "Resources",
+      confirm: "Are you sure you want to restart the onboarding guide? Your existing forms and clients will NOT be deleted."
     },
     {
       title: "Settings",
@@ -66,14 +80,7 @@
   const resourceItems = $derived(filteredItems.filter(i => i.group === "Resources"));
   const accountItems = $derived(filteredItems.filter(i => i.group === "Account"));
 
-  const currentPath = $derived.by(() => {
-    const url = $page?.url ?? "";
-    try {
-      return new URL(url, "http://localhost").pathname;
-    } catch {
-      return url;
-    }
-  });
+  const currentPath = $derived(getPathname($page?.url));
 
   const isActiveRoute = (url: string) => {
     if (!url || url === "#") return false;
@@ -90,13 +97,13 @@
 <Sidebar.Root>
   {#if sharedAuth?.user}
     <Sidebar.Header class="p-4">
-      <div class="flex items-center gap-2 px-2 py-1.5">
-        <div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+      <div class="flex items-center gap-2 px-2 py-1.5 overflow-hidden">
+        <div class="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <HouseIcon class="size-4" />
         </div>
-        <div class="flex flex-col gap-0.5 leading-none">
-          <span class="font-semibold text-sm">Quick KYB</span>
-          <span class="text-xs text-muted-foreground">{sharedAuth.user.email}</span>
+        <div class="flex flex-col gap-0.5 leading-none overflow-hidden">
+          <span class="font-semibold text-sm truncate">Quick KYB</span>
+          <span class="text-xs text-muted-foreground truncate" title={sharedAuth.user?.email}>{sharedAuth.user?.email}</span>
         </div>
       </div>
     </Sidebar.Header>
@@ -175,15 +182,39 @@
             <Sidebar.MenuItem>
               <Sidebar.MenuButton>
                 {#snippet child({ props }: { props: Record<string, unknown> })}
-                  <Link 
-                    href={item.url} 
-                    {...props} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                  >
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
+                  {#if 'action' in item}
+                    <button 
+                      class="flex items-center gap-2 clickable w-full text-left"
+                      onclick={item.action}
+                      {...props}
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </button>
+                  {:else if item.method}
+                    <button 
+                      class="flex items-center gap-2 clickable w-full text-left"
+                      onclick={() => {
+                        if (!item.confirm || confirm(item.confirm)) {
+                          router.visit(item.url, { method: item.method as any, preserveScroll: true });
+                        }
+                      }}
+                      {...props}
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </button>
+                  {:else}
+                    <Link 
+                      href={item.url} 
+                      {...props} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  {/if}
                 {/snippet}
               </Sidebar.MenuButton>
             </Sidebar.MenuItem>
@@ -228,3 +259,10 @@
     </Sidebar.Group>
   </Sidebar.Footer>
 </Sidebar.Root>
+
+{#if isGuideOpen && ($page?.props as any)?.onboarding}
+  <DashboardOnboardingDetailsSheet
+    onboarding={($page?.props as Record<string, unknown>).onboarding as DashboardOnboarding}
+    bind:open={isGuideOpen}
+  />
+{/if}

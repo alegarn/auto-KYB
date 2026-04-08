@@ -5,6 +5,7 @@ class DashboardQuery
   FORM_STEP_KEY = "form".freeze
   CLIENT_STEP_KEY = "client".freeze
   INVITE_STEP_KEY = "invite".freeze
+  REVIEW_STEP_KEY = "review".freeze
   CRM_STEP_KEY = "crm".freeze
 
   def initialize(user)
@@ -60,7 +61,8 @@ class DashboardQuery
     steps = [
       onboarding_step(FORM_STEP_KEY, has_workspace_form?, form_step_href),
       onboarding_step(CLIENT_STEP_KEY, has_clients?, client_step_href),
-      onboarding_step(INVITE_STEP_KEY, has_invited_client?, invite_step_href)
+      onboarding_step(INVITE_STEP_KEY, has_invited_client?, invite_step_href),
+      onboarding_step(REVIEW_STEP_KEY, has_submitted_client?, review_step_href)
     ]
 
     steps << onboarding_step(CRM_STEP_KEY, crm_connected?, settings_path) if onboarding_variant == "pro"
@@ -77,6 +79,7 @@ class DashboardQuery
 
   def onboarding_visible?(quick_steps)
     return false if @user.dashboard_onboarding_dismissed?
+    return true if @user.dashboard_onboarding_restarted_at.present?
 
     quick_steps.any? { |step| !step[:complete] }
   end
@@ -97,6 +100,10 @@ class DashboardQuery
 
   def has_invited_client?
     @has_invited_client ||= ClientForm.joins(:client).where(clients: { user_id: @user.id }).exists?
+  end
+
+  def has_submitted_client?
+    @has_submitted_client ||= client_scope.where(form_status: %w[active validated]).exists?
   end
 
   def crm_connected?
@@ -131,6 +138,13 @@ class DashboardQuery
     return new_client_path if latest_client_id.blank?
 
     client_path(latest_client_id)
+  end
+
+  def review_step_href
+    latest_submitted = client_scope.where(form_status: %w[active validated]).order(updated_at: :desc).pick(:id)
+    return client_path(latest_submitted) if latest_submitted.present?
+
+    latest_client_id.present? ? client_path(latest_client_id) : clients_path
   end
 
   def client_scope

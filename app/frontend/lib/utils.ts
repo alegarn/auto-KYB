@@ -28,6 +28,21 @@ export function hasError(errors: any, field: string): boolean {
   return (errors[field] && errors[field].length) > 0;
 }
 
+/**
+ * Safely extracts the pathname from a URL string, handling relative paths and 
+ * avoiding hardcoded hostnames that might be flagged by browsers.
+ */
+export function getPathname(url: string | undefined | null): string {
+  if (!url) return "";
+  try {
+    // We use a dummy base for relative URLs, but window.location.origin is preferred if available
+    const base = typeof window !== 'undefined' ? window.location.origin : 'https://a';
+    return new URL(url, base).pathname;
+  } catch {
+    return url;
+  }
+}
+
 // Generic alias allowing unknown extra props/events to be passed through.
 export type ElementProps<T = Record<string, any>, E = Element | null> = WithElementRef<T, E> & Record<string, any>
 

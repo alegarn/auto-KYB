@@ -20,6 +20,11 @@ class ApplicationController < ActionController::Base
   inertia_share flash: -> { flash.to_hash },
                session_id: -> { current_session_id },
                crm_transfer_signals: -> { crm_transfer_signals_props },
+               onboarding: -> {
+                 return nil unless current_user
+
+                 DashboardQuery.new(current_user).onboarding_summary
+               },
                auth: -> {
                  user = current_user
                  next nil unless user

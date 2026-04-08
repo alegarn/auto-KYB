@@ -28,7 +28,7 @@
 </script>
 
 <Sheet.Root bind:open>
-  <Sheet.Content side="right" class="w-full sm:max-w-xl">
+  <Sheet.Content side="right" class="w-full sm:max-w-xl p-6">
     <Sheet.Header>
       <Sheet.Title>{variantContent.detailsTitle}</Sheet.Title>
       <Sheet.Description>{variantContent.detailsDescription}</Sheet.Description>

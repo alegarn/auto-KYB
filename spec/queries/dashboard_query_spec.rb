@@ -12,7 +12,7 @@ RSpec.describe DashboardQuery do
       expect(summary).to include(
         visible: true,
         variant: "basic",
-        progress_percent: 33,
+        progress_percent: 25,
         completion_rule: "basic_core",
         can_dismiss: true,
         detailed_view_seen: false
@@ -20,7 +20,8 @@ RSpec.describe DashboardQuery do
       expect(summary[:quick_steps]).to eq([
         { key: "form", complete: true, href: route_helpers.edit_form_path(user.forms.order(updated_at: :desc).pick(:id)) },
         { key: "client", complete: false, href: route_helpers.new_client_path },
-        { key: "invite", complete: false, href: route_helpers.new_client_path }
+        { key: "invite", complete: false, href: route_helpers.new_client_path },
+        { key: "review", complete: false, href: route_helpers.clients_path }
       ])
     end
 
@@ -34,10 +35,10 @@ RSpec.describe DashboardQuery do
       expect(summary).to include(
         visible: true,
         variant: "pro",
-        progress_percent: 75,
+        progress_percent: 60,
         completion_rule: "pro_with_crm"
       )
-      expect(summary[:quick_steps].map { |step| step[:key] }).to eq(%w[form client invite crm])
+      expect(summary[:quick_steps].map { |step| step[:key] }).to eq(%w[form client invite review crm])
       expect(summary[:quick_steps].last).to eq(
         key: "crm",
         complete: false,
@@ -56,7 +57,7 @@ RSpec.describe DashboardQuery do
 
     it "hides onboarding after form, client, and invite are complete for basic users" do
       user = create(:user, :subscribed, plan: :basic)
-      client = create(:client, user: user)
+      client = create(:client, user: user, form_status: "validated")
       create(:client_form, client: client, form: user.forms.first)
 
       summary = described_class.new(user).onboarding_summary
@@ -68,9 +69,9 @@ RSpec.describe DashboardQuery do
       )
     end
 
-    it "hides onboarding after form, client, invite, and CRM are complete for entitled users" do
+    it "hides onboarding after form, client, invite, review and CRM are complete for entitled users" do
       user = create(:user, :subscribed, plan: :pro)
-      client = create(:client, user: user)
+      client = create(:client, user: user, form_status: "validated")
       create(:client_form, client: client, form: user.forms.first)
       create(:crm_connection, user: user, status: "active")
 

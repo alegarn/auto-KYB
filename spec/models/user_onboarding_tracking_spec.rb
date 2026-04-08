@@ -9,6 +9,7 @@ RSpec.describe User, type: :model do
         "dismissed_at" => nil,
         "detailed_view_seen_at" => nil,
         "demo_seeded_at" => nil,
+        "restarted_at" => nil,
         "version" => OnboardingTracking::DASHBOARD_ONBOARDING_STATE_VERSION
       )
     end

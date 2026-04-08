@@ -3,15 +3,13 @@
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import Toast from "/components/customs/Toast.svelte";
   import { page } from "@inertiajs/svelte";
+  import { getPathname } from "@/lib/utils";
 
   let { children } = $props();
 
   const sessionId = $derived(($page?.props as Record<string, unknown>)?.session_id as string);
 
-  const currentPath = $derived.by(() => {
-    const url = $page?.url ?? "";
-    try { return new URL(url, "http://localhost").pathname; } catch { return url; }
-  });
+  const currentPath = $derived(getPathname($page?.url));
 
   const crmSignals = $derived(($page?.props as any)?.crm_transfer_signals);
   const crmToast = $derived(crmSignals?.toast);

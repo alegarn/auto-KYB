@@ -185,13 +185,8 @@
     <p class="text-sm text-muted-foreground">{user?.email}</p>
   </div>
   <div class="flex flex-col gap-2 sm:flex-row">
-    <Button href={quickstart_path()} variant="outline" class="gap-2">
-      <BookOpenIcon class="h-4 w-4" />
-      Quickstart Guide
-    </Button>
     <Button href={new_form_path()} variant="secondary">New Form</Button>
     <Button href={new_client_path()} variant="default">New Client</Button>
-
   </div>
 </section>
 
