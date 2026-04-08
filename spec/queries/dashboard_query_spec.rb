@@ -55,7 +55,7 @@ RSpec.describe DashboardQuery do
       expect(summary[:visible]).to be(false)
     end
 
-    it "shows onboarding at 100% until manually dismissed for basic users" do
+    it "automatically dismisses and hides onboarding at 100% completion for basic users" do
       user = create(:user, :subscribed, plan: :basic)
       client = create(:client, user: user, form_status: "validated")
       create(:client_form, client: client, form: user.forms.first)
@@ -64,13 +64,12 @@ RSpec.describe DashboardQuery do
       summary = described_class.new(user).onboarding_summary
 
       expect(summary).to include(
-        visible: true,
-        progress_percent: 100,
-        variant: "basic"
+        visible: false
       )
+      expect(user.reload.dashboard_onboarding_dismissed?).to be(true)
     end
 
-    it "shows onboarding at 100% until manually dismissed for entitled users" do
+    it "automatically dismisses and hides onboarding at 100% completion for entitled users" do
       user = create(:user, :subscribed, plan: :pro)
       client = create(:client, user: user, form_status: "validated")
       create(:client_form, client: client, form: user.forms.first)
@@ -80,10 +79,9 @@ RSpec.describe DashboardQuery do
       summary = described_class.new(user).onboarding_summary
 
       expect(summary).to include(
-        visible: true,
-        progress_percent: 100,
-        variant: "pro"
+        visible: false
       )
+      expect(user.reload.dashboard_onboarding_dismissed?).to be(true)
     end
 
     it "exposes detailed_view_seen from the dashboard onboarding state" do

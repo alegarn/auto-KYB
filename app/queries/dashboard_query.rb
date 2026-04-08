@@ -37,6 +37,13 @@ class DashboardQuery
     return { visible: false } if @user.dashboard_onboarding_dismissed?
 
     quick_steps = onboarding_steps
+    is_completed = quick_steps.all? { |step| step[:complete] }
+
+    if is_completed
+      # Automatically dismiss the onboarding once all steps are completed
+      @user.dismiss_dashboard_onboarding!
+      return { visible: false }
+    end
 
     {
       visible: true,
