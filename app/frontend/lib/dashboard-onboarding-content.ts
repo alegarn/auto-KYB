@@ -1,4 +1,5 @@
-import type { DashboardOnboardingStepKey, DashboardOnboardingVariant, Guide, GuideKey } from '@/types/dashboard-onboarding';
+import { getGuidePracticeItems } from '@/lib/onboarding-tutorials';
+import type { DashboardOnboarding, DashboardOnboardingStepKey, DashboardOnboardingVariant, Guide, GuideKey } from '@/types/dashboard-onboarding';
 
 type VariantContent = {
   eyebrow: string;
@@ -15,6 +16,8 @@ type StepContent = {
   detailsBody: string;
   ctaLabel: string;
 };
+
+type GuideTemplate = Omit<Guide, 'practice'>;
 
 const VARIANT_CONTENT: Record<DashboardOnboardingVariant, VariantContent> = {
   basic: {
@@ -79,7 +82,7 @@ export function getDashboardOnboardingStepContent(stepKey: DashboardOnboardingSt
   return STEP_CONTENT[stepKey];
 }
 
-const GUIDE_CONTENT: Record<GuideKey, Guide> = {
+const GUIDE_CONTENT: Record<GuideKey, GuideTemplate> = {
   form_builder: {
     key: 'form_builder',
     title: 'Form Builder',
@@ -192,12 +195,12 @@ const GUIDE_CONTENT: Record<GuideKey, Guide> = {
   },
 };
 
-export function getGuides(variant: DashboardOnboardingVariant): Guide[] {
+export function getGuides(onboarding: DashboardOnboarding): Guide[] {
   const all = Object.values(GUIDE_CONTENT);
-  if (variant === 'basic') return all.filter((g) => !g.pro_only);
-  return all;
-}
+  const visibleGuides = onboarding.variant === 'basic' ? all.filter((guide) => !guide.pro_only) : all;
 
-export function getGuide(key: GuideKey): Guide {
-  return GUIDE_CONTENT[key];
+  return visibleGuides.map((guide) => ({
+    ...guide,
+    practice: getGuidePracticeItems(guide.key, onboarding),
+  }));
 }

@@ -209,7 +209,7 @@
           <button type="button" class="px-3 py-1 rounded" class:font-semibold={!preview} onclick={() => { preview = false; results = {} }}>
             Edit
           </button>
-          <button type="button" class="px-3 py-1 rounded" class:font-semibold={preview} onclick={() => { preview = true; results = {} }}>
+          <button type="button" class="px-3 py-1 rounded" class:font-semibold={preview} data-onboarding-tutorial="form-preview-toggle" onclick={() => { preview = true; results = {} }}>
             Preview
           </button>
         </div>
@@ -272,7 +272,7 @@
         {#if Object.keys(results || {}).length > 0}
           <div>
             <h2>Preview Results</h2>
-            <div class="flex items-center gap-2 mb-2">
+            <div class="mb-2 flex items-center gap-2" data-onboarding-tutorial="form-output-format">
               <button type="button" class="px-3 py-1 rounded bg-gray-100" onclick={() => (outputFormat = 'json')}>JSON</button>
               <button type="button" class="px-3 py-1 rounded bg-gray-100" onclick={() => (outputFormat = 'csv')}>CSV</button>
               <div class="text-sm text-muted-foreground ml-2">Format: {outputFormat}</div>
@@ -283,24 +283,26 @@
             </div>
           </div>
         {:else}
-          <FormBuilder
-            bind:fields
-            bind:settings
-            {showMappingWarning}
-            showCrmMappingWarning={showUnmappedCrmWarning}
-            crmMappingWarningProviderName={singleCrmProviderName}
-            unmappedCrmFieldLabels={unmappedFields.map((field) => field.label || 'Unnamed field')}
-            onopencrmmapping={openCrmMapping}
-            onmappingvaliditychange={(isValid) => {
-              mappingValid = isValid
-              if (isValid) {
-                showMappingWarning = false
-                if (clientError === 'Not all fields are unique for export mapping.') {
-                  clientError = ''
+          <div data-onboarding-tutorial="form-builder-shell">
+            <FormBuilder
+              bind:fields
+              bind:settings
+              {showMappingWarning}
+              showCrmMappingWarning={showUnmappedCrmWarning}
+              crmMappingWarningProviderName={singleCrmProviderName}
+              unmappedCrmFieldLabels={unmappedFields.map((field) => field.label || 'Unnamed field')}
+              onopencrmmapping={openCrmMapping}
+              onmappingvaliditychange={(isValid) => {
+                mappingValid = isValid
+                if (isValid) {
+                  showMappingWarning = false
+                  if (clientError === 'Not all fields are unique for export mapping.') {
+                    clientError = ''
+                  }
                 }
-              }
-            }}
-          />
+              }}
+            />
+          </div>
         {/if}
       {/if}
 </section>

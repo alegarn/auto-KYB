@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button } from '/components/ui/button';
   import * as Sheet from '/components/ui/sheet';
-  import { getDashboardOnboardingStepContent, getDashboardOnboardingVariantContent, getGuides, getGuide } from '@/lib/dashboard-onboarding-content';
+  import { getDashboardOnboardingStepContent, getDashboardOnboardingVariantContent, getGuides } from '@/lib/dashboard-onboarding-content';
   import type { DashboardOnboarding, GuideKey } from '@/types/dashboard-onboarding';
   import { router } from '@inertiajs/svelte';
 
@@ -23,8 +23,8 @@
       content: getDashboardOnboardingStepContent(step.key)
     }))
   );
-  const guides = $derived(getGuides(onboarding.variant));
-  const selectedGuide = $derived(selectedGuideKey ? getGuide(selectedGuideKey) : null);
+  const guides = $derived(getGuides(onboarding));
+  const selectedGuide = $derived(guides.find((guide) => guide.key === selectedGuideKey) ?? null);
 
   function statusClasses(complete: boolean) {
     return complete
@@ -111,7 +111,39 @@
           </h3>
           <p class="mt-1 text-sm text-muted-foreground">{selectedGuide.description}</p>
 
+          {#if selectedGuide.practice.length > 0}
+            <div class="mt-5 space-y-3">
+              <div class="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <h4 class="text-sm font-semibold text-foreground">Practice in the app</h4>
+                <p class="mt-1 text-sm text-muted-foreground">
+                  Each mini tutorial opens on the real screen, highlights the exact control, and can be closed instantly.
+                </p>
+              </div>
+
+              {#each selectedGuide.practice as practice}
+                <section class="rounded-lg border border-border bg-background p-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 class="text-sm font-medium text-foreground">{practice.title}</h4>
+                      <p class="mt-1 text-sm text-muted-foreground">{practice.description}</p>
+                      {#if practice.unavailableReason}
+                        <p class="mt-2 text-xs text-muted-foreground">{practice.unavailableReason}</p>
+                      {/if}
+                    </div>
+
+                    <Button href={practice.href ?? undefined} size="sm" variant="default" disabled={!practice.href}>
+                      {practice.href ? practice.ctaLabel : 'Unavailable'}
+                    </Button>
+                  </div>
+                </section>
+              {/each}
+            </div>
+          {/if}
+
           <div class="mt-4 space-y-3">
+            <div>
+              <h4 class="text-sm font-semibold text-foreground">What to look for</h4>
+            </div>
             {#each selectedGuide.tips as tip}
               <div class="rounded-lg border border-border bg-muted/40 p-3">
                 <h4 class="text-sm font-medium text-foreground">{tip.title}</h4>
@@ -141,7 +173,7 @@
                 </h3>
                 <p class="mt-1 text-sm text-muted-foreground">{guide.description}</p>
                 <span class="mt-2 inline-block text-xs text-muted-foreground">
-                  {guide.tips.length} tips
+                  {guide.practice.length} mini tutorial{guide.practice.length === 1 ? '' : 's'} • {guide.tips.length} tips
                 </span>
               </div>
               {#if onboarding.guides_seen?.[guide.key]}

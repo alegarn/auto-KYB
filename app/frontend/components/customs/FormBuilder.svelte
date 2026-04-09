@@ -138,11 +138,11 @@
 </script>
 
 <div class="grid w-full min-w-0 gap-4 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
-  <div class="block min-w-0 lg:block">
+  <div class="block min-w-0 lg:block" data-onboarding-tutorial="form-builder-palette">
     <Palette add={addField} />
   </div>
 
-  <div class="w-full min-w-0">
+  <div class="w-full min-w-0" data-onboarding-tutorial="form-builder-canvas">
     <Canvas
       {fields}
       {selectedIndex}
@@ -196,6 +196,7 @@
       <button
         type="button"
         class="flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors {rightPanelView === 'mapping' ? 'bg-background shadow-sm border-border' : 'border-transparent text-muted-foreground hover:text-foreground'} {showMappingWarning && hasMappingDuplicates ? 'border-destructive text-destructive ring-1 ring-destructive/30' : ''}"
+        data-onboarding-tutorial="form-builder-mapping-tab"
         onclick={() => rightPanelView = 'mapping'}
       >
         Mapping

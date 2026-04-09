@@ -259,7 +259,7 @@
       </div>
 
       <!-- Client Subspace -->
-      <div class="border rounded-xl p-5 bg-card text-card-foreground shadow-sm">
+      <div class="border rounded-xl p-5 bg-card text-card-foreground shadow-sm" data-onboarding-tutorial="client-subspace">
         <h2 class="text-lg font-semibold mb-1">Client subspace</h2>
 
         {#if client_form}
@@ -300,7 +300,7 @@
                   <p class="text-xs text-muted-foreground">No forms available yet. Create a form first.</p>
                 {/if}
               </div>
-              <Button type="submit" class="w-full sm:w-auto">Create subspace</Button>
+              <Button type="submit" class="w-full sm:w-auto" data-onboarding-tutorial="client-create-subspace">Create subspace</Button>
             </div>
           </InertiaForm>
         {/if}
@@ -385,7 +385,7 @@
       {/if}
 
       <!-- Data Exports & Actions -->
-      <div class="pt-8 mt-4 border-t">
+      <div class="pt-8 mt-4 border-t" data-onboarding-tutorial="client-exports">
         <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
           <Download class="size-5 text-muted-foreground" />
           Data inventory & exports
@@ -396,10 +396,10 @@
           <div class="p-4 rounded-xl border bg-muted/30">
             <h3 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Client profile</h3>
             <div class="flex flex-wrap gap-2">
-              <a href={export_client_path(client['id'], { format: "json" })} target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium bg-background border shadow-sm hover:bg-muted transition-colors" aria-label="Export client as JSON">
+              <a href={export_client_path(client['id'], { format: "json" })} target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium bg-background border shadow-sm hover:bg-muted transition-colors" aria-label="Export client as JSON" data-onboarding-tutorial="client-export-json">
                 <FileText class="size-4" /> JSON
               </a>
-              <a href={export_client_path(client['id'], { format: "csv" })} target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium bg-background border shadow-sm hover:bg-muted transition-colors" aria-label="Export client as CSV">
+              <a href={export_client_path(client['id'], { format: "csv" })} target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium bg-background border shadow-sm hover:bg-muted transition-colors" aria-label="Export client as CSV" data-onboarding-tutorial="client-export-csv">
                 <FileText class="size-4" /> CSV
               </a>
             </div>

@@ -4,10 +4,26 @@ export type DashboardOnboardingVariant = 'basic' | 'pro';
 
 export type GuideKey = 'form_builder' | 'client_workflow' | 'crm_sync';
 
+export type OnboardingTutorialKey =
+  | 'form_builder_basics'
+  | 'form_export_basics'
+  | 'client_profile_basics'
+  | 'client_exports_basics'
+  | 'crm_sync_basics';
+
 export type GuideTip = {
   title: string;
   body: string;
   href?: string;
+};
+
+export type GuidePractice = {
+  tutorialKey: OnboardingTutorialKey;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  href: string | null;
+  unavailableReason?: string;
 };
 
 export type Guide = {
@@ -17,6 +33,7 @@ export type Guide = {
   icon: string;
   pro_only: boolean;
   tips: GuideTip[];
+  practice: GuidePractice[];
 };
 
 export type DashboardOnboardingStep = {

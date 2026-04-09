@@ -3,17 +3,45 @@
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import Toast from "/components/customs/Toast.svelte";
   import { page } from "@inertiajs/svelte";
+  import { getOnboardingTutorialKey } from '@/lib/onboarding-tutorials';
   import { getPathname } from "@/lib/utils";
 
   let { children } = $props();
 
+  type OnboardingTutorialHostComponentType = typeof import('/components/onboarding/OnboardingTutorialHost.svelte').default;
+
   const sessionId = $derived(($page?.props as Record<string, unknown>)?.session_id as string);
 
   const currentPath = $derived(getPathname($page?.url));
+  const activeTutorialKey = $derived(getOnboardingTutorialKey($page?.url));
 
   const crmSignals = $derived(($page?.props as any)?.crm_transfer_signals);
   const crmToast = $derived(crmSignals?.toast);
   const showCrmToast = $derived(!!crmToast && !currentPath.startsWith('/crm_transfers'));
+  let OnboardingTutorialHostComponent = $state<OnboardingTutorialHostComponentType | null>(null);
+
+  $effect(() => {
+    if (!activeTutorialKey) {
+      OnboardingTutorialHostComponent = null;
+      return;
+    }
+
+    let active = true;
+
+    import('/components/onboarding/OnboardingTutorialHost.svelte')
+      .then((module) => {
+        if (active) {
+          OnboardingTutorialHostComponent = module.default;
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load onboarding tutorial host', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  });
 </script>
 
 <Sidebar.Provider>
@@ -25,4 +53,8 @@
     {/if}
     {@render children?.()}
   </main>
+
+  {#if OnboardingTutorialHostComponent && activeTutorialKey}
+    <OnboardingTutorialHostComponent tutorialKey={activeTutorialKey} />
+  {/if}
 </Sidebar.Provider>
