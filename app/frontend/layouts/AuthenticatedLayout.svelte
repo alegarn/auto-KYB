@@ -3,7 +3,10 @@
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import Toast from "/components/customs/Toast.svelte";
   import { page } from "@inertiajs/svelte";
-  import { getOnboardingTutorialKey } from '@/lib/onboarding-tutorials';
+  import {
+    getOnboardingTutorialKey,
+    ONBOARDING_TUTORIAL_LOCATION_CHANGE_EVENT,
+  } from '@/lib/onboarding-tutorials';
   import { getPathname } from "@/lib/utils";
 
   let { children } = $props();
@@ -11,14 +14,37 @@
   type OnboardingTutorialHostComponentType = typeof import('/components/onboarding/OnboardingTutorialHost.svelte').default;
 
   const sessionId = $derived(($page?.props as Record<string, unknown>)?.session_id as string);
+  const pageUrl = $derived($page?.url);
+  let browserUrl = $state<string | null>(null);
 
   const currentPath = $derived(getPathname($page?.url));
-  const activeTutorialKey = $derived(getOnboardingTutorialKey($page?.url));
+  const activeTutorialKey = $derived(getOnboardingTutorialKey(browserUrl ?? pageUrl));
 
   const crmSignals = $derived(($page?.props as any)?.crm_transfer_signals);
   const crmToast = $derived(crmSignals?.toast);
   const showCrmToast = $derived(!!crmToast && !currentPath.startsWith('/crm_transfers'));
   let OnboardingTutorialHostComponent = $state<OnboardingTutorialHostComponentType | null>(null);
+
+  $effect(() => {
+    browserUrl = pageUrl;
+  });
+
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncBrowserUrl = () => {
+      browserUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    };
+
+    syncBrowserUrl();
+    window.addEventListener('popstate', syncBrowserUrl);
+    window.addEventListener(ONBOARDING_TUTORIAL_LOCATION_CHANGE_EVENT, syncBrowserUrl);
+
+    return () => {
+      window.removeEventListener('popstate', syncBrowserUrl);
+      window.removeEventListener(ONBOARDING_TUTORIAL_LOCATION_CHANGE_EVENT, syncBrowserUrl);
+    };
+  });
 
   $effect(() => {
     if (!activeTutorialKey) {

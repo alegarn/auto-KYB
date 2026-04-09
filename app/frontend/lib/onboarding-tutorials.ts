@@ -8,6 +8,7 @@ import type {
 } from '@/types/dashboard-onboarding';
 
 export const ONBOARDING_TUTORIAL_QUERY_PARAM = 'onboarding_tutorial';
+export const ONBOARDING_TUTORIAL_LOCATION_CHANGE_EVENT = 'quick-kyb:onboarding-tutorial-location-change';
 
 export type OnboardingTutorialActionKind = 'focus' | 'click' | 'scroll';
 
@@ -214,6 +215,11 @@ export function clearOnboardingTutorialFromCurrentLocation() {
   const url = new URL(window.location.href);
   url.searchParams.delete(ONBOARDING_TUTORIAL_QUERY_PARAM);
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  window.dispatchEvent(
+    new CustomEvent(ONBOARDING_TUTORIAL_LOCATION_CHANGE_EVENT, {
+      detail: { href: `${url.pathname}${url.search}${url.hash}` },
+    }),
+  );
 }
 
 export function getGuidePracticeItems(guideKey: GuideKey, onboarding: DashboardOnboarding): GuidePractice[] {
