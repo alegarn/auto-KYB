@@ -15,7 +15,8 @@ RSpec.describe DashboardQuery do
         progress_percent: 25,
         completion_rule: "basic_core",
         can_dismiss: true,
-        detailed_view_seen: false
+        detailed_view_seen: false,
+        guides_seen: {}
       )
       expect(summary[:quick_steps]).to eq([
         { key: "form", complete: true, href: route_helpers.edit_form_path(user.forms.order(updated_at: :desc).pick(:id)) },
@@ -46,16 +47,30 @@ RSpec.describe DashboardQuery do
       )
     end
 
-    it "hides onboarding after dismissal" do
+    it "returns the full onboarding contract after dismissal" do
       user = create(:user, :subscribed, plan: :basic)
       user.dismiss_dashboard_onboarding!
 
       summary = described_class.new(user).onboarding_summary
 
-      expect(summary[:visible]).to be(false)
+      expect(summary).to include(
+        visible: false,
+        variant: "basic",
+        progress_percent: 25,
+        completion_rule: "basic_core",
+        can_dismiss: false,
+        detailed_view_seen: false,
+        guides_seen: {}
+      )
+      expect(summary[:quick_steps]).to eq([
+        { key: "form", complete: true, href: route_helpers.edit_form_path(user.forms.order(updated_at: :desc).pick(:id)) },
+        { key: "client", complete: false, href: route_helpers.new_client_path },
+        { key: "invite", complete: false, href: route_helpers.new_client_path },
+        { key: "review", complete: false, href: route_helpers.clients_path }
+      ])
     end
 
-    it "automatically dismisses and hides onboarding at 100% completion for basic users" do
+    it "keeps the full onboarding contract when basic onboarding is auto-dismissed at 100%" do
       user = create(:user, :subscribed, plan: :basic)
       client = create(:client, user: user, form_status: "validated")
       create(:client_form, client: client, form: user.forms.first)
@@ -64,12 +79,24 @@ RSpec.describe DashboardQuery do
       summary = described_class.new(user).onboarding_summary
 
       expect(summary).to include(
-        visible: false
+        visible: false,
+        variant: "basic",
+        progress_percent: 100,
+        completion_rule: "basic_core",
+        can_dismiss: false,
+        detailed_view_seen: false,
+        guides_seen: {}
       )
+      expect(summary[:quick_steps]).to eq([
+        { key: "form", complete: true, href: route_helpers.edit_form_path(user.forms.order(updated_at: :desc).pick(:id)) },
+        { key: "client", complete: true, href: route_helpers.client_path(client) },
+        { key: "invite", complete: true, href: route_helpers.client_path(client) },
+        { key: "review", complete: true, href: route_helpers.client_path(client) }
+      ])
       expect(user.reload.dashboard_onboarding_dismissed?).to be(true)
     end
 
-    it "automatically dismisses and hides onboarding at 100% completion for entitled users" do
+    it "keeps the full onboarding contract when pro onboarding is auto-dismissed at 100%" do
       user = create(:user, :subscribed, plan: :pro)
       client = create(:client, user: user, form_status: "validated")
       create(:client_form, client: client, form: user.forms.first)
@@ -79,8 +106,21 @@ RSpec.describe DashboardQuery do
       summary = described_class.new(user).onboarding_summary
 
       expect(summary).to include(
-        visible: false
+        visible: false,
+        variant: "pro",
+        progress_percent: 100,
+        completion_rule: "pro_with_crm",
+        can_dismiss: false,
+        detailed_view_seen: false,
+        guides_seen: {}
       )
+      expect(summary[:quick_steps]).to eq([
+        { key: "form", complete: true, href: route_helpers.edit_form_path(user.forms.order(updated_at: :desc).pick(:id)) },
+        { key: "client", complete: true, href: route_helpers.client_path(client) },
+        { key: "invite", complete: true, href: route_helpers.client_path(client) },
+        { key: "review", complete: true, href: route_helpers.client_path(client) },
+        { key: "crm", complete: true, href: route_helpers.settings_path }
+      ])
       expect(user.reload.dashboard_onboarding_dismissed?).to be(true)
     end
 

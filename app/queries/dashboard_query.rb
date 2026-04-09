@@ -34,25 +34,18 @@ class DashboardQuery
   end
 
   def onboarding_summary
-    return { visible: false } if @user.dashboard_onboarding_dismissed?
-
     quick_steps = onboarding_steps
-    is_completed = quick_steps.all? { |step| step[:complete] }
-
-    if is_completed
-      # Automatically dismiss the onboarding once all steps are completed
-      @user.dismiss_dashboard_onboarding!
-      return { visible: false }
-    end
+    visible = onboarding_visible?(quick_steps)
 
     {
-      visible: true,
+      visible: visible,
       variant: onboarding_variant,
       progress_percent: onboarding_progress_percent(quick_steps),
       completion_rule: onboarding_completion_rule,
       quick_steps: quick_steps,
-      can_dismiss: true,
-      detailed_view_seen: @user.dashboard_onboarding_detailed_view_seen?
+      can_dismiss: visible,
+      detailed_view_seen: @user.dashboard_onboarding_detailed_view_seen?,
+      guides_seen: @user.dashboard_onboarding_guides_seen
     }
   end
 
@@ -87,7 +80,12 @@ class DashboardQuery
   end
 
   def onboarding_visible?(quick_steps)
-    !@user.dashboard_onboarding_dismissed?
+    return false if @user.dashboard_onboarding_dismissed?
+    return true unless quick_steps.all? { |step| step[:complete] }
+
+    # Automatically dismiss the onboarding once all steps are completed.
+    @user.dismiss_dashboard_onboarding!
+    false
   end
 
   def onboarding_progress_percent(quick_steps)

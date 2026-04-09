@@ -13,6 +13,7 @@ Rails.application.routes.draw do
   resource :onboarding, only: [], controller: "onboarding" do
     patch :dismiss
     patch :details_seen
+    patch :guide_seen
     patch :reset
   end
   get "quickstart", to: "quickstart#index"

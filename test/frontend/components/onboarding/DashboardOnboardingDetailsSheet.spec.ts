@@ -12,6 +12,7 @@ const basicOnboarding: DashboardOnboarding = {
   completion_rule: 'basic_core',
   can_dismiss: true,
   detailed_view_seen: true,
+  guides_seen: {},
   quick_steps: [
     { key: 'form', complete: true, href: '/forms/123/edit' },
     { key: 'client', complete: false, href: '/clients/new' },
@@ -45,12 +46,33 @@ test('hides the CRM section for basic onboarding', () => {
   expect(screen.queryByText('Connect your CRM from Settings')).not.toBeInTheDocument();
 });
 
+test('shows practice tutorials with contextual availability in the Explore tab', async () => {
+  const user = userEvent.setup();
+
+  render(DashboardOnboardingDetailsSheetTestHost, { props: { onboarding: basicOnboarding } });
+
+  await user.click(screen.getByRole('button', { name: 'Explore' }));
+  await user.click(screen.getByRole('button', { name: /Client Workflow/i }));
+
+  expect(screen.getByText('Practice in the app')).toBeInTheDocument();
+
+  const clientTutorialLink = screen.getByRole('link', { name: 'Open client tutorial' });
+  expect(clientTutorialLink).toHaveAttribute('href', expect.stringContaining('/clients/new?onboarding_tutorial=client_profile_basics'));
+
+  const disabledTutorialButton = screen.getByRole('button', { name: 'Unavailable' });
+  expect(disabledTutorialButton).toBeDisabled();
+  expect(screen.getByText('Create or open a client record first so the export panel exists on the page.')).toBeInTheDocument();
+});
+
 test('shows the CRM section for pro onboarding and closes correctly', async () => {
   const user = userEvent.setup();
 
   render(DashboardOnboardingDetailsSheetTestHost, { props: { onboarding: proOnboarding } });
 
   expect(screen.getByText('Connect your CRM from Settings')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Explore' }));
+  await user.click(screen.getByRole('button', { name: /CRM Integration/i }));
+  expect(screen.getByRole('link', { name: 'Open CRM tutorial' })).toHaveAttribute('href', expect.stringContaining('/settings?onboarding_tutorial=crm_sync_basics'));
   expect(screen.getByTestId('sheet-open-state')).toHaveTextContent('open');
 
   await user.click(screen.getByRole('button', { name: 'Close' }));

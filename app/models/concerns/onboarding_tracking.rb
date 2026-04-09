@@ -8,6 +8,7 @@ module OnboardingTracking
     demo_seeded_at
     restarted_at
     data_exported_at
+    guides_seen
     version
   ].freeze
 
@@ -67,6 +68,34 @@ module OnboardingTracking
     set_dashboard_onboarding_timestamp!(:data_exported_at, at: at)
   end
 
+  GUIDE_KEYS = %w[form_builder client_workflow crm_sync].freeze
+
+  def dashboard_onboarding_guides_seen
+    normalized_dashboard_onboarding_state["guides_seen"].to_h
+  end
+
+  def dashboard_onboarding_guide_seen?(guide_key)
+    dashboard_onboarding_current_version? && dashboard_onboarding_guides_seen[guide_key.to_s].present?
+  end
+
+  def mark_dashboard_onboarding_guide_seen!(guide_key, at: Time.current)
+    guide_key = guide_key.to_s
+    return unless GUIDE_KEYS.include?(guide_key)
+
+    with_lock do
+      reload
+      state = normalized_dashboard_onboarding_state
+      guides = state["guides_seen"].to_h
+      return if guides[guide_key].present? && state["version"].to_i == DASHBOARD_ONBOARDING_STATE_VERSION
+
+      guides[guide_key] = at.iso8601
+      state["guides_seen"] = guides
+      state["version"] = DASHBOARD_ONBOARDING_STATE_VERSION
+      update!(onboarding_state: state)
+      at
+    end
+  end
+
   def reset_dashboard_onboarding!(reset_progress: false)
     with_lock do
       reload
@@ -75,6 +104,7 @@ module OnboardingTracking
       state["detailed_view_seen_at"] = nil
       state["restarted_at"] = reset_progress ? Time.current.iso8601 : state["restarted_at"]
       state["data_exported_at"] = nil if reset_progress
+      state["guides_seen"] = {} if reset_progress
       state["version"] = DASHBOARD_ONBOARDING_STATE_VERSION
       
       update!(onboarding_state: state)
@@ -96,6 +126,7 @@ module OnboardingTracking
       "demo_seeded_at" => nil,
       "restarted_at" => nil,
       "data_exported_at" => nil,
+      "guides_seen" => {},
       "version" => DASHBOARD_ONBOARDING_STATE_VERSION
     }
   end
