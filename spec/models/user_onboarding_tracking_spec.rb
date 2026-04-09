@@ -11,6 +11,7 @@ RSpec.describe User, type: :model do
         "demo_seeded_at" => nil,
         "restarted_at" => nil,
         "data_exported_at" => nil,
+        "guides_seen" => {},
         "version" => OnboardingTracking::DASHBOARD_ONBOARDING_STATE_VERSION
       )
     end
@@ -79,6 +80,27 @@ RSpec.describe User, type: :model do
       expect(user.dashboard_onboarding_version).to eq(OnboardingTracking::DASHBOARD_ONBOARDING_STATE_VERSION)
       expect(user.dashboard_onboarding_dismissed_at).to eq(Time.zone.parse("2026-04-08 09:00:00 UTC"))
       expect(user.dashboard_onboarding_dismissed?).to be(true)
+    end
+
+    it "marks a guide as seen and ignores invalid guide keys" do
+      travel_to(Time.zone.parse("2026-04-07 11:00:00 UTC")) do
+        user.mark_dashboard_onboarding_guide_seen!(:form_builder)
+      end
+
+      user.reload
+      expect(user.dashboard_onboarding_guide_seen?(:form_builder)).to be(true)
+      expect(user.dashboard_onboarding_guides_seen).to eq("form_builder" => "2026-04-07T11:00:00Z")
+
+      # Invalid key is silently ignored
+      expect(user.mark_dashboard_onboarding_guide_seen!(:nonexistent)).to be_nil
+    end
+
+    it "clears guides_seen on reset with reset_progress" do
+      user.mark_dashboard_onboarding_guide_seen!(:form_builder)
+      user.reset_dashboard_onboarding!(reset_progress: true)
+
+      user.reload
+      expect(user.dashboard_onboarding_guides_seen).to eq({})
     end
   end
 end

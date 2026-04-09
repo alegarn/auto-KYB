@@ -15,7 +15,8 @@ RSpec.describe DashboardQuery do
         progress_percent: 25,
         completion_rule: "basic_core",
         can_dismiss: true,
-        detailed_view_seen: false
+        detailed_view_seen: false,
+        guides_seen: {}
       )
       expect(summary[:quick_steps]).to eq([
         { key: "form", complete: true, href: route_helpers.edit_form_path(user.forms.order(updated_at: :desc).pick(:id)) },

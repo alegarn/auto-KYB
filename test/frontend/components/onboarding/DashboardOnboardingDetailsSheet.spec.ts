@@ -12,6 +12,7 @@ const basicOnboarding: DashboardOnboarding = {
   completion_rule: 'basic_core',
   can_dismiss: true,
   detailed_view_seen: true,
+  guides_seen: {},
   quick_steps: [
     { key: 'form', complete: true, href: '/forms/123/edit' },
     { key: 'client', complete: false, href: '/clients/new' },

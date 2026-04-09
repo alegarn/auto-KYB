@@ -52,7 +52,8 @@ class DashboardQuery
       completion_rule: onboarding_completion_rule,
       quick_steps: quick_steps,
       can_dismiss: true,
-      detailed_view_seen: @user.dashboard_onboarding_detailed_view_seen?
+      detailed_view_seen: @user.dashboard_onboarding_detailed_view_seen?,
+      guides_seen: @user.dashboard_onboarding_guides_seen
     }
   end
 
