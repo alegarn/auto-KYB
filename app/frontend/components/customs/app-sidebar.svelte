@@ -19,6 +19,37 @@
   let isGuideOpen = $state(false);
   let isResetModalOpen = $state(false);
 
+  function isDashboardOnboarding(value: unknown): value is DashboardOnboarding {
+    if (!value || typeof value !== "object") return false;
+
+    const onboarding = value as Partial<DashboardOnboarding>;
+
+    return typeof onboarding.visible === "boolean"
+      && (onboarding.variant === "basic" || onboarding.variant === "pro")
+      && typeof onboarding.progress_percent === "number"
+      && (onboarding.completion_rule === "basic_core" || onboarding.completion_rule === "pro_with_crm")
+      && Array.isArray(onboarding.quick_steps)
+      && typeof onboarding.can_dismiss === "boolean"
+      && typeof onboarding.detailed_view_seen === "boolean"
+      && typeof onboarding.guides_seen === "object"
+      && onboarding.guides_seen !== null;
+  }
+
+  const sharedOnboarding = $derived(($page?.props as Record<string, unknown>)?.onboarding);
+  const dashboardOnboarding = $derived<DashboardOnboarding | null>(
+    isDashboardOnboarding(sharedOnboarding) ? sharedOnboarding : null
+  );
+
+  function openDetailedOnboarding() {
+    if (!dashboardOnboarding) return;
+
+    isGuideOpen = true;
+  }
+
+  function openResetOnboarding() {
+    isResetModalOpen = true;
+  }
+
   // Menu items.
   const items = [
     {
@@ -50,14 +81,14 @@
       url: "#",
       icon: BookOpenIcon,
       group: "Resources",
-      action: () => isGuideOpen = true
+      action: openDetailedOnboarding
     },
     {
       title: "Reset Onboarding",
       url: "#",
       icon: BookOpenIcon,
       group: "Resources",
-      action: () => isResetModalOpen = true
+      action: openResetOnboarding
     },
     {
       title: "Settings",
@@ -184,9 +215,12 @@
               <Sidebar.MenuButton>
                 {#snippet child({ props }: { props: Record<string, unknown> })}
                   {#if 'action' in item}
+                    {@const isDetailedOnboardingItem = item.title === "Detailed Onboarding"}
                     <button 
-                      class="flex items-center gap-2 clickable w-full text-left"
+                      type="button"
+                      class={`flex items-center gap-2 clickable w-full text-left ${isDetailedOnboardingItem && !dashboardOnboarding ? 'cursor-not-allowed opacity-50' : ''}`}
                       onclick={item.action}
+                      disabled={isDetailedOnboardingItem && !dashboardOnboarding}
                       {...props}
                     >
                       <item.icon />
@@ -248,9 +282,9 @@
   </Sidebar.Footer>
 </Sidebar.Root>
 
-{#if isGuideOpen && ($page?.props as any)?.onboarding}
+{#if isGuideOpen && dashboardOnboarding}
   <DashboardOnboardingDetailsSheet
-    onboarding={($page?.props as Record<string, unknown>).onboarding as DashboardOnboarding}
+    onboarding={dashboardOnboarding}
     bind:open={isGuideOpen}
   />
 {/if}
