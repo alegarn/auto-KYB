@@ -7,6 +7,7 @@ require "json"
 module Crm
   module Hubspot
     class OAuth
+
       TOKEN_URL     = "https://api.hubapi.com/oauth/v1/token"
       # Override via credentials hubspot.authorize_url for non-default data centres
       # e.g. hubspot: { authorize_url: "https://app-na2.hubspot.com/oauth/authorize" }
@@ -82,7 +83,7 @@ module Crm
           raise OAuthError, "HubSpot OAuth failed: #{data['message'] || data}"
         end
       end
+
     end
   end
 end
-

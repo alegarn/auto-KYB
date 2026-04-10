@@ -1,10 +1,16 @@
 import { fireEvent, waitFor } from '@testing-library/svelte'
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import FormResponse from '@/pages/ClientPortal/FormResponse.svelte'
 import { renderPage } from '../helpers/renderPage'
 
 const render = (component: any, options: { props?: Record<string, unknown> } = {}) =>
   renderPage({ pageName: 'ClientPortal/FormResponse', component, props: options.props ?? {} })
+
+const { autosaveState } = vi.hoisted(() => ({
+  autosaveState: {
+    partialSaves: [] as Record<string, any>[],
+  },
+}))
 
 vi.mock('@inertiajs/svelte', async () => {
   const actual = await vi.importActual('@inertiajs/svelte')
@@ -42,25 +48,38 @@ vi.mock('@inertiajs/svelte', async () => {
   }
 })
 
-vi.mock('@/lib/form-response/autosave', () => ({
-  createAutosave: ({ onSave }: { onSave: () => Promise<void> }) => ({
-    schedule: () => { void onSave() },
-    cancel: () => {},
-    flush: () => onSave(),
-  }),
-  buildDelta: () => ({ 'field-1': 'value' }),
-  mergeBase: (base: Record<string, any>, patch: Record<string, any>) => ({ ...base, ...patch }),
-}))
+vi.mock('@/lib/form-response/autosave', async () => {
+  const actual = await vi.importActual('@/lib/form-response/autosave')
+  return {
+    ...(actual as any),
+    createAutosave: ({ onSave }: { onSave: () => Promise<void> }) => ({
+      schedule: () => { void onSave() },
+      cancel: () => {},
+      flush: () => onSave(),
+    }),
+  }
+})
 
 vi.mock('@/lib/form-response/form-submit', () => ({
-  createFormSubmitter: (deps: { onAutosaveSuccess: (fields: string[]) => void }) => ({
+  createFormSubmitter: (deps: {
+    getPartialData: () => Record<string, any>
+    onAutosaveSuccess: (savedData: Record<string, any>) => void
+  }) => ({
     submit: async () => {},
-    savePartial: async () => { deps.onAutosaveSuccess(['field-1']) },
+    savePartial: async () => {
+      const savedData = deps.getPartialData()
+      autosaveState.partialSaves.push(savedData)
+      deps.onAutosaveSuccess(savedData)
+    },
   })
 }))
 
 describe('ClientPortal FormResponse', () => {
-  it('shows an autosave indicator after autosave', async () => {
+  beforeEach(() => {
+    autosaveState.partialSaves = []
+  })
+
+  it('only marks and saves the latest unsaved fields after consecutive autosaves', async () => {
     const portalForm = {
       name: 'Test Form',
       structure: { settings: {} },
@@ -71,22 +90,61 @@ describe('ClientPortal FormResponse', () => {
           field_type: 'text',
           required: false,
           metadata: {},
+        },
+        {
+          id: 'field-2',
+          label: 'Last name',
+          field_type: 'text',
+          required: false,
+          metadata: {},
         }
       ]
     }
 
-    const { getByLabelText, getByText } = render(FormResponse, {
+    const { container, getAllByText, getByLabelText, rerender } = render(FormResponse, {
       props: {
         form: portalForm,
         last_response: null,
       }
     })
 
-    const input = getByLabelText('First name')
-    await fireEvent.input(input, { target: { value: 'Ada' } })
+    const firstNameInput = getByLabelText('First name')
+    await fireEvent.input(firstNameInput, { target: { value: 'Ada' } })
 
     await waitFor(() => {
-      expect(getByText('Saved')).toBeInTheDocument()
+      expect(autosaveState.partialSaves).toEqual([
+        { 'field-1': 'Ada' },
+      ])
     })
+
+    await rerender({
+      pageName: 'ClientPortal/FormResponse',
+      component: FormResponse,
+      componentProps: {
+        form: portalForm,
+        last_response: {
+          data: { 'field-1': 'Ada' },
+          version: 1,
+        },
+      },
+    })
+
+    const lastNameInput = getByLabelText('Last name')
+    await fireEvent.input(lastNameInput, { target: { value: 'Lovelace' } })
+
+    await waitFor(() => {
+      expect(autosaveState.partialSaves).toEqual([
+        { 'field-1': 'Ada' },
+        { 'field-2': 'Lovelace' },
+      ])
+    })
+
+    await waitFor(() => {
+      expect(getAllByText('Saved')).toHaveLength(1)
+    })
+
+    const labels = Array.from(container.querySelectorAll('[data-slot="field-label"]'))
+    expect(labels[0]?.textContent).not.toContain('Saved')
+    expect(labels[1]?.textContent).toContain('Saved')
   })
 })

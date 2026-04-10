@@ -1,5 +1,6 @@
 module Crm
   class ClientCreateSyncExecutor
+
     def initialize(client:, connection:, service:, request_context:)
       @client = client
       @connection = connection
@@ -109,5 +110,6 @@ module Crm
     rescue NoMethodError
       # provider doesn't support association; ignore
     end
+
   end
 end

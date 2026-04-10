@@ -43,9 +43,9 @@ RSpec.describe Crm::Hubspot::FileUploader do
         # We must freeze time because Time.current is used in the payload
         freeze_time do
           result = uploader.upload(uploaded_file, target_type: :contact, target_id: "101")
-          
+
           expect(result).to eq({ file_id: "hub_file_123", name: "test.pdf" })
-          
+
           expected_body = {
             properties: {
               hs_note_body: "Original uploaded file: test.pdf",

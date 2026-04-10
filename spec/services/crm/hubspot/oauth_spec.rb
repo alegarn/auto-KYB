@@ -21,11 +21,11 @@ RSpec.describe Crm::Hubspot::OAuth do
     it 'returns the correct authorization URL' do
       state = 'random_state'
       url = oauth.authorize_url(state: state)
-      
+
       uri = URI(url)
       expect(uri.host).to eq('app.hubspot.com')
       expect(uri.path).to eq('/oauth/authorize')
-      
+
       params = Rack::Utils.parse_query(uri.query)
       expect(params['client_id']).to eq(client_id)
       expect(params['redirect_uri']).to eq(redirect_uri)

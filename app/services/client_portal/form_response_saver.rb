@@ -30,9 +30,9 @@ module ClientPortal
       end
 
       response = @client_form.save_response!(data: data, validate: @validate)
-      
+
       enqueue_crm_exports(@client_form.client) if @validate
-      
+
       Result.new(response: response, merged_data: data, conflict: false)
     end
 

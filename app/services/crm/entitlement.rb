@@ -2,6 +2,7 @@
 
 module Crm
   class Entitlement
+
     def initialize(user)
       @user = user
     end
@@ -43,5 +44,6 @@ module Crm
     private
 
     attr_reader :user
+
   end
 end

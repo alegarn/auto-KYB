@@ -6,6 +6,7 @@
 # Override in sub-policies to allow access to unauthenticated or non-subscribed users
 # (e.g. SettingsPolicy, SubscriptionPolicy).
 class ApplicationPolicy
+
   attr_reader :user, :record
 
   def initialize(user, record)
@@ -42,6 +43,7 @@ class ApplicationPolicy
   end
 
   class Scope
+
     def initialize(user, scope)
       @user = user
       @scope = scope
@@ -54,6 +56,7 @@ class ApplicationPolicy
     private
 
     attr_reader :user, :scope
+
   end
 
   private
@@ -62,4 +65,5 @@ class ApplicationPolicy
   def subscribed?
     user.present? && (user.active_subscription? || user.trialing?)
   end
+
 end

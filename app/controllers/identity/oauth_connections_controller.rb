@@ -1,4 +1,4 @@
-class Identity::OauthConnectionsController < ApplicationController
+class Identity::OAuthConnectionsController < ApplicationController
 
   before_action :authorize_settings
 

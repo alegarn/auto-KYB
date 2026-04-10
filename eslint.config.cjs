@@ -1,17 +1,28 @@
 // For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
-import storybook from "eslint-plugin-storybook";
 
 module.exports = [
   {
     ignores: [
       'node_modules',
+      'node_modules/',
       'public',
+      'public/assets',
       'log',
+      '*.log',
       'tmp',
       'vendor',
       'db/schema.rb',
       'app/assets',
+      'app/frontend/routes/index.js',
+      'app/frontend/routes/index.d.ts',
       'dist',
+      'build',
+      'coverage',
+      '*.min.js',
+      '.env*',
+      '.vscode/',
+      '.idea/',
+      '.DS_Store',
       '.git'
     ]
   },

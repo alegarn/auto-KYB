@@ -108,7 +108,7 @@ module Crm
         when String
           value.split(/[;,]/).map(&:strip).reject(&:empty?)
         else
-          [value.to_s].reject(&:empty?)
+          [ value.to_s ].reject(&:empty?)
         end
       end
 

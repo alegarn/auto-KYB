@@ -1,4 +1,5 @@
 class PrivacyController < ApplicationController
+
   skip_before_action :authenticate, only: :show
   before_action :skip_authorization
 
@@ -7,4 +8,5 @@ class PrivacyController < ApplicationController
       retention_days: CrmTransfer::RETENTION_PERIOD / 1.day
     }
   end
+
 end

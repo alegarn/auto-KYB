@@ -1,5 +1,6 @@
 module Crm
   class DataExporter
+
     UNAUTHORIZED = :unauthorized
 
     def initialize(client, scheduler: TransferScheduler)
@@ -37,5 +38,6 @@ module Crm
         ).schedule_export!
       end
     end
+
   end
 end

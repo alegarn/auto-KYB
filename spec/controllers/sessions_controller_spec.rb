@@ -1,8 +1,8 @@
 require "rails_helper"
 
 RSpec.describe SessionsController, type: :controller, inertia: true do
-  let(:user) { User.create!(email: "test@example.com", password: "password123456") }
-  let(:other_user) { User.create!(email: "other@example.com", password: "password123456") }
+  let(:user) { User.create!(email: "test@example.com", password: "password123456", subscription_status: "active") }
+  let(:other_user) { User.create!(email: "other@example.com", password: "password123456", subscription_status: "active") }
 
   describe "GET #index" do
     context "when authenticated" do
@@ -107,7 +107,8 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
         provider: provider,
         uid: uid,
         password: "password123456",
-        onboarding_completed: true
+        onboarding_completed: true,
+        subscription_status: "active"
       )
       request.env["omniauth.auth"] = omniauth_hash
 
@@ -121,7 +122,7 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
     end
 
     it "links provider and uid for existing email user" do
-      email_user = User.create!(email: email, password: "password123456", onboarding_completed: true)
+      email_user = User.create!(email: email, password: "password123456", onboarding_completed: true, subscription_status: "active")
       request.env["omniauth.auth"] = omniauth_hash
 
       expect {
@@ -134,20 +135,14 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
       expect(response).to redirect_to(auth_loading_path)
     end
 
-    it "creates a user when email is not registered" do
+    it "does not create a user when email is not registered" do
       request.env["omniauth.auth"] = omniauth_hash
 
       expect {
         get :omniauth, params: { provider: provider }
-      }.to change { User.count }.by(1)
-       .and change { Session.count }.by(1)
+      }.not_to change { User.count }
 
-      created_user = User.find_by(email: email)
-      expect(created_user).to be_present
-      expect(created_user.provider).to eq(provider)
-      expect(created_user.uid).to eq(uid)
-      # New OAuth users haven't completed onboarding yet → sent to auth_setup
-      expect(response).to redirect_to(auth_setup_settings_path)
+      expect(response).to redirect_to(sign_in_path)
     end
 
     it "does not relink to a different oauth identity for same email" do
@@ -155,7 +150,8 @@ RSpec.describe SessionsController, type: :controller, inertia: true do
         email: email,
         provider: "google_oauth2",
         uid: "other-uid",
-        password: "password123456"
+        password: "password123456",
+        subscription_status: "active"
       )
       allow(controller).to receive(:oauth_auth).and_return(omniauth_hash(provider: "google_oauth2", uid: uid, email: email))
 

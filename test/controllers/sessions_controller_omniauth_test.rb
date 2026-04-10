@@ -1,6 +1,7 @@
 require "test_helper"
 
 class SessionsControllerOmniauthTest < ActionController::TestCase
+
   tests SessionsController
 
   setup do
@@ -75,4 +76,5 @@ class SessionsControllerOmniauthTest < ActionController::TestCase
       }
     }
   end
+
 end

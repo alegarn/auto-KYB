@@ -30,10 +30,18 @@ ENV RAILS_ENV="production" \
 # Throw-away build stage to reduce size of final image
 FROM base AS build
 
-# Install packages needed to build gems
+# Install packages needed to build gems and Node.js
+ARG NODE_VERSION=20
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential git libpq-dev libyaml-dev pkg-config && \
+    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
+    apt-get install --no-install-recommends -y nodejs && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+# Install JS dependencies
+COPY package.json package-lock.json ./
+RUN npm ci 
+#--omit=optional
 
 # Install application gems
 COPY vendor/* ./vendor/
@@ -47,14 +55,19 @@ RUN bundle install && \
 # Copy application code
 COPY . .
 
+# Create the routes directory before generating routes to ensure it exists for Rails.root.join
+RUN mkdir -p app/frontend/routes && touch app/frontend/routes/.keep
+
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
+# Generate js-routes file
+# We use SECRET_KEY_BASE_DUMMY=1 to allow the initializers to skip strict credential checks
+RUN SECRET_KEY_BASE_DUMMY=1 bundle exec rake js:routes
+
 # Precompiling assets for production without requiring secret RAILS_MASTER_KEY
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
-
-
 
 
 # Final stage for app image

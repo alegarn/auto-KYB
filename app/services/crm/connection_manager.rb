@@ -1,5 +1,6 @@
 module Crm
   class ConnectionManager
+
     def self.service_for(connection)
       case connection.provider
       when 'hubspot'
@@ -16,5 +17,6 @@ module Crm
     def self.active_connections_for(user)
       user.crm_connections.where(status: 'active')
     end
+
   end
 end

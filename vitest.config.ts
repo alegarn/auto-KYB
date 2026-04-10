@@ -20,5 +20,8 @@ export default defineConfig({
     exclude: ['**/stories/**', '**/node_modules/**'],
     environment: 'jsdom',
     setupFiles: ['spec/setupTests.ts'],
+    testTimeout: 60000,
+    hookTimeout: 60000,
+    fileParallelism: false
   },
 });

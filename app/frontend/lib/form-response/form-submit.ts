@@ -15,7 +15,7 @@ type SubmitterDeps = {
   getPartialData: () => Record<string, any>
   setFlashMessage: (message: FlashMessage) => void
   cancelAutosave: () => void
-  onAutosaveSuccess: (fields: string[]) => void
+  onAutosaveSuccess: (savedData: Record<string, any>) => void
 }
 
 export function createFormSubmitter(deps: SubmitterDeps) {
@@ -31,7 +31,7 @@ export function createFormSubmitter(deps: SubmitterDeps) {
         if (payload.partial) {
           deps.setFlashMessage({ type: 'notice', message: 'Form response saved successfully.' })
           if (payload.autosave) {
-            deps.onAutosaveSuccess(Object.keys(payload.data))
+            deps.onAutosaveSuccess(payload.data)
           }
         }
       },

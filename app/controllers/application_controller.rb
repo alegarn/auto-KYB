@@ -1,4 +1,5 @@
 class ApplicationController < ActionController::Base
+
   CRM_TRANSFER_TOAST_SEEN_AT_SESSION_KEY = :crm_transfer_failure_toast_seen_at
 
   include Pagy::Backend
@@ -19,6 +20,11 @@ class ApplicationController < ActionController::Base
   inertia_share flash: -> { flash.to_hash },
                session_id: -> { current_session_id },
                crm_transfer_signals: -> { crm_transfer_signals_props },
+               onboarding: -> {
+                 return nil unless current_user
+
+                 DashboardQuery.new(current_user).onboarding_summary
+               },
                auth: -> {
                  user = current_user
                  next nil unless user

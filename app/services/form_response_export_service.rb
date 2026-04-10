@@ -91,7 +91,7 @@ class FormResponseExportService
     when NilClass
       ""
     else
-      value.to_s
+      value.to_s.gsub(/\r\n|\r|\n/, " ").strip
     end
   end
 

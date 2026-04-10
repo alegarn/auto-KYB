@@ -88,6 +88,18 @@ RSpec.describe FormResponseExportService, type: :service do
       expect(payload[:fields].map { |f| f[:id] }).to include(f1.id)
       expect(payload[:responses].first[:data][field_key][:value]).to eq("value123")
     end
+
+    it "replaces newlines in string values with spaces" do
+      f1 = create(:form_field, form: form, label: "Multiline")
+      client_form.form.reload
+
+      client_form.form_responses.create!(data: { f1.id.to_s => "line1\nline2\r\nline3\rline4" })
+
+      csv = FormResponseExportService.call(client_form)
+      rows = CSV.parse(csv, row_sep: "\r\n")
+
+      expect(rows[1]).to include("line1 line2 line3 line4")
+    end
   end
 
   describe "JSON payload" do

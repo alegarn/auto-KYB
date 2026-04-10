@@ -50,7 +50,7 @@ RSpec.describe 'Forms Requests (CRM Mapping)', type: :request do
     let(:service_mock) { instance_double('Crm::HubspotService') }
 
     before do
-      allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([connection_mock])
+      allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([ connection_mock ])
       allow(Crm::ConnectionManager).to receive(:service_for).with(connection_mock).and_return(service_mock)
       allow(service_mock).to receive(:export_data).and_return({ success: true, dummy: true })
       allow_any_instance_of(FormsController).to receive(:crm_properties).and_return({ hubspot: { contact: [], company: [] } })
@@ -67,7 +67,7 @@ RSpec.describe 'Forms Requests (CRM Mapping)', type: :request do
             }
           }
         ],
-        crms: ['hubspot']
+        crms: [ 'hubspot' ]
       }
 
       post "/forms/#{form.id}/test_crm_mapping", params: test_params, headers: headers, as: :json

@@ -180,7 +180,7 @@ RSpec.describe "Clients API", type: :request do
         "sync_address_to_contact" => true,
         "external_company_id" => "comp_existing"
       )
-      expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly([transfer.id])
+      expect(enqueued_jobs.select { |job| job[:job] == CrmDataExportJob }.map { |job| job[:args] }).to contain_exactly([ transfer.id ])
     end
 
     it "renders errors for invalid attributes" do

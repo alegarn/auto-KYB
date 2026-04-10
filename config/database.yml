@@ -24,10 +24,7 @@ development:
   primary:
     <<: *default
     database: quick_kyb_development
-  queue:
-   <<: *default
-   database: quick_kyb_development_queue
-   migrations_paths: db/queue_migrate
+
   # The specified database role being used to connect to PostgreSQL.
   # To create additional roles in PostgreSQL see `$ createuser --help`.
   # When left blank, PostgreSQL will use the default role. This is
@@ -91,18 +88,4 @@ test:
 production:
   primary: &primary_production
     <<: *default
-    database: quick_kyb_production
-    username: quick_kyb
-    password: <%= ENV["QUICK_KYB_DATABASE_PASSWORD"] %>
-  cache:
-    <<: *primary_production
-    database: quick_kyb_production_cache
-    migrations_paths: db/cache_migrate
-  queue:
-    <<: *primary_production
-    database: quick_kyb_production_queue
-    migrations_paths: db/queue_migrate
-  cable:
-    <<: *primary_production
-    database: quick_kyb_production_cable
-    migrations_paths: db/cable_migrate
+    url: <%= ENV["DATABASE_URL"] %>

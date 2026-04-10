@@ -22,8 +22,14 @@ JsRoutes.setup do |c|
   # for apps that work on multiple domains.
   # c.url_links = true
 
-  c.file = "../frontend/routes/index.js"
+  c.file = Rails.root.join("app/frontend/routes/index.js")
 
   # More options:
   # @see https://github.com/railsware/js-routes#available-options
+end
+
+# Ensure the routes file is generated during initialization if it's missing,
+# which is common during Docker/CI asset precompilation.
+if Rails.env.production? && ENV["SECRET_KEY_BASE_DUMMY"].present?
+  JsRoutes.generate!
 end

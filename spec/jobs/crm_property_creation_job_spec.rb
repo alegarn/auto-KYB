@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe CrmPropertyCreationJob, type: :job do
   let(:user) { instance_double('User', id: 1) }
   let(:hubspot_connection) { double(provider: 'hubspot', access_token: 'fake', credentials: {}) }
-  
+
   let(:hubspot_client) { instance_double('Crm::Hubspot::Client') }
   let(:sdk) { double('Hubspot::SDK') }
   let(:crm) { double('Hubspot::CRM') }
@@ -12,7 +12,7 @@ RSpec.describe CrmPropertyCreationJob, type: :job do
 
   before do
     allow(User).to receive(:find_by).with(id: user.id).and_return(user)
-    allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([hubspot_connection])
+    allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([ hubspot_connection ])
 
     # Setup the nested Hubspot client mocks
     allow(Crm::Hubspot::Client).to receive(:new).and_return(hubspot_client)
@@ -27,7 +27,7 @@ RSpec.describe CrmPropertyCreationJob, type: :job do
       # Assume the job iterates and creates some properties
       allow(core_api).to receive(:create)
 
-      expect { described_class.new.perform(user.id, [{ provider: 'hubspot', property_name: 'test', label: 'Test' }]) }.not_to raise_error
+      expect { described_class.new.perform(user.id, [ { provider: 'hubspot', property_name: 'test', label: 'Test' } ]) }.not_to raise_error
     end
 
     it 'creates enumeration property when options are provided' do
@@ -51,7 +51,7 @@ RSpec.describe CrmPropertyCreationJob, type: :job do
             property_name: 'test_select',
             label: 'Test Select',
             field_type: 'select',
-            options: ['Option 1', 'Option 2']
+            options: [ 'Option 1', 'Option 2' ]
           }
         ]
       )
@@ -78,7 +78,7 @@ RSpec.describe CrmPropertyCreationJob, type: :job do
             property_name: 'test_multi',
             label: 'Test Multi',
             field_type: 'checkbox',
-            options: ['A', 'B'],
+            options: [ 'A', 'B' ],
             allow_multiple: true
           }
         ]
@@ -90,7 +90,7 @@ RSpec.describe CrmPropertyCreationJob, type: :job do
       error = StandardError.new("The property custom_field already exists in Hubspot")
       allow(core_api).to receive(:create).and_raise(error)
 
-      expect { described_class.new.perform(user.id, [{ provider: 'hubspot', property_name: 'custom_field', label: 'Custom' }]) }.not_to raise_error
+      expect { described_class.new.perform(user.id, [ { provider: 'hubspot', property_name: 'custom_field', label: 'Custom' } ]) }.not_to raise_error
     end
 
     it 'logs other unexpected errors' do
@@ -98,7 +98,7 @@ RSpec.describe CrmPropertyCreationJob, type: :job do
       allow(core_api).to receive(:create).and_raise(error)
 
       # In an async job context, unexpected errors should normally bubble up to trigger retries
-      expect { described_class.new.perform(user.id, [{ provider: 'hubspot', property_name: 'failure', label: 'Fail' }]) }.not_to raise_error
+      expect { described_class.new.perform(user.id, [ { provider: 'hubspot', property_name: 'failure', label: 'Fail' } ]) }.not_to raise_error
     end
 
     it 'falls back to string/text when select field has no options' do

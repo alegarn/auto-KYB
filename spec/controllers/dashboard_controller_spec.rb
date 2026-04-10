@@ -1,7 +1,33 @@
 require "rails_helper"
 
 RSpec.describe DashboardController, type: :controller, inertia: true do
-  let(:user) { User.create!(email: "test@example.com", password: "password123456", subscription_status: "active", verified: true) }
+  let(:user) { create(:user, :subscribed, plan: :basic, password: "password123456") }
+  let(:onboarding_summary) do
+    {
+      visible: true,
+      variant: "basic",
+      progress_percent: 33,
+      completion_rule: "basic_core",
+      quick_steps: [],
+      can_dismiss: true,
+      detailed_view_seen: false
+    }
+  end
+  let(:dashboard_query) do
+    instance_double(
+      DashboardQuery,
+      clients_scope: Client.none,
+      recent_forms: [],
+      stats: {
+        total_clients: 0,
+        validated_clients: 0,
+        active_clients: 0,
+        linked_clients: 0
+      },
+      total_clients_count: 0,
+      onboarding_summary: onboarding_summary
+    )
+  end
 
   describe "GET #index" do
     context "when authenticated" do
@@ -9,6 +35,12 @@ RSpec.describe DashboardController, type: :controller, inertia: true do
 
       before do
         cookies.signed[:session_token] = session.id
+        allow(DashboardQuery).to receive(:new).with(user).and_return(dashboard_query)
+        allow(controller).to receive(:pagy).and_return([
+          instance_double(Pagy, page: 1, vars: { items: 10 }),
+          []
+        ])
+        allow(InertiaRails).to receive(:defer) { |&block| block.call }
       end
 
       it "renders inertia with Dashboard component" do
@@ -17,16 +49,21 @@ RSpec.describe DashboardController, type: :controller, inertia: true do
         expect(inertia.component).to eq("Dashboard/Dashboard")
       end
 
-      it "passes user as prop" do
+      it "passes the default user props" do
         get :index
 
-        expect(inertia.props[:user]).to eq(user)
+        expect(inertia.props[:user]).to include(
+          id: user.id,
+          email: user.email,
+          plan: user.plan,
+          crm_auto_sync_on_portal_submit: user.crm_auto_sync_on_portal_submit
+        )
       end
 
-      it "passes session_id as prop" do
+      it "passes onboarding only on the dashboard payload" do
         get :index
 
-        expect(inertia.props[:session_id]).to eq(session.id)
+        expect(inertia.props[:onboarding]).to eq(onboarding_summary)
       end
     end
 

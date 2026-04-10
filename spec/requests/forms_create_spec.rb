@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe "Forms Create", type: :request do
   it "creates a form via POST and persists structure" do
-    user = FactoryBot.create(:user)
+    user = FactoryBot.create(:user, :subscribed)
     session_record = user.sessions.create!
 
     params = {
@@ -26,7 +26,7 @@ RSpec.describe "Forms Create", type: :request do
   end
 
   it "returns unprocessable entity when export mapping keys are duplicated" do
-    user = FactoryBot.create(:user)
+    user = FactoryBot.create(:user, :subscribed)
     session_record = user.sessions.create!
 
     params = {

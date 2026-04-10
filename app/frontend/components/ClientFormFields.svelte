@@ -48,7 +48,7 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label for="client-email" class="block text-sm font-medium">Personal/Work Email</Label>
+          <Label for="client-email" class="block text-sm font-medium">Work Email</Label>
           <Input 
             id="client-email" 
             name="client[email]" 

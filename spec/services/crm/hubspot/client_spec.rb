@@ -70,7 +70,7 @@ RSpec.describe Crm::Hubspot::Client do
     let(:crm_double) { double('Crm') }
     let(:contacts_double) { double('Contacts') }
     let(:companies_double) { double('Companies') }
-    
+
     before do
       allow(hubspot_sdk).to receive(:crm).and_return(crm_double)
       allow(crm_double).to receive(:contacts).and_return(contacts_double)
@@ -131,18 +131,18 @@ RSpec.describe Crm::Hubspot::Client do
           super()
         end
       end)
-      
+
       api_error = Hubspot::ApiError.new(code: 429, response_headers: { "Retry-After" => "1" })
       call_count = 0
-      
+
       allow(client).to receive(:sleep)
-      
+
       result = client.with_rate_limit_retry do
         call_count += 1
         raise api_error if call_count == 1
         "success after retry"
       end
-      
+
       expect(result).to eq("success after retry")
       expect(call_count).to eq(2)
       expect(client).to have_received(:sleep).with(1)
@@ -157,7 +157,7 @@ RSpec.describe Crm::Hubspot::Client do
           super()
         end
       end)
-      
+
       api_error = Hubspot::ApiError.new(code: 500)
       expect { client.with_rate_limit_retry { raise api_error } }.to raise_error(Hubspot::ApiError)
     end
@@ -174,13 +174,12 @@ RSpec.describe Crm::Hubspot::Client do
 
       api_error = Hubspot::ApiError.new(code: 429, response_headers: { "Retry-After" => "1" })
       allow(client).to receive(:sleep)
-      
-      expect { 
-        client.with_rate_limit_retry(max_retries: 2) { raise api_error } 
+
+      expect {
+        client.with_rate_limit_retry(max_retries: 2) { raise api_error }
       }.to raise_error(Hubspot::ApiError)
-      
+
       expect(client).to have_received(:sleep).twice
     end
   end
 end
-

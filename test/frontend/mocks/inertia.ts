@@ -14,7 +14,10 @@ export const mockPageProps = {
       { id: '5', name: 'Client Five', status: 'inactive', updated_at: '2024-01-05' }
     ],
     recent_forms: [],
+    onboarding: undefined,
     forms: [],
+    meta: { page: 1, per_page: 10, total_count: 5 },
+    stats: { total_clients: 5, validated_clients: 1, active_clients: 3, linked_clients: 1 },
     errors: null,
     flash: {}
   },
@@ -68,7 +71,10 @@ export function resetPageProps() {
         { id: '5', name: 'Client Five', status: 'inactive', updated_at: '2024-01-05' }
       ],
       recent_forms: [],
+      onboarding: undefined,
       forms: [],
+      meta: { page: 1, per_page: 10, total_count: 5 },
+      stats: { total_clients: 5, validated_clients: 1, active_clients: 3, linked_clients: 1 },
       errors: null,
       flash: {}
     },

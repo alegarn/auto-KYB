@@ -1,5 +1,6 @@
 module Crm
   class ZohoService < BaseService
+
     def authorize_url
       # Dummy implementation
       "https://accounts.zoho.com/oauth/v2/auth?client_id=dummy&response_type=code&redirect_uri=dummy"
@@ -35,5 +36,6 @@ module Crm
       # Dummy implementation
       true
     end
+
   end
 end

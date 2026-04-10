@@ -22,13 +22,23 @@ class FileUploadService
       return Result.new(success: false, error: validation.error)
     end
 
-    ActiveRecord::Base.transaction do
-      replace_existing_file!
+    replaced_file_id = nil
+
+    result = ActiveRecord::Base.transaction do
+      replaced_file_id = replace_existing_file!
       uploaded_file = create_uploaded_file!
       attach_file!(uploaded_file)
       @client_form&.mark_started!
       Result.new(success: true, uploaded_file: uploaded_file)
     end
+
+    # Schedule purge AFTER the transaction commits so the new file is confirmed on disk.
+    # A short delay gives the storage service time to finalize the write.
+    if replaced_file_id
+      PurgeFileJob.set(wait: 5.minutes).perform_later(replaced_file_id)
+    end
+
+    result
   rescue ActiveRecord::RecordInvalid => e
     Result.new(success: false, error: e.message)
   rescue ActiveStorage::IntegrityError
@@ -49,7 +59,7 @@ class FileUploadService
     return unless existing
 
     existing.mark_replaced!
-    PurgeFileJob.perform_later(existing.id)
+    existing.id
   end
 
   def create_uploaded_file!

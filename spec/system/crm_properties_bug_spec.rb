@@ -25,7 +25,7 @@ RSpec.describe 'CRM Mapping Property Empty Bug', type: :system, js: true do
 
     sign_in_user(user)
     visit edit_form_path(form)
-    
+
     # Wait for things...
     sleep 2
   end
