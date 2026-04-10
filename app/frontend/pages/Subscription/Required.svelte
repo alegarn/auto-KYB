@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { sign_up_path } from '@/routes'
+  import { sign_up_path, root_path } from '@/routes'
 
   const props = $props()
   const user = $derived(props.user)
@@ -18,7 +18,7 @@
 
     <div class="flex items-center gap-4">
       <a href={sign_up_path()} class="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Start subscription</a>
-      <a href="/" class="text-sm text-slate-500">Return to public home</a>
+      <a href={root_path()} class="text-sm text-slate-500">Return to public home</a>
     </div>
   </section>
 </main>

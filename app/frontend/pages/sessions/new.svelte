@@ -3,7 +3,7 @@
   import Button from "/components/ui/button/button.svelte";
   import Input from "/components/ui/input/input.svelte";
   import Label from "/components/ui/label/label.svelte";
-  import { sign_up_path } from '@/routes';
+  import { sign_up_path, sign_in_path, root_path } from '@/routes';
   import logo from "@/assets/quick_kyb_icon.svg";
 
   const csrfToken =
@@ -34,7 +34,7 @@
   class="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent"
 >
   <Form
-    action="/sign_in"
+    action={sign_in_path()}
     method="post"
     class="bg-muted m-auto h-fit w-full max-w-sm overflow-hidden rounded-[calc(var(--radius)+.125rem)] border shadow-md shadow-zinc-950/5 dark:[--color-muted:var(--color-zinc-900)]"
   >
@@ -43,7 +43,7 @@
         class="bg-card -m-px rounded-[calc(var(--radius)+.125rem)] border p-8 pb-6"
       >
       <div class="text-center">
-        <a href="/" aria-label="go home" class="mx-auto block w-fit">
+        <a href={root_path()} aria-label="go home" class="mx-auto block w-fit">
           <img
               src={logo}
               alt="Logo"

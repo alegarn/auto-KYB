@@ -1,5 +1,6 @@
 <script lang="ts">
   import { router } from '@inertiajs/svelte';
+  import { reset_onboarding_path } from '@/routes';
   import Modal from '/components/ui/modal.svelte';
   import { Label } from '/components/ui/label';
   import { Checkbox } from '/components/ui/checkbox';
@@ -11,7 +12,7 @@
 
   function handleSubmit() {
     isSubmitting = true;
-    router.patch('/onboarding/reset', { reset_progress: resetProgress }, {
+    router.patch(reset_onboarding_path(), { reset_progress: resetProgress }, {
       preserveScroll: true,
       preserveState: true,
       onFinish: () => {

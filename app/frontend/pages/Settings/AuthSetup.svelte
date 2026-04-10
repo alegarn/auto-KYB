@@ -1,5 +1,6 @@
 <script lang="ts">
   import { router } from '@inertiajs/svelte';
+  import { settings_auth_setup_path } from '@/routes';
 
   let { user, google_auth_url } = $props<{
     user: { email: string };
@@ -11,7 +12,7 @@
       : ((document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '');
 
   function chooseEmail() {
-    router.patch('/settings/auth_setup', {});
+    router.patch(settings_auth_setup_path(), {});
   }
 </script>
 

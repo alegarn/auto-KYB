@@ -10,6 +10,7 @@
   } from "/components/ui/card";
   import Check from "@lucide/svelte/icons/check";
   import { router } from "@inertiajs/svelte";
+  import { sign_up_path } from '@/routes';
 
   let pricingList = {
     basic: [
@@ -54,7 +55,7 @@
       }
     } catch (e) {
       console.error("Failed to create checkout session", e);
-      router.visit("/sign_up");
+      router.visit(sign_up_path());
     }
   };
 </script>

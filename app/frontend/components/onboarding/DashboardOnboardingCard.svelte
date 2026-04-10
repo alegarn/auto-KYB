@@ -1,5 +1,6 @@
 <script lang="ts">
   import { router } from '@inertiajs/svelte';
+  import { dismiss_onboarding_path, details_seen_onboarding_path } from '@/routes';
   import { Button } from '/components/ui/button';
   import * as Card from '/components/ui/card';
   import DashboardOnboardingDetailsSheet from '/components/onboarding/DashboardOnboardingDetailsSheet.svelte';
@@ -32,7 +33,7 @@
     if (!onboarding.can_dismiss || dismissedLocally) return;
 
     dismissedLocally = true;
-    router.patch('/onboarding/dismiss', {}, {
+    router.patch(dismiss_onboarding_path(), {}, {
       preserveScroll: true,
       preserveState: true,
       onError: () => {
@@ -47,7 +48,7 @@
     if (detailsSeen) return;
 
     detailsSeenSubmitted = true;
-    router.patch('/onboarding/details_seen', {}, {
+    router.patch(details_seen_onboarding_path(), {}, {
       preserveScroll: true,
       preserveState: true,
       onError: () => {

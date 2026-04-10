@@ -6,6 +6,7 @@
   import { scrollY } from "svelte/reactivity/window";
   import Button from "../button/button.svelte";
   import { inertia, Link, page } from '@inertiajs/svelte'
+  import { dashboard_path } from '@/routes';
   import logo from "@/assets/quick_kyb_horizontal.svg";
   let { user, sign_in_path, sign_up_path, root_path, quickstart_path } = $props();
 
@@ -63,7 +64,7 @@
         class="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4"
       >
         <div class="flex w-full justify-between lg:w-auto">
-          <a href="/" aria-label="home" class="flex items-center space-x-2" use:inertia>
+          <a href={root_path()} aria-label="home" class="flex items-center space-x-2" use:inertia>
             <img
               src={logo}
               alt="Logo"
@@ -169,7 +170,7 @@
             {:else}
               <Button
                 size="sm"
-                href="/dashboard"
+                href={dashboard_path()}
                 class={cn(isScrolled ? "lg:inline-flex" : "hidden")}
               >
                 Get Started
