@@ -9,6 +9,7 @@
     CardFooter,
   } from "/components/ui/card";
   import Check from "@lucide/svelte/icons/check";
+  import Loader2 from "@lucide/svelte/icons/loader-2";
   import { router } from "@inertiajs/svelte";
   import { sign_up_path } from '@/routes';
 
@@ -33,8 +34,10 @@
   };
 
   const { customer_email = undefined } = $props();
+  let loadingPlan: string | null = $state(null);
 
   const handleSubscribe = async (plan: string) => {
+    loadingPlan = plan;
     try {
       const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
       const headers: Record<string, string> = {
@@ -53,8 +56,13 @@
       if (data.url) {
         window.location.href = data.url;
       }
+      // if there's no redirect url we clear the loading state so UI recovers
+      else {
+        loadingPlan = null;
+      }
     } catch (e) {
       console.error("Failed to create checkout session", e);
+      loadingPlan = null;
       router.visit(sign_up_path());
     }
   };
@@ -95,7 +103,10 @@
         </CardContent>
 
         <CardFooter class="mt-auto">
-          <Button variant="outline" class="w-full" onclick={() => handleSubscribe('basic')}>
+          <Button variant="outline" class="w-full" disabled={loadingPlan === 'basic'} onclick={() => handleSubscribe('basic')}>
+            {#if loadingPlan === 'basic'}
+              <Loader2 class="size-3 animate-spin mr-2 inline-block" />
+            {/if}
             Get Started
           </Button>
         </CardFooter>
@@ -122,7 +133,10 @@
           </CardContent>
 
           <CardFooter class="mt-auto">
-            <Button class="w-full" onclick={() => handleSubscribe('pro')}>
+            <Button class="w-full" disabled={loadingPlan === 'pro'} onclick={() => handleSubscribe('pro')}>
+              {#if loadingPlan === 'pro'}
+                <Loader2 class="size-3 animate-spin mr-2 inline-block" />
+              {/if}
               Get Started
             </Button>
           </CardFooter>
