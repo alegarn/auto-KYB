@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { root_path } from '@/routes';
   const { client, form } = $props();
 </script>
 
@@ -13,7 +14,7 @@
     {/if}
 
     <div class="mt-4 flex justify-center gap-3">
-      <a href="/" class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground no-underline">Return to Home</a>
+      <a href={root_path()} class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground no-underline">Return to Home</a>
     </div>
   </section>
 </main>

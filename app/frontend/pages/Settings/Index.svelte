@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page, router } from "@inertiajs/svelte";
   import { crmAllowed, getSharedAuth } from "@/lib/shared-auth";
-  import { sign_up_path } from "@/routes";
+  import { sign_up_path, identity_oauth_connection_path } from "@/routes";
   import * as Card from "/components/ui/card";
   import { Button, buttonVariants } from "/components/ui/button";
   import { Input } from "/components/ui/input";
@@ -136,7 +136,7 @@
   function disconnectGoogle() {
     if (oauthLoading) return;
     oauthLoading = true;
-    router.delete('/identity/oauth_connection', {
+    router.delete(identity_oauth_connection_path(), {
       preserveScroll: true,
       onFinish: () => { oauthLoading = false; },
     });

@@ -55,7 +55,7 @@
 
 <footer class="py-16 md:py-32">
   <div class="mx-auto max-w-5xl px-6">
-    <a href="/" aria-label="go home" class="mx-auto block size-fit" use:inertia>
+    <a href={root_path()} aria-label="go home" class="mx-auto block size-fit" use:inertia>
       <img
         src={logo}
         alt="Logo"

@@ -2,6 +2,7 @@
   import { Form, page } from "@inertiajs/svelte";
   import Button from "/components/ui/button/button.svelte";
   import logo from "@/assets/quick_kyb_icon.svg";
+  import { root_path, sign_in_path } from '@/routes';
 
   let { email } = $props();
 </script>
@@ -14,7 +15,7 @@
   >
     <div class="p-8 pb-6">
       <div class="text-center">
-        <a href="/" aria-label="go home" class="mx-auto block w-fit">
+        <a href={root_path()} aria-label="go home" class="mx-auto block w-fit">
           <img
             src={logo}
             alt="Logo"
@@ -38,7 +39,7 @@
 
       <hr class="my-6 border-dashed" />
 
-      <Form action="/sign_in" method="post" class="space-y-4">
+      <Form action={sign_in_path()} method="post" class="space-y-4">
         {#snippet children({ processing }: { errors: Record<string, string>, processing: boolean })}
           <input type="hidden" name="email" value={email} />
           <Button class="w-full" type="submit" disabled={processing}>

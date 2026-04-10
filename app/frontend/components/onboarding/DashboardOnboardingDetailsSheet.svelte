@@ -4,6 +4,7 @@
   import { getDashboardOnboardingStepContent, getDashboardOnboardingVariantContent, getGuides } from '@/lib/dashboard-onboarding-content';
   import type { DashboardOnboarding, GuideKey } from '@/types/dashboard-onboarding';
   import { router } from '@inertiajs/svelte';
+  import { guide_seen_onboarding_path } from '@/routes';
 
   let {
     onboarding,
@@ -35,7 +36,7 @@
   function openGuide(key: GuideKey) {
     selectedGuideKey = key;
     if (!onboarding.guides_seen?.[key]) {
-      router.patch('/onboarding/guide_seen', { guide_key: key }, { preserveScroll: true, preserveState: true });
+      router.patch(guide_seen_onboarding_path(), { guide_key: key }, { preserveScroll: true, preserveState: true });
     }
   }
 

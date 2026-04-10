@@ -1,6 +1,6 @@
 <script lang="ts">
   import { router, useForm } from '@inertiajs/svelte';
-  import { client_path, new_client_path, edit_client_path } from "@/routes";
+  import { client_path, new_client_path, edit_client_path, clients_path } from "@/routes";
   import * as Card from "/components/ui/card";
   import { Input } from "/components/ui/input/index.js";
   import Button from '/components/ui/button/button.svelte';
@@ -38,7 +38,7 @@
     if (q && q.trim().length) params.q = q.trim();
     if (status && status !== 'all') params.status = status;
 
-    router.get('/clients', params, { preserveState: true });
+    router.get(clients_path(), params, { preserveState: true });
   }
 
   function search() {

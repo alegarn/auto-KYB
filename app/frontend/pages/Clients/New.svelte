@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Form as InertiaForm } from '@inertiajs/svelte';
+  import { clients_path } from '@/routes';
   import { onMount } from 'svelte';
   import Button from '/components/ui/button/button.svelte';
   import { Label } from '/components/ui/label/index.js';
@@ -142,7 +143,7 @@
     </div>
   {/if}
 
-  <InertiaForm method="post" action="/clients">
+  <InertiaForm method="post" action={clients_path()}>
     <div class="space-y-6 max-w-2xl">
       <!-- Section 1: CRM & Form -->
       <section class="border rounded-lg overflow-hidden shadow-sm bg-muted/5">
@@ -212,7 +213,7 @@
 
     <div class="mt-8 pt-6 border-t flex gap-3 items-center">
       <Button type="submit" class="btn px-8" data-onboarding-tutorial="client-submit">Create Client Profile</Button>
-      <Button href="/clients" variant="outline" class="text-muted-foreground">Cancel</Button>
+      <Button href={clients_path()} variant="outline" class="text-muted-foreground">Cancel</Button>
     </div>
   </InertiaForm>
 </section>

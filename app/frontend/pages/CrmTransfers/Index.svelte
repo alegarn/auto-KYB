@@ -1,5 +1,6 @@
 <script lang="ts">
   import { router } from '@inertiajs/svelte';
+  import { crm_transfers_path, retry_crm_transfer_path, dashboard_path } from '@/routes';
   import Button from '/components/ui/button/button.svelte';
   import * as Table from '/components/ui/table';
   import * as Sheet from '/components/ui/sheet';
@@ -92,7 +93,7 @@
   }
 
   function applyFilters() {
-    router.get('/crm_transfers', buildQuery(1), {
+    router.get(crm_transfers_path(), buildQuery(1), {
       preserveState: true,
       preserveScroll: true,
       replace: true,
@@ -107,7 +108,7 @@
   }
 
   function goToPage(pageNumber: number) {
-    router.get('/crm_transfers', buildQuery(pageNumber), {
+    router.get(crm_transfers_path(), buildQuery(pageNumber), {
       preserveState: true,
       preserveScroll: true,
       replace: true,
@@ -118,7 +119,7 @@
     retryingTransferId = transferId;
 
     router.post(
-      `/crm_transfers/${transferId}/retry`,
+      retry_crm_transfer_path(transferId),
       {
         page: meta.page,
         status,
@@ -175,7 +176,7 @@
           Operational transfer history for the last {retention_days} days. Older records are removed automatically.
         </p>
       </div>
-      <Button href="/dashboard" variant="outline">Back to dashboard</Button>
+      <Button href={dashboard_path()} variant="outline">Back to dashboard</Button>
     </header>
 
     <div class="mb-6 rounded-md border bg-background p-4">

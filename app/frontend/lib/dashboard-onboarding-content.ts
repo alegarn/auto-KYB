@@ -1,4 +1,5 @@
 import { getGuidePracticeItems } from '@/lib/onboarding-tutorials';
+import { forms_path, clients_path, crm_transfers_path } from '@/routes';
 import type { DashboardOnboarding, DashboardOnboardingStepKey, DashboardOnboardingVariant, Guide, GuideKey } from '@/types/dashboard-onboarding';
 
 type VariantContent = {
@@ -109,12 +110,12 @@ const GUIDE_CONTENT: Record<GuideKey, GuideTemplate> = {
       {
         title: 'Export key transforms',
         body: 'Each field has an export key. You can switch between snake_case, camelCase, and kebab-case to match the system you import into.',
-        href: '/forms',
+        href: forms_path(),
       },
       {
         title: 'Live preview',
         body: 'Use the preview button to see the form exactly as your client will. Check the flow before sharing access.',
-        href: '/forms',
+        href: forms_path(),
       },
     ],
   },
@@ -140,12 +141,12 @@ const GUIDE_CONTENT: Record<GuideKey, GuideTemplate> = {
       {
         title: 'CSV export',
         body: 'Select one or more clients, then export to CSV. The file uses the export keys from your form fields.',
-        href: '/clients',
+        href: clients_path(),
       },
       {
         title: 'JSON export',
         body: 'For API-style integrations, export client data as JSON. Same field mapping, different format.',
-        href: '/clients',
+        href: clients_path(),
       },
       {
         title: 'File uploads & attachments',
@@ -185,7 +186,7 @@ const GUIDE_CONTENT: Record<GuideKey, GuideTemplate> = {
       {
         title: 'Transfer monitoring',
         body: 'The CRM Transfers page shows every export attempt — successful or failed. Retry failed transfers or inspect errors from there.',
-        href: '/crm_transfers',
+        href: crm_transfers_path(),
       },
       {
         title: 'Change behavior on re-export',

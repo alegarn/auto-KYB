@@ -6,7 +6,7 @@
 	import { Skeleton } from "/components/ui/skeleton";
 	import { Form as InertiaForm, inertia, useForm } from '@inertiajs/svelte'
 	import Modal from "/components/ui/modal.svelte";
-	import { new_form_path, form_path, edit_form_path, duplicate_form_path } from "@/routes";
+	import { new_form_path, form_path, edit_form_path, duplicate_form_path, forms_path } from "@/routes";
 	import { page } from '@inertiajs/svelte'
 	import Toast from "/components/customs/Toast.svelte"
 	import { Copy } from "@lucide/svelte";
@@ -128,7 +128,7 @@
 						</Sheet.Header>
 						<div class="mt-6">
 							<!-- Use the Inertia Form to POST to /forms -->
-							<InertiaForm action="/forms" method="post">
+							<InertiaForm action={forms_path()} method="post">
 								<div class="space-y-4">
 									<div class="space-y-2">
 										<label class="text-sm font-medium" for="form-name">Form name</label>
