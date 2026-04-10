@@ -1,12 +1,15 @@
 import { vi } from 'vitest'
 
 function buildPageState() {
+  const props = mockPageProps.props as Record<string, unknown>
+
   return {
-    ...mockPageProps.props,
-    props: mockPageProps.props,
+    props,
     url: mockPageProps.url,
     component: mockPageProps.component,
     version: mockPageProps.version,
+    flash: props.flash ?? {},
+    errors: props.errors ?? null,
   }
 }
 

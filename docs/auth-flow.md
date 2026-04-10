@@ -63,7 +63,9 @@ The root landing page remains publicly accessible, but Rails still shares authen
 
 - `auth` carries the current user, subscription summary, and feature entitlements when a session exists.
 - `session_id` carries the current session identifier for authenticated pages that need to issue a `DELETE /sessions/:id` logout action.
-- Public Svelte UI should read those shared props instead of depending on page-specific `user` props, so the landing page header and hero stay correct when an authenticated user returns to `/`.
+- `public_auth_cta` carries the server-owned authenticated header CTA (`label` + `href`) for public pages so Svelte does not hardcode dashboard or setup routing in the landing page.
+- The homepage hero stays auth-agnostic for fast first paint: it always renders the public marketing CTA, and authenticated navigation stays in the delayed public header.
+- `GET /sign_up` remains available for guests and retained canceled users who need to resubscribe, but active or trialing authenticated sessions are redirected server-side to their next authenticated destination.
 
 ## 4. Account Settings & Authentication Updates
 

@@ -1,9 +1,6 @@
 <script lang="ts">
-  import { Link, page } from '@inertiajs/svelte';
-  import Button, { buttonVariants } from "/components/ui/button/button.svelte";
-  import { cn } from '@/lib/utils';
-  import { getSharedAuth, getSharedSessionId } from '@/lib/shared-auth';
-  import { dashboard_path, session_path, sign_up_path } from '@/routes';
+  import Button from "/components/ui/button/button.svelte";
+  import { sign_up_path } from '@/routes';
   
   // Lazy load heavy components
   const Features = import('/components/customs/features.svelte');
@@ -12,9 +9,6 @@
   // Lazy load the dashboard image
   let dashboardImage = $state<string | null>(null);
   let imageLoaded = $state(false);
-  const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
-  const sessionId = $derived(getSharedSessionId($page?.props as Record<string, unknown>));
-  const currentUser = $derived(sharedAuth?.user ?? null);
 
   $effect(() => {
     // Defer image loading after initial render
@@ -69,38 +63,17 @@
                 class="bg-foreground/10 border p-0.5"
                 style="border-radius: calc(0.5rem + 0.125rem + 4px);"
               >
-                {#if currentUser}
-                  <Button
-                    href={dashboard_path()}
-                    size="lg"
-                    class="rounded-xl px-5 text-base"
-                  >
-                    <span class="text-nowrap">Dashboard</span>
-                  </Button>
-                {:else}
-                  <Button
-                    href={sign_up_path()}
-                    size="lg"
-                    class="rounded-xl px-5 text-base"
-                  >
-                    <span class="text-nowrap">Start Onboarding</span>
-                  </Button>
-                {/if}
-              </div>
-              {#if currentUser && sessionId}
-                <Link
-                  href={session_path(sessionId)}
-                  method="delete"
-                  as="button"
-                  class={cn(buttonVariants({ variant: 'ghost', size: 'lg' }), 'rounded-xl px-5')}
+                <Button
+                  href={sign_up_path()}
+                  size="lg"
+                  class="rounded-xl px-5 text-base"
                 >
-                  Logout
-                </Link>
-              {:else}
-                <Button size="lg" variant="ghost" class="rounded-xl px-5" >
-                  Request a demo
+                  <span class="text-nowrap">Start Onboarding</span>
                 </Button>
-              {/if}
+              </div>
+              <Button size="lg" variant="ghost" class="rounded-xl px-5" >
+                Request a demo
+              </Button>
             </div>
           </div>
         </div>

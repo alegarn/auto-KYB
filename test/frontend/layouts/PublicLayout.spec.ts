@@ -19,38 +19,25 @@ afterEach(() => cleanup())
 function guestPageProps() {
   return {
     ...mockPageProps.props,
+    user: {
+      id: 'legacy-user',
+      email: 'legacy@example.com',
+    },
     auth: null,
+    public_auth_cta: null,
     session_id: null,
-    user: null,
     flash: {},
   } as any
 }
 
-function authenticatedPageProps() {
+function authenticatedPageProps(label = 'Dashboard', href = '/dashboard') {
   return {
     ...mockPageProps.props,
-    auth: {
-      user: {
-        id: '1',
-        email: 'owner@example.com',
-        onboarding_completed: true,
-        plan: 'pro',
-        crm_auto_sync_on_portal_submit: true,
-      },
-      subscription: {
-        status: 'active',
-        active: true,
-        canceled_at: null,
-      },
-      features: {
-        crm: {
-          allowed: true,
-          reason: 'allowed',
-          plan_eligible: true,
-          subscription_active: true,
-          auto_sync_allowed: true,
-        },
-      },
+    user: null,
+    auth: null,
+    public_auth_cta: {
+      label,
+      href,
     },
     session_id: 'session-123',
     flash: {},
@@ -69,7 +56,7 @@ test('shows guest navigation actions on the public landing page', () => {
   expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument()
 })
 
-test('shows dashboard and logout actions when the visitor already has a session', () => {
+test('shows the shared authenticated CTA and logout when the visitor already has a session', () => {
   updatePageProps({
     props: authenticatedPageProps(),
   })
@@ -80,4 +67,15 @@ test('shows dashboard and logout actions when the visitor already has a session'
   expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Login' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Sign Up' })).not.toBeInTheDocument()
+})
+
+test('renders alternative server-owned CTA labels without reading auth directly', () => {
+  updatePageProps({
+    props: authenticatedPageProps('Resume Subscription', '/sign_up'),
+  })
+
+  render(PublicLayout)
+
+  expect(screen.getByRole('link', { name: 'Resume Subscription' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
 })

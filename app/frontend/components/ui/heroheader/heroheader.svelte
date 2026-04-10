@@ -6,19 +6,19 @@
   import { scrollY } from "svelte/reactivity/window";
   import { Link, inertia, page } from '@inertiajs/svelte'
   import Button, { buttonVariants } from "../button/button.svelte";
-  import { dashboard_path, session_path } from '@/routes';
+  import { session_path } from '@/routes';
   import logo from "@/assets/quick_kyb_horizontal.svg";
-  import type { SharedAuth } from '@/types/shared-auth';
+  import type { SharedPublicAuthCta } from '@/types';
 
   let {
-    user,
+    publicAuthCta = null,
     sessionId = null,
     sign_in_path,
     sign_up_path,
     root_path,
     quickstart_path,
   }: {
-    user: SharedAuth['user'] | null;
+    publicAuthCta?: SharedPublicAuthCta | null;
     sessionId?: string | null;
     sign_in_path: () => string;
     sign_up_path: () => string;
@@ -66,9 +66,8 @@
   }
 </script>
 
-<header>
-  <!-- Add `fixed` class to component to make it fixed on top -->
-  <nav class="z-20 w-full px-2">
+<header class="sticky top-0 z-20">
+  <nav class="w-full px-2">
     <div
       class={[
         "mx-auto mt-2 max-w-6xl px-6 transition-all duration-300 lg:px-12 rounded-2xl",
@@ -167,11 +166,11 @@
           <div
             class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit"
             >
-            {#if !user}
+            {#if !publicAuthCta}
               <Button
                 variant="outline"
                 size="sm"
-                class={cn(isScrolled && "lg:hidden")}
+                class="lg:inline-flex"
                 href={sign_in_path()}
               >
                 Login
@@ -179,24 +178,24 @@
               <Button 
                 href={sign_up_path()}
                 size="sm" 
-                class={cn(isScrolled && "lg:hidden")}
+                class="lg:inline-flex"
               >
                 Sign Up
               </Button>
             {:else}
               <Button
                 size="sm"
-                href={dashboard_path()}
-                class={cn(isScrolled && "lg:hidden")}
+                href={publicAuthCta.href}
+                class="lg:inline-flex"
               >
-                Dashboard
+                {publicAuthCta.label}
               </Button>
               {#if sessionId}
                 <Link
                   href={session_path(sessionId)}
                   method="delete"
                   as="button"
-                  class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), isScrolled && 'lg:hidden')}
+                  class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'lg:inline-flex')}
                 >
                   Logout
                 </Link>

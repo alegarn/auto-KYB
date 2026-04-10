@@ -59,7 +59,7 @@ class SessionsController < ApplicationController
     user = find_or_build_oauth_user
     if user&.persisted?
       start_user_session!(user)
-      redirect_to post_login_path_for(user), notice: "Signed in successfully", status: :see_other
+      redirect_to auth_navigation_for(user).post_login_path, notice: "Signed in successfully", status: :see_other
     else
       oauth_failure_redirect
     end
@@ -72,11 +72,6 @@ class SessionsController < ApplicationController
     def start_user_session!(user)
       @session = user.sessions.create!
       cookies.permanent.signed[:session_token] = @session.id
-    end
-
-    def post_login_path_for(user)
-      return auth_setup_settings_path unless user.onboarding_completed?
-      auth_loading_path
     end
 
     def find_or_build_oauth_user

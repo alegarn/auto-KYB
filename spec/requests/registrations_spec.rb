@@ -11,6 +11,50 @@ RSpec.describe "Registrations", type: :request do
       get sign_up_path
       expect(response).to have_http_status(:ok)
     end
+
+    context "when authenticated with an active subscription" do
+      let(:user) { create(:user, :subscribed, onboarding_completed: true) }
+
+      before do
+        cookies["session_token"] = user.sessions.create!.id
+      end
+
+      it "redirects to the authenticated destination" do
+        get sign_up_path
+
+        expect(response).to redirect_to(dashboard_path)
+        expect(response).to have_http_status(:see_other)
+      end
+    end
+
+    context "when authenticated with auth setup still pending" do
+      let(:user) { create(:user, :subscribed, onboarding_completed: false) }
+
+      before do
+        cookies["session_token"] = user.sessions.create!.id
+      end
+
+      it "redirects to auth setup" do
+        get sign_up_path
+
+        expect(response).to redirect_to(auth_setup_settings_path)
+        expect(response).to have_http_status(:see_other)
+      end
+    end
+
+    context "when authenticated with a retained canceled subscription" do
+      let(:user) { create(:user, :canceled, onboarding_completed: false) }
+
+      before do
+        cookies["session_token"] = user.sessions.create!.id
+      end
+
+      it "keeps the pricing page available for resubscribe" do
+        get sign_up_path
+
+        expect(response).to have_http_status(:ok)
+      end
+    end
   end
 
   # ─────────────────────────────────────────────────────────────

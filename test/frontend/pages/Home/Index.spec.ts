@@ -19,9 +19,13 @@ beforeEach(() => {
 function guestPageProps() {
   return {
     ...mockPageProps.props,
+    user: {
+      id: 'legacy-user',
+      email: 'legacy@example.com',
+    },
     auth: null,
+    public_auth_cta: null,
     session_id: null,
-    user: null,
     flash: {},
   } as any
 }
@@ -29,6 +33,7 @@ function guestPageProps() {
 function authenticatedPageProps() {
   return {
     ...mockPageProps.props,
+    user: null,
     auth: {
       user: {
         id: '1',
@@ -51,6 +56,10 @@ function authenticatedPageProps() {
           auto_sync_allowed: true,
         },
       },
+    },
+    public_auth_cta: {
+      label: 'Dashboard',
+      href: '/dashboard',
     },
     session_id: 'session-123',
     flash: {},
@@ -83,7 +92,7 @@ test('Home mounts and displays guest hero actions', () => {
   vi.useRealTimers()
 })
 
-test('Home shows dashboard and logout actions for authenticated users', () => {
+test('Home keeps the hero public even when shared auth state is present', () => {
   vi.useFakeTimers()
 
   updatePageProps({
@@ -99,10 +108,10 @@ test('Home shows dashboard and logout actions for authenticated users', () => {
   vi.runAllTimers()
   flushSync()
 
-  expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
-  expect(screen.queryByRole('link', { name: 'Start Onboarding' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Request a demo' })).not.toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Start Onboarding' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Request a demo' })).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument()
 
   unmount(component)
   vi.useRealTimers()
