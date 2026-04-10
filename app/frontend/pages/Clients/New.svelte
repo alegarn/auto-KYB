@@ -211,7 +211,7 @@
     </div>
 
     <div class="mt-8 pt-6 border-t flex gap-3 items-center">
-      <Button type="submit" class="btn px-8">Create Client Profile</Button>
+      <Button type="submit" class="btn px-8" data-onboarding-tutorial="client-submit">Create Client Profile</Button>
       <Button href="/clients" variant="outline" class="text-muted-foreground">Cancel</Button>
     </div>
   </InertiaForm>

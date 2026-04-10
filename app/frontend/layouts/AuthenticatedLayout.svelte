@@ -3,19 +3,71 @@
   import AppSidebar from "/components/customs/app-sidebar.svelte";
   import Toast from "/components/customs/Toast.svelte";
   import { page } from "@inertiajs/svelte";
+  import {
+    getOnboardingTutorialKey,
+    ONBOARDING_TUTORIAL_LOCATION_CHANGE_EVENT,
+  } from '@/lib/onboarding-tutorials';
+  import { getPathname } from "@/lib/utils";
 
   let { children } = $props();
 
-  const sessionId = $derived(($page?.props as Record<string, unknown>)?.session_id as string);
+  type OnboardingTutorialHostComponentType = typeof import('/components/onboarding/OnboardingTutorialHost.svelte').default;
 
-  const currentPath = $derived.by(() => {
-    const url = $page?.url ?? "";
-    try { return new URL(url, "http://localhost").pathname; } catch { return url; }
-  });
+  const sessionId = $derived(($page?.props as Record<string, unknown>)?.session_id as string);
+  const pageUrl = $derived($page?.url);
+  let browserUrl = $state<string | null>(null);
+
+  const currentPath = $derived(getPathname($page?.url));
+  const activeTutorialKey = $derived(getOnboardingTutorialKey(browserUrl ?? pageUrl));
 
   const crmSignals = $derived(($page?.props as any)?.crm_transfer_signals);
   const crmToast = $derived(crmSignals?.toast);
   const showCrmToast = $derived(!!crmToast && !currentPath.startsWith('/crm_transfers'));
+  let OnboardingTutorialHostComponent = $state<OnboardingTutorialHostComponentType | null>(null);
+
+  $effect(() => {
+    browserUrl = pageUrl;
+  });
+
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncBrowserUrl = () => {
+      browserUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    };
+
+    syncBrowserUrl();
+    window.addEventListener('popstate', syncBrowserUrl);
+    window.addEventListener(ONBOARDING_TUTORIAL_LOCATION_CHANGE_EVENT, syncBrowserUrl);
+
+    return () => {
+      window.removeEventListener('popstate', syncBrowserUrl);
+      window.removeEventListener(ONBOARDING_TUTORIAL_LOCATION_CHANGE_EVENT, syncBrowserUrl);
+    };
+  });
+
+  $effect(() => {
+    if (!activeTutorialKey) {
+      OnboardingTutorialHostComponent = null;
+      return;
+    }
+
+    let active = true;
+
+    import('/components/onboarding/OnboardingTutorialHost.svelte')
+      .then((module) => {
+        if (active) {
+          OnboardingTutorialHostComponent = module.default;
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load onboarding tutorial host', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  });
 </script>
 
 <Sidebar.Provider>
@@ -27,4 +79,8 @@
     {/if}
     {@render children?.()}
   </main>
+
+  {#if OnboardingTutorialHostComponent && activeTutorialKey}
+    <OnboardingTutorialHostComponent tutorialKey={activeTutorialKey} />
+  {/if}
 </Sidebar.Provider>

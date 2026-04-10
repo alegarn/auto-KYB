@@ -41,6 +41,8 @@ class ClientsController < ApplicationController
   end
 
   def export
+    current_user.mark_dashboard_onboarding_exported!
+    
     respond_to do |format|
       format.json do
         json_data = ClientSerializer.new(@client).to_json

@@ -8,7 +8,6 @@ const singleCheckbox = { field_type: 'checkbox' };                              
 const multiCheckbox  = { field_type: 'checkbox', metadata: { allow_multiple: true } };
 const textField      = { field_type: 'text' };
 const numberField    = { field_type: 'number' };
-const dateField      = { field_type: 'date' };
 
 // ── US-11: booleancheckbox ────────────────────────────────────────────────────
 describe('isHubSpotCompatible — booleancheckbox', () => {

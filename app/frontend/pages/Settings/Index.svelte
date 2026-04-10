@@ -318,7 +318,7 @@
     </Card.Root>
 
     {#if canUseCrm}
-    <Card.Root>
+    <Card.Root data-onboarding-tutorial="crm-integrations">
       <Card.Header>
         <Card.Title>CRM Integrations</Card.Title>
         <Card.Description>Connect your CRM to automatically export client data.</Card.Description>
@@ -345,7 +345,7 @@
                   {crm.loading ? 'Disconnecting…' : 'Disconnect'}
                 </Button>
               {:else}
-                <Button variant="default" size="sm" onclick={() => toggleCrmConnection(crm.provider)} disabled={crm.loading}>
+                <Button variant="default" size="sm" data-onboarding-tutorial="crm-connect-button" onclick={() => toggleCrmConnection(crm.provider)} disabled={crm.loading}>
                   {crm.loading ? 'Connecting…' : 'Connect'}
                 </Button>
               {/if}
@@ -373,6 +373,7 @@
             role="switch"
             aria-checked={crmAutoSyncOnPortalSubmit}
             aria-label="Toggle CRM automatic sync after client portal submission"
+            data-onboarding-tutorial="crm-auto-sync-toggle"
             class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${crmAutoSyncOnPortalSubmit ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'} ${crmPreferenceSaving ? 'cursor-wait opacity-70' : ''}`}
             onclick={toggleCrmAutoSyncOnPortalSubmit}
             disabled={crmPreferenceSaving}

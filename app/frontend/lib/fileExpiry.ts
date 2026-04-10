@@ -42,7 +42,7 @@ export function parseExpiryFromSignedUrl(url?: string | null): Date | null {
         if (!isNaN(base.getTime())) return new Date(base.getTime() + expiresSec * 1000);
       }
     }
-  } catch (e) {
+  } catch {
     return null;
   }
   return null;

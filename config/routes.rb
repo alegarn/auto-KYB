@@ -10,6 +10,12 @@ Rails.application.routes.draw do
   get "countries", to: "countries#index", defaults: { format: :json }
 
   get "dashboard", to: "dashboard#index"
+  resource :onboarding, only: [], controller: "onboarding" do
+    patch :dismiss
+    patch :details_seen
+    patch :guide_seen
+    patch :reset
+  end
   get "quickstart", to: "quickstart#index"
   get "privacy", to: "privacy#show"
   get "auth/loading", to: "auth_loading#show", as: :auth_loading
