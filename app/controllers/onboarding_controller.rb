@@ -14,6 +14,8 @@ class OnboardingController < ApplicationController
 
   def guide_seen
     guide_key = params[:guide_key].to_s
+    return head :unprocessable_content unless OnboardingTracking::GUIDE_KEYS.include?(guide_key)
+
     current_user.mark_dashboard_onboarding_guide_seen!(guide_key)
     redirect_back fallback_location: dashboard_path, status: :see_other
   end
