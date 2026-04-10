@@ -1,6 +1,5 @@
 <script lang="ts">
   import Button from "/components/ui/button/button.svelte";
-  import { page } from '@inertiajs/svelte'
   import { sign_up_path } from '@/routes';
   
   // Lazy load heavy components
