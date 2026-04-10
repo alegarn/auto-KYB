@@ -25,7 +25,10 @@
     pro: [
       "Everything in Basic",
       "CRM exports: HubSpot, Salesforce",
-    ],
+      "Automatic data export",
+      "Auto-map your form fields to CRM fields",
+      "Export files directly to your CRM",
+      ],
     premium: [
       "Everything in Pro",
       "Client pre-onboard company research",
