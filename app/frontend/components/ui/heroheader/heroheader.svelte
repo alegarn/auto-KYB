@@ -4,11 +4,27 @@
   import Menu from "@lucide/svelte/icons/menu";
   import X from "@lucide/svelte/icons/x";
   import { scrollY } from "svelte/reactivity/window";
-  import Button from "../button/button.svelte";
-  import { inertia, Link, page } from '@inertiajs/svelte'
-  import { dashboard_path } from '@/routes';
+  import { Link, inertia, page } from '@inertiajs/svelte'
+  import Button, { buttonVariants } from "../button/button.svelte";
+  import { dashboard_path, session_path } from '@/routes';
   import logo from "@/assets/quick_kyb_horizontal.svg";
-  let { user, sign_in_path, sign_up_path, root_path, quickstart_path } = $props();
+  import type { SharedAuth } from '@/types/shared-auth';
+
+  let {
+    user,
+    sessionId = null,
+    sign_in_path,
+    sign_up_path,
+    root_path,
+    quickstart_path,
+  }: {
+    user: SharedAuth['user'] | null;
+    sessionId?: string | null;
+    sign_in_path: () => string;
+    sign_up_path: () => string;
+    root_path: () => string;
+    quickstart_path: () => string;
+  } = $props();
 
   type MenuItem = {
     name: string;
@@ -171,10 +187,20 @@
               <Button
                 size="sm"
                 href={dashboard_path()}
-                class={cn(isScrolled ? "lg:inline-flex" : "hidden")}
+                class={cn(isScrolled && "lg:hidden")}
               >
-                Get Started
+                Dashboard
               </Button>
+              {#if sessionId}
+                <Link
+                  href={session_path(sessionId)}
+                  method="delete"
+                  as="button"
+                  class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), isScrolled && 'lg:hidden')}
+                >
+                  Logout
+                </Link>
+              {/if}
             {/if}
           </div>
         </div>

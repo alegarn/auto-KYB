@@ -1,5 +1,15 @@
 import { vi } from 'vitest'
 
+function buildPageState() {
+  return {
+    ...mockPageProps.props,
+    props: mockPageProps.props,
+    url: mockPageProps.url,
+    component: mockPageProps.component,
+    version: mockPageProps.version,
+  }
+}
+
 // Mock page props
 export const mockPageProps = {
   url: '/dashboard',
@@ -35,8 +45,7 @@ let pageSubscribers: Function[] = []
 export const mockPage = {
   subscribe: (fn: Function) => {
     pageSubscribers.push(fn)
-    // Provide the store value as the `props` object so components expecting `$page.<prop>` work
-    fn(mockPageProps.props)
+    fn(buildPageState())
     return () => {
       pageSubscribers = pageSubscribers.filter(s => s !== fn)
     }
@@ -54,7 +63,7 @@ export const mockPage = {
 
 export function updatePageProps(updates: Partial<typeof mockPageProps>) {
   Object.assign(mockPageProps, updates)
-  pageSubscribers.forEach(fn => fn(mockPageProps.props))
+  pageSubscribers.forEach(fn => fn(buildPageState()))
 }
 
 export function resetPageProps() {
