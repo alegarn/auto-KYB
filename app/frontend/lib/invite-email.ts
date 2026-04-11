@@ -12,7 +12,7 @@ export const DEFAULT_BODY =
   'Hello {{client_name}},\n\n' +
   'You have been invited to fill out the {{form_name}} form on Quick KYB.\n\n' +
   'Access your portal here: {{invite_link}}\n\n' +
-  'Your one-time password: {{password}}\n\n' +
+  'Your portal password: {{password}}\n\n' +
   'Please keep these credentials safe, as the password is shown only once.';
 
 export const PREVIEW_VARIABLES: Record<string, string> = {

@@ -11,7 +11,7 @@ class ClientPortalInvitationTemplateRenderer
 
     Access your portal here: {{invite_link}}
 
-    Your one-time password: {{password}}
+    Your portal password: {{password}}
 
     Please keep these credentials safe, as the password is shown only once.
   BODY
