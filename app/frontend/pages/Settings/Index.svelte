@@ -323,7 +323,11 @@
               {:else}
                 <form action="/auth/google_oauth2" method="post" data-turbo="false">
                   <input type="hidden" name="authenticity_token" value={csrfToken} />
-                  <button type="submit" class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium shadow-xs hover:bg-accent transition-colors">
+                  <button 
+                    type="submit" 
+                    aria-label="Connect with Google"
+                    class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium shadow-xs hover:bg-accent transition-colors"
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" width="0.9em" height="0.9em" viewBox="0 0 256 262">
                       <path fill="#4285f4" d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622l38.755 30.023l2.685.268c24.659-22.774 38.875-56.282 38.875-96.027"></path>
                       <path fill="#34a853" d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055c-34.523 0-63.824-22.773-74.269-54.25l-1.531.13l-40.298 31.187l-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1"></path>
@@ -433,7 +437,15 @@
                     When enabled, validated submissions export automatically. When disabled, push linked clients manually.
                   </p>
                 </div>
-                <button type="button" role="switch" aria-checked={crmAutoSyncOnPortalSubmit} class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${crmAutoSyncOnPortalSubmit ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'} ${crmPreferenceSaving ? 'cursor-wait opacity-70' : ''}`} onclick={(e) => { e.stopPropagation(); toggleCrmAutoSyncOnPortalSubmit(); }} disabled={crmPreferenceSaving}>
+                <button 
+                  type="button" 
+                  role="switch" 
+                  aria-checked={crmAutoSyncOnPortalSubmit} 
+                  aria-label="Toggle automatic CRM sync"
+                  class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${crmAutoSyncOnPortalSubmit ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'} ${crmPreferenceSaving ? 'cursor-wait opacity-70' : ''}`} 
+                  onclick={(e) => { e.stopPropagation(); toggleCrmAutoSyncOnPortalSubmit(); }} 
+                  disabled={crmPreferenceSaving}
+                >
                   <span class={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform ${crmAutoSyncOnPortalSubmit ? 'translate-x-5' : 'translate-x-0'}`}></span>
                 </button>
               </div>
@@ -482,7 +494,14 @@
                 <p class="text-sm font-medium">Send client portal invite automatically</p>
                 <p class="text-xs text-muted-foreground">When enabled, the invite email is sent automatically if the client has an email address.</p>
               </div>
-              <button type="button" role="switch" aria-checked={inviteAutoSend} class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${inviteAutoSend ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'}`} onclick={(e) => { e.stopPropagation(); inviteAutoSend = !inviteAutoSend; }}>
+              <button 
+                type="button" 
+                role="switch" 
+                aria-checked={inviteAutoSend} 
+                aria-label="Toggle automatic client invite email"
+                class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${inviteAutoSend ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'}`} 
+                onclick={(e) => { e.stopPropagation(); inviteAutoSend = !inviteAutoSend; }}
+              >
                 <span class={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform ${inviteAutoSend ? 'translate-x-5' : 'translate-x-0'}`}></span>
               </button>
             </div>
