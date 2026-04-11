@@ -11,6 +11,10 @@ export const new_session_path = vi.fn(() => '/sessions/new')
 export const registrations_path = vi.fn(() => '/registrations')
 export const new_registration_path = vi.fn(() => '/registrations/new')
 export const destroy_session_path = vi.fn(() => '/sessions')
+export const clients_path = vi.fn(() => '/clients')
+export const client_form_invitation_delivery_path = vi.fn(
+  (id: string | number) => `/client_forms/${id}/invitation_delivery`,
+)
 
 vi.mock('@/routes', () => ({
   dashboard_path,
@@ -23,5 +27,7 @@ vi.mock('@/routes', () => ({
   new_session_path,
   registrations_path,
   new_registration_path,
-  destroy_session_path
+  destroy_session_path,
+  clients_path,
+  client_form_invitation_delivery_path,
 }))

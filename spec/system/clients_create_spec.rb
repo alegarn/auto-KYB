@@ -27,9 +27,9 @@ RSpec.describe 'Create client', type: :system, js: true do
     # Verify DB insertion
     expect(Client.where(name: 'Acme', company_name: 'Acme Co').count).to eq(1)
 
-    # If the UI redirected to a password reveal, assert that path only when present
-    if page.has_text?('Password Reveal')
-      expect(URI.parse(current_url).path).to match(%r{\A/client_forms/.+/password_reveal\z})
+    # If the UI redirected to invitation delivery, assert that path only when present
+    if page.has_text?('Send Invitation') || page.has_text?('Password Reveal')
+      expect(URI.parse(current_url).path).to match(%r{\A/client_forms/.+/(invitation_delivery|password_reveal)\z})
     end
   end
 

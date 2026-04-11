@@ -1,130 +1,118 @@
 <script lang="ts">
   import { page, router } from "@inertiajs/svelte";
+  import { untrack } from "svelte";
   import { crmAllowed, getSharedAuth } from "@/lib/shared-auth";
-  import { sign_up_path, identity_oauth_connection_path } from "@/routes";
+  import {
+    sign_up_path,
+    identity_oauth_connection_path,
+    settings_crm_preferences_path,
+    settings_client_invitation_email_path,
+    subscriptions_billing_portal_path,
+    crm_connection_path,
+    auth_crm_connections_path,
+    test_crm_connection_path,
+  } from "@/routes";
   import * as Card from "/components/ui/card";
   import { Button, buttonVariants } from "/components/ui/button";
   import { Input } from "/components/ui/input";
   import * as Sheet from "/components/ui/sheet";
+  import {
+    ALLOWED_VARIABLES,
+    DEFAULT_SUBJECT,
+    DEFAULT_BODY,
+    PREVIEW_VARIABLES,
+    renderTemplate,
+    type InviteEmailSetting,
+  } from "@/lib/invite-email";
+  import {
+    buildCrmConnectionList,
+    formatDateLabel,
+    isSubscribed,
+    fetchBillingPortalUrl,
+    testCrmConnectionApi,
+  } from "@/lib/settings-api";
 
-  // Props & state
-  let { user, crm_connections = [], available_providers = [] } = $props();
-  let deleteConfirmation = $state("");
-  let deletingAccount = $state(false);
-  let billingLoading = $state(false);
-  let billingError = $state<string | null>(null);
-  let crmAutoSyncOnPortalSubmit = $state(false);
-  let crmPreferenceSaving = $state(false);
-  let crmPreferenceError = $state<string | null>(null);
-  let oauthLoading = $state(false);
+  // ── Props ──────────────────────────────────────────────────────────
+  let {
+    user,
+    crm_connections = [],
+    available_providers = [],
+    client_invitation_email_setting = {
+      auto_send: false,
+      subject_template: null,
+      body_template: null,
+    } as InviteEmailSetting,
+    errors = {},
+  } = $props();
+
+  // ── CSRF token (SSR-safe) ─────────────────────────────────────────
   const csrfToken =
     typeof document === 'undefined'
       ? ''
       : ((document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '');
 
+  // ── Account information ───────────────────────────────────────────
+  const createdAtLabel = $derived(formatDateLabel(user?.created_at));
+
+  // ── Billing ───────────────────────────────────────────────────────
+  let billingLoading = $state(false);
+  let billingError = $state<string | null>(null);
+  const subscriptionStatus = $derived(user?.subscription_status ?? null);
+  const subscribed = $derived(isSubscribed(user?.subscription_status));
+  const subscriptionEndsAtLabel = $derived(
+    user?.subscription_ends_at ? formatDateLabel(user.subscription_ends_at) : null,
+  );
+
+  // ── Google sign-in ────────────────────────────────────────────────
   const googleConnected = $derived(!!user?.provider);
-  const canDeleteAccount = $derived(deleteConfirmation.trim() === "DELETE");
+  let oauthLoading = $state(false);
+
+  // ── Delete account ────────────────────────────────────────────────
+  let deleteConfirmation = $state('');
+  let deletingAccount = $state(false);
+  const canDeleteAccount = $derived(deleteConfirmation.trim() === 'DELETE');
+
+  // ── Shared auth / CRM gate ────────────────────────────────────────
   const sharedAuth = $derived(getSharedAuth($page?.props as Record<string, unknown>));
   const canUseCrm = $derived(crmAllowed(sharedAuth));
 
-  const createdAtLabel = $derived.by(() => {
-    if (!user?.created_at) return "—";
-    try {
-      const date = new Date(user.created_at);
-      return date.toLocaleDateString("en-GB", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return user.created_at;
-    }
-  });
-
-  const subscriptionStatus = $derived.by(() => user?.subscription_status ?? null);
-
-  const subscribed = $derived.by(() => {
-    const s = user?.subscription_status;
-    return s === "active" || s === "trialing";
-  });
-
-  const subscriptionEndsAtLabel = $derived.by(() => {
-    if (!user?.subscription_ends_at) return null;
-    try {
-      const date = new Date(user.subscription_ends_at);
-      return date.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
-    } catch {
-      return user.subscription_ends_at;
-    }
-  });
-
-  // CRM State
-  const providerNames: Record<string, string> = {
-    hubspot: 'HubSpot',
-    salesforce: 'Salesforce',
-    zoho: 'Zoho CRM'
-  };
-
+  // ── CRM connections ───────────────────────────────────────────────
   let crmLoadingStates = $state<Record<string, boolean>>({});
+  const crmConnections = $derived(
+    buildCrmConnectionList(available_providers, crm_connections, crmLoadingStates),
+  );
 
-  const crmConnections = $derived.by(() => {
-    const providers = available_providers.length > 0 ? available_providers : ['hubspot', 'salesforce', 'zoho'];
-    return providers.map((provider: string) => {
-      // Find matching connection from server props
-      const conn = crm_connections?.find((c: any) => c.provider === provider && c.status === 'active');
-      return {
-        id: conn?.id,
-        provider,
-        name: providerNames[provider] || provider,
-        connected: !!conn,
-        status: conn?.status,
-        loading: !!crmLoadingStates[provider]
-      };
-    });
-  });
-
+  // ── CRM preferences ───────────────────────────────────────────────
+  let crmAutoSyncOnPortalSubmit = $state(false);
+  let crmPreferenceSaving = $state(false);
+  let crmPreferenceError = $state<string | null>(null);
   $effect(() => {
     crmAutoSyncOnPortalSubmit = !!user?.crm_auto_sync_on_portal_submit;
   });
 
+  // ── Invite email ──────────────────────────────────────────────────
+  let inviteAutoSend = $state(untrack(() => !!client_invitation_email_setting?.auto_send));
+  let inviteSubject = $state(untrack(() => client_invitation_email_setting?.subject_template ?? ''));
+  let inviteBody = $state(untrack(() => client_invitation_email_setting?.body_template ?? ''));
+  let inviteSaving = $state(false);
+  let inviteError = $state<string | null>(null);
+  const previewSubject = $derived(renderTemplate(inviteSubject || DEFAULT_SUBJECT, PREVIEW_VARIABLES));
+  const previewBody = $derived(renderTemplate(inviteBody || DEFAULT_BODY, PREVIEW_VARIABLES));
+  $effect(() => {
+    inviteAutoSend = !!client_invitation_email_setting?.auto_send;
+    inviteSubject = client_invitation_email_setting?.subject_template ?? '';
+    inviteBody = client_invitation_email_setting?.body_template ?? '';
+  });
 
-  function submitAccountDeletion() {
-    if (!canDeleteAccount || deletingAccount) return;
-
-    deletingAccount = true;
-    router.delete(sign_up_path(), {
-      data: { confirmation: deleteConfirmation.trim() },
-      preserveScroll: true,
-      onFinish: () => {
-        deletingAccount = false;
-      },
-    });
-  }
+  // ── Handlers ──────────────────────────────────────────────────────
 
   async function openBillingPortal() {
     if (billingLoading) return;
     billingLoading = true;
     billingError = null;
-
     try {
-      const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
-      const res = await fetch('/subscriptions/billing_portal', {
-        method: 'POST',
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || 'Unable to open billing portal');
-      }
-
-      const body = await res.json();
-      if (body.url) {
-        window.location.href = body.url;
-        return;
-      }
-
-      throw new Error('No portal url returned');
+      const url = await fetchBillingPortalUrl(csrfToken, subscriptions_billing_portal_path());
+      window.location.href = url;
     } catch (err) {
       billingError = (err as Error).message;
       console.error('Billing portal error', err);
@@ -142,21 +130,25 @@
     });
   }
 
+  function submitAccountDeletion() {
+    if (!canDeleteAccount || deletingAccount) return;
+    deletingAccount = true;
+    router.delete(sign_up_path(), {
+      data: { confirmation: deleteConfirmation.trim() },
+      preserveScroll: true,
+      onFinish: () => { deletingAccount = false; },
+    });
+  }
+
   function toggleCrmAutoSyncOnPortalSubmit() {
     if (crmPreferenceSaving) return;
-
     const nextValue = !crmAutoSyncOnPortalSubmit;
     crmAutoSyncOnPortalSubmit = nextValue;
     crmPreferenceError = null;
     crmPreferenceSaving = true;
-
     router.patch(
-      '/settings/crm_preferences',
-      {
-        settings: {
-          crm_auto_sync_on_portal_submit: nextValue,
-        },
-      },
+      settings_crm_preferences_path(),
+      { settings: { crm_auto_sync_on_portal_submit: nextValue } },
       {
         preserveScroll: true,
         preserveState: true,
@@ -164,55 +156,75 @@
           crmAutoSyncOnPortalSubmit = !!user?.crm_auto_sync_on_portal_submit;
           crmPreferenceError = 'Unable to update CRM sync preference.';
         },
-        onFinish: () => {
-          crmPreferenceSaving = false;
-        },
-      }
+        onFinish: () => { crmPreferenceSaving = false; },
+      },
     );
   }
 
   function toggleCrmConnection(provider: string) {
-    const crm = crmConnections.find((c: any) => c.provider === provider);
+    const crm = crmConnections.find((c) => c.provider === provider);
     if (!crm) return;
-    
     if (crm.connected) {
       if (confirm(`Disconnecting will remove authorization. ${crm.name} data will remain intact. Proceed?`)) {
         crmLoadingStates[provider] = true;
-        router.delete(`/crm_connections/${crm.id}`, {
-          onFinish: () => { crmLoadingStates[provider] = false; }
+        // crm.id is guaranteed by crm.connected === true (active connection has an id)
+        router.delete(crm_connection_path(crm.id!), {
+          onFinish: () => { crmLoadingStates[provider] = false; },
         });
       }
     } else {
       crmLoadingStates[provider] = true;
-      // Use native browser navigation to prevent Inertia XHR headers from interfering with external OAuth state
-      window.location.href = `/crm_connections/auth/${provider}`;
+      // Native navigation avoids Inertia XHR headers interfering with external OAuth state
+      window.location.href = auth_crm_connections_path(provider);
     }
   }
 
   async function testCrmConnection(provider: string) {
-    const crm = crmConnections.find((c: any) => c.provider === provider);
+    const crm = crmConnections.find((c) => c.provider === provider);
     if (!crm || !crm.id) return;
-    
     crmLoadingStates[provider] = true;
     try {
-      const response = await fetch(`/crm_connections/${crm.id}/test`, {
-        method: 'POST',
-        headers: { 
-          'X-CSRF-Token': csrfToken,
-          'Accept': 'application/json'
-        }
-      });
-      const result = await response.json();
-      if (response.ok) {
-        alert(`Test successful for ${crm.name}! Status: ${result.status || 'OK'}`);
-      } else {
-        alert(`Test failed for ${crm.name}: ${result.error || 'Unknown error'}`);
-      }
+      const result = await testCrmConnectionApi(test_crm_connection_path(crm.id), csrfToken);
+      alert(result.ok
+        ? `Test successful for ${crm.name}! Status: ${result.message}`
+        : `Test failed for ${crm.name}: ${result.message}`,
+      );
     } catch (e: any) {
       alert(`Test failed for ${crm.name}: ${e.message}`);
     } finally {
       crmLoadingStates[provider] = false;
     }
+  }
+
+  function insertVariable(field: 'subject' | 'body', variable: string) {
+    if (field === 'subject') {
+      inviteSubject += variable;
+    } else {
+      inviteBody += variable;
+    }
+  }
+
+  function saveInviteEmailSettings() {
+    if (inviteSaving) return;
+    inviteSaving = true;
+    inviteError = null;
+    router.patch(
+      settings_client_invitation_email_path(),
+      {
+        client_invitation_email_setting: {
+          auto_send: inviteAutoSend,
+          subject_template: inviteSubject || null,
+          body_template: inviteBody || null,
+        },
+      },
+      {
+        preserveScroll: true,
+        onError: (errs: any) => {
+          inviteError = typeof errs === 'string' ? errs : 'Failed to save invite email settings.';
+        },
+        onFinish: () => { inviteSaving = false; },
+      },
+    );
   }
 </script>
 
@@ -404,6 +416,90 @@
       </Card.Content>
     </Card.Root>
     {/if}
+
+    <!-- Client invite email settings -->
+    <Card.Root>
+      <Card.Header>
+        <Card.Title>Client invite email</Card.Title>
+        <Card.Description>Configure how portal invitations are sent to clients.</Card.Description>
+      </Card.Header>
+      <Card.Content class="space-y-4">
+        <div class="flex items-start justify-between gap-4 rounded-lg border bg-background p-4">
+          <div class="space-y-1">
+            <p class="text-sm font-medium">Send client portal invite automatically when credentials are generated</p>
+            <p class="text-xs text-muted-foreground">
+              When enabled, the invite email is sent automatically if the client has an email address. Otherwise, you will be asked each time.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={inviteAutoSend}
+            aria-label="Toggle automatic invite email"
+            class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${inviteAutoSend ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'}`}
+            onclick={() => { inviteAutoSend = !inviteAutoSend; }}
+          >
+            <span
+              class={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform ${inviteAutoSend ? 'translate-x-5' : 'translate-x-0'}`}
+            ></span>
+          </button>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm font-medium" for="invite-subject">Subject template</label>
+          <Input id="invite-subject" placeholder="Your Quick KYB secure form access" bind:value={inviteSubject} />
+          <div class="flex flex-wrap gap-1">
+            {#each ALLOWED_VARIABLES as v}
+              <button
+                type="button"
+                class="rounded bg-muted px-2 py-0.5 text-xs font-mono hover:bg-muted/80"
+                onclick={() => insertVariable('subject', v)}
+              >{v}</button>
+            {/each}
+          </div>
+          {#if errors?.subject_template}
+            <p class="text-sm text-destructive">{errors.subject_template}</p>
+          {/if}
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm font-medium" for="invite-body">Body template</label>
+          <textarea
+            id="invite-body"
+            class="w-full min-h-[160px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+            placeholder={"Hello {{client_name}}..."}
+            bind:value={inviteBody}
+          ></textarea>
+          <div class="flex flex-wrap gap-1">
+            {#each ALLOWED_VARIABLES as v}
+              <button
+                type="button"
+                class="rounded bg-muted px-2 py-0.5 text-xs font-mono hover:bg-muted/80"
+                onclick={() => insertVariable('body', v)}
+              >{v}</button>
+            {/each}
+          </div>
+          {#if errors?.body_template}
+            <p class="text-sm text-destructive">{errors.body_template}</p>
+          {/if}
+        </div>
+
+        <!-- Preview -->
+        <div class="rounded-lg border border-dashed p-4 space-y-2">
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview (sample data)</p>
+          <p class="text-sm"><strong>Subject:</strong> {previewSubject}</p>
+          <div class="mt-2 whitespace-pre-wrap text-sm text-muted-foreground bg-muted/20 rounded p-3">{previewBody}</div>
+        </div>
+
+        <Button onclick={saveInviteEmailSettings} disabled={inviteSaving}>
+          {inviteSaving ? 'Saving…' : 'Save invite email settings'}
+        </Button>
+
+        {#if inviteError}
+          <p class="text-sm text-destructive">{inviteError}</p>
+        {/if}
+      </Card.Content>
+    </Card.Root>
 
     <Card.Root class="border-destructive/40">
       <Card.Header>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_07_000100) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_10_103233) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -49,6 +49,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_07_000100) do
     t.datetime "created_at", null: false
     t.datetime "expires_at"
     t.uuid "form_id", null: false
+    t.datetime "invitation_emailed_at"
+    t.string "invitation_emailed_to"
     t.string "password_digest"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
@@ -56,6 +58,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_07_000100) do
     t.index ["access_token"], name: "index_client_forms_on_access_token", unique: true
     t.index ["client_id"], name: "index_client_forms_on_client_id"
     t.index ["form_id"], name: "index_client_forms_on_form_id"
+  end
+
+  create_table "client_invitation_email_settings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "auto_send", default: false, null: false
+    t.text "body_template"
+    t.datetime "created_at", null: false
+    t.text "subject_template"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["user_id"], name: "index_client_invitation_email_settings_on_user_id", unique: true
   end
 
   create_table "clients", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -344,6 +356,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_07_000100) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "client_forms", "clients"
   add_foreign_key "client_forms", "forms"
+  add_foreign_key "client_invitation_email_settings", "users"
   add_foreign_key "clients", "users"
   add_foreign_key "crm_client_links", "clients"
   add_foreign_key "crm_client_links", "crm_connections"

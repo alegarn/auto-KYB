@@ -70,6 +70,7 @@ Rails.application.routes.draw do
   get "settings/auth_setup", to: "settings#auth_setup", as: :auth_setup_settings
   patch "settings/auth_setup", to: "settings#complete_onboarding"
   patch "settings/crm_preferences", to: "settings#update_crm_preferences"
+  patch "settings/client_invitation_email", to: "settings#update_client_invitation_email", as: :settings_client_invitation_email
 
   get  "sign_in", to: "sessions#new"
   post "sign_in", to: "sessions#create"
@@ -105,6 +106,7 @@ Rails.application.routes.draw do
         get :password_reveal
         get :export_responses
       end
+      resource :invitation_delivery, only: [ :show, :create ], controller: "client_form_invitation_deliveries"
     end
 
   namespace :client_portal do
