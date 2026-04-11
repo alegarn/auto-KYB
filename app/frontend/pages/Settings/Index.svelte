@@ -234,7 +234,7 @@
   <p class="text-sm text-muted-foreground">Manage your profile and security.</p>
 </section>
 
-<section class="mt-6 grid gap-6 lg:grid-cols-[2fr_1fr]">
+<section class="mt-6 grid gap-6">
   <div class="space-y-6">
     <Card.Root>
       <Card.Header>
@@ -552,28 +552,4 @@
       </Card.Content>
     </Card.Root>
   </div>
-
-  <Card.Root>
-    <Card.Header>
-      <Card.Title>Security checklist</Card.Title>
-      <Card.Description>Recommended actions to keep your account safe.</Card.Description>
-    </Card.Header>
-    <Card.Content class="space-y-3">
-      <div class="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
-        <div class="mt-1 size-2 rounded-full bg-emerald-500"></div>
-        <div>
-          <p class="text-sm font-medium">Password updated</p>
-          <p class="text-xs text-muted-foreground">Last updated 3 days ago.</p>
-        </div>
-      </div>
-      <div class="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
-        <div class="mt-1 size-2 rounded-full bg-amber-500"></div>
-        <div>
-          <p class="text-sm font-medium">Enable 2FA</p>
-          <p class="text-xs text-muted-foreground">Add an extra layer of security.</p>
-        </div>
-      </div>
-      <Button variant="secondary" class="w-full">Review security settings</Button>
-    </Card.Content>
-  </Card.Root>
 </section>
