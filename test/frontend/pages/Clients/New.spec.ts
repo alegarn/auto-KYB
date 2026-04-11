@@ -10,6 +10,8 @@ test('renders new client form', () => {
     props: { user: { email: 'test@example.com' } },
   });
   expect(screen.getByText('New client')).toBeInTheDocument();
-  // label text 'Name' should be associated with an input
-  expect(screen.getByLabelText('Name')).toBeInTheDocument();
+  expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
+  expect(
+    screen.getByText(/No automatic email can be sent to the client without a valid email address/i)
+  ).toBeInTheDocument();
 });
