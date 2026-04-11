@@ -9,7 +9,8 @@ export type OnboardingTutorialKey =
   | 'form_export_basics'
   | 'client_profile_basics'
   | 'client_exports_basics'
-  | 'crm_sync_basics';
+  | 'crm_sync_basics'
+  | 'settings_invite_email_basics';
 
 export type GuideTip = {
   title: string;

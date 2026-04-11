@@ -466,7 +466,7 @@
     {/if}
 
     <!-- Client Invite Email -->
-    <Card.Root>
+    <Card.Root data-onboarding-tutorial="invite-email-card">
       <div 
         class="flex items-center justify-between p-6 cursor-pointer hover:bg-muted/30 transition-colors rounded-xl"
         onclick={() => inviteExpanded = !inviteExpanded}
@@ -489,7 +489,7 @@
         <div transition:slide={{ duration: 200, easing: cubicInOut }}>
           <Card.Content class="space-y-4 pb-6 pt-0">
             <div class="h-px bg-border mb-4 w-full"></div>
-            <div class="flex items-start justify-between gap-4 rounded-lg border bg-background p-4">
+            <div class="flex items-start justify-between gap-4 rounded-lg border bg-background p-4" data-onboarding-tutorial="invite-auto-send-toggle">
               <div class="space-y-1">
                 <p class="text-sm font-medium">Send client portal invite automatically</p>
                 <p class="text-xs text-muted-foreground">When enabled, the invite email is sent automatically if the client has an email address.</p>
@@ -505,7 +505,7 @@
                 <span class={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform ${inviteAutoSend ? 'translate-x-5' : 'translate-x-0'}`}></span>
               </button>
             </div>
-            <div class="space-y-2">
+            <div class="space-y-2" data-onboarding-tutorial="invite-template-form">
               <label class="text-sm font-medium" for="invite-subject">Subject template</label>
               <Input id="invite-subject" placeholder="Your Quick KYB secure form access" bind:value={inviteSubject} onclick={(e) => e.stopPropagation()} />
               <div class="flex flex-wrap gap-1">
@@ -525,7 +525,7 @@
               </div>
               {#if errors?.body_template}<p class="text-sm text-destructive">{errors.body_template}</p>{/if}
             </div>
-            <div class="rounded-lg border border-dashed p-4 space-y-2">
+            <div class="rounded-lg border border-dashed p-4 space-y-2" data-onboarding-tutorial="invite-preview-panel">
               <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview (sample data)</p>
               <p class="text-sm"><strong>Subject:</strong> {previewSubject}</p>
               <div class="mt-2 whitespace-pre-wrap text-sm text-muted-foreground bg-muted/20 rounded p-3">{previewBody}</div>

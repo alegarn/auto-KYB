@@ -56,7 +56,7 @@ const STEP_CONTENT: Record<DashboardOnboardingStepKey, StepContent> = {
     quickLabel: 'Share secure access',
     quickDescription: 'Link a client to a form and create the secure client subspace that gives them access to the portal.',
     detailsTitle: 'Create and share secure client access',
-    detailsBody: 'From the client page, create the client subspace, reveal the one-time password, and share the secure portal access so the client can begin the onboarding flow.',
+    detailsBody: 'From the client page, create the client subspace to generate the portal link and one-time password. Quick KYB will ask whether to email the credentials to the client immediately — or you can reveal the password yourself and share it manually.',
     ctaLabel: 'Open client page'
   },
   review: {
@@ -137,6 +137,10 @@ const GUIDE_CONTENT: Record<GuideKey, GuideTemplate> = {
       {
         title: 'Portal & secure access',
         body: 'Creating a subspace generates a unique portal link and a one-time password. Share both so the client can access their form securely.',
+      },
+      {
+        title: 'Email invitation delivery',
+        body: 'After creating a subspace, Quick KYB asks whether to email the portal link and one-time password to the client immediately. Go to Settings → Client invite email to enable auto-send and customise the subject and body template.',
       },
       {
         title: 'CSV export',
