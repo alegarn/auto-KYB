@@ -83,6 +83,8 @@ test('clicking "Send now" calls sendInvitation with client_form_id', async () =>
   await waitFor(() => {
     expect(sendInvitation).toHaveBeenCalledWith(42, { onFinish: expect.any(Function) });
   });
+
+  expect(screen.getByRole('status')).toHaveTextContent('Sending portal access');
 });
 
 test('clicking "Not now" calls skipInvitation with client_form_id', async () => {
@@ -119,13 +121,52 @@ test('displays flash alert from page props', () => {
   expect(screen.getByRole('alert')).toHaveTextContent('Page-level alert');
 });
 
-test('auto_send with has_email calls sendInvitation on mount', async () => {
+test('auto_send with has_email shows sending status and calls sendInvitation on mount', async () => {
   renderPage({
     pageName: 'Clients/InvitationDeliveryDecision',
     component: InvitationDeliveryDecision,
     props: { ...defaultProps, auto_send: true, has_email: true },
   });
+
+  expect(screen.getByRole('status')).toHaveTextContent('Sending portal access');
+  expect(screen.queryByText('Send portal access now?')).not.toBeInTheDocument();
+
   await waitFor(() => {
+    expect(sendInvitation).toHaveBeenCalledTimes(1);
     expect(sendInvitation).toHaveBeenCalledWith(42, { onFinish: expect.any(Function) });
   });
+});
+
+test('auto_send with an alert falls back to the manual prompt without auto-submitting', async () => {
+  renderPage({
+    pageName: 'Clients/InvitationDeliveryDecision',
+    component: InvitationDeliveryDecision,
+    props: { ...defaultProps, auto_send: true, has_email: true, flash_message: 'Delivery failed' },
+  });
+
+  await Promise.resolve();
+
+  expect(screen.getByRole('alert')).toHaveTextContent('Delivery failed');
+  expect(screen.getByText('Send portal access now?')).toBeInTheDocument();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(sendInvitation).not.toHaveBeenCalled();
+});
+
+test('auto_send falls back to the manual prompt when the send helper throws', async () => {
+  vi.mocked(sendInvitation).mockImplementationOnce(() => {
+    throw new Error('load failed');
+  });
+
+  renderPage({
+    pageName: 'Clients/InvitationDeliveryDecision',
+    component: InvitationDeliveryDecision,
+    props: { ...defaultProps, auto_send: true, has_email: true },
+  });
+
+  await waitFor(() => {
+    expect(screen.getByText('Send portal access now?')).toBeInTheDocument();
+  });
+
+  expect(sendInvitation).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
 });
