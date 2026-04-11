@@ -57,12 +57,8 @@ class ClientPortalInvitationDeliveryService
   def invite_link
     Rails.application.routes.url_helpers.client_portal_login_url(
       @client_form.access_token,
-      host: default_host
+      **ActionMailer::Base.default_url_options
     )
-  end
-
-  def default_host
-    ENV.fetch("APP_HOST") { ActionMailer::Base.default_url_options[:host] || "localhost:3000" }
   end
 
   def template_variables(client)
