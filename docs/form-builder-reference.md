@@ -72,7 +72,7 @@ Generic metadata keys can appear on any field type, but some are only meaningful
 
 - `description`: helper text and section copy.
 - `instruction`: declared in the schema but not currently surfaced in the UI.
-- `export_key`: export/mapping key used for CSV and JSON output.
+- `export_key`: export/mapping key used for CSV and JSON output. PDF import may synthesize this when repeated labels would otherwise collide.
 - `crm_mapping`: provider-specific CRM mapping configuration.
 - `placeholder`: input-only helper for text-like fields.
 - `validation`: input-only validation rules.
@@ -125,4 +125,5 @@ type CrmMapping = {
 - If you are generating form JSON, prefer `metadata` over top-level choice keys.
 - `validation` is present in the schema, but the current live form does not enforce it.
 - Layout fields are supported by the builder and live preview, but they are skipped by export mapping and CRM sync.
+- PDF import keeps repeated visible labels when they appear in different sections, but it may generate context-aware `export_key` values so exports stay unique.
 - The `table` field currently uses `metadata.columns` in the renderer; keep `metadata.table` in sync if you populate it programmatically.

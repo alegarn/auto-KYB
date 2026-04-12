@@ -50,6 +50,10 @@ class FormJsonValidator
       corrected_fields << corrected_field if corrected_field
     end
 
+    export_key_resolution = PdfImportExportKeyResolver.call(corrected_fields)
+    corrected_fields = export_key_resolution.fields
+    warnings.concat(export_key_resolution.warnings)
+
     duplicate_export_keys = duplicate_export_keys(corrected_fields)
     errors << "Duplicate export keys: #{duplicate_export_keys.join(', ')}" if duplicate_export_keys.any?
 
@@ -271,7 +275,7 @@ class FormJsonValidator
       metadata = stringify_keys(field["metadata"] || {})
       export_key = metadata["export_key"].to_s.strip
       effective_key = export_key.presence || label
-      normalized_key = effective_key.to_s.strip.downcase
+      normalized_key = normalize_export_key(effective_key)
       next if normalized_key.blank?
 
       scope = crm_scope_for(metadata)
@@ -297,6 +301,11 @@ class FormJsonValidator
                .first || "contact"
   end
   private_class_method :crm_scope_for
+
+  def self.normalize_export_key(value)
+    value.to_s.parameterize(separator: "_").presence || value.to_s.strip.downcase.presence
+  end
+  private_class_method :normalize_export_key
 
   def self.normalize_table_column(label, column, index, warnings)
     unless column.is_a?(Hash)

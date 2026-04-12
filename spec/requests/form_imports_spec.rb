@@ -13,11 +13,14 @@ RSpec.describe 'Form Imports', type: :request do
 
   around do |example|
     original_enabled = Rack::Attack.enabled
+    original_store = Rack::Attack.cache.store
     Rack::Attack.enabled = true
+    Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
     Rack::Attack.cache.store.clear
     example.run
   ensure
     Rack::Attack.cache.store.clear
+    Rack::Attack.cache.store = original_store
     Rack::Attack.enabled = original_enabled
   end
 
@@ -104,15 +107,22 @@ RSpec.describe 'Form Imports', type: :request do
       expect(payload.dig('form_data', 'name')).to eq('Imported Form')
     end
 
-    it 'returns 422 when Gemini processing fails' do
-      allow(PdfFormImportService).to receive(:call).and_raise(GeminiClient::ApiError, 'timeout')
+    it 'returns 422 with retry-aware details when Gemini processing fails' do
+      allow(PdfFormImportService).to receive(:call).and_raise(
+        GeminiClient::ApiError.new(
+          'Gemini API error (429): {"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details.","status":"RESOURCE_EXHAUSTED"}}',
+          retry_count: 2
+        )
+      )
 
       with_upload(content: minimal_pdf_content, filename: 'import.pdf') do |uploaded_file|
         post form_imports_path, params: { pdf_file: uploaded_file }, headers: headers
       end
 
       expect(response).to have_http_status(:unprocessable_entity)
-      expect(JSON.parse(response.body)).to include('success' => false, 'error' => 'AI processing failed. Please try again.')
+      payload = JSON.parse(response.body)
+      expect(payload).to include('success' => false, 'error' => 'PDF import failed after 2 automatic Gemini retries.')
+      expect(payload['details']).to include('Gemini returned a 429 rate-limit or quota error on the final attempt.')
     end
 
     it 'returns 422 when JSON extraction fails' do
@@ -149,8 +159,8 @@ RSpec.describe 'Form Imports', type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'is rate-limited to 5 requests per minute' do
-      throttle = Rack::Attack.throttles['form_imports/ip']
+    it 'uses the IP and session token to scope the preview throttle' do
+      throttle = Rack::Attack.throttles['form_imports/preview']
       discriminator_block = throttle.instance_variable_get(:@block)
 
       expect(throttle.instance_variable_get(:@limit)).to eq(5)
@@ -184,6 +194,27 @@ RSpec.describe 'Form Imports', type: :request do
       expect(discriminator_block.call(request_without_cookie)).to eq('203.0.113.11:anonymous')
       expect(discriminator_block.call(request_with_format)).to eq('203.0.113.12:formatted-throttle-test')
     end
+
+    it 'returns 429 on the sixth preview request in a minute' do
+      allow(PdfFormImportService).to receive(:call).and_return(
+        PdfFormImportService::Result.new(success: true, data: valid_form_data.deep_stringify_keys, warnings: [], errors: [])
+      )
+
+      5.times do
+        with_upload(content: minimal_pdf_content, filename: 'import.pdf') do |uploaded_file|
+          post form_imports_path, params: { pdf_file: uploaded_file }, headers: headers
+        end
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      with_upload(content: minimal_pdf_content, filename: 'import.pdf') do |uploaded_file|
+        post form_imports_path, params: { pdf_file: uploaded_file }, headers: headers
+      end
+
+      expect(response).to have_http_status(:too_many_requests)
+      expect(JSON.parse(response.body)).to include('error' => 'Too many requests. Please try again later.')
+    end
   end
 
   describe 'POST /form_imports/confirm' do
@@ -197,6 +228,36 @@ RSpec.describe 'Form Imports', type: :request do
       expect(payload['success']).to be(true)
       expect(payload['form_id']).to be_present
       expect(user.forms.find(payload['form_id']).name).to eq('Imported Form')
+    end
+
+    it 'decodes HTML entities before creating the form' do
+      form_data = {
+        name: 'Imported &amp; Form',
+        structure: {
+          description: 'Use 5 &gt; 2',
+          fields: [
+            {
+              label: 'Company &amp; name',
+              field_type: 'text',
+              required: true,
+              position: 1,
+              metadata: {}
+            }
+          ]
+        }
+      }
+
+      post confirm_form_imports_path,
+           params: { form_data: form_data },
+           headers: headers,
+           as: :json
+
+      expect(response).to have_http_status(:created)
+
+      created_form = user.forms.find(JSON.parse(response.body)['form_id'])
+      expect(created_form.name).to eq('Imported & Form')
+      expect(created_form.structure['description']).to eq('Use 5 > 2')
+      expect(created_form.form_fields.first.label).to eq('Company & name')
     end
 
     it 'returns 422 on invalid form data' do
@@ -270,6 +331,105 @@ RSpec.describe 'Form Imports', type: :request do
       ])
     end
 
+    it 'creates the form when duplicate labels can be disambiguated by section context' do
+      form_data = {
+        name: 'Imported Form',
+        structure: {
+          fields: [
+            {
+              label: 'KYC',
+              field_type: 'section',
+              required: false,
+              position: 1,
+              metadata: {}
+            },
+            {
+              label: 'Phone Number',
+              field_type: 'text',
+              required: true,
+              position: 2,
+              metadata: {}
+            },
+            {
+              label: 'KYB',
+              field_type: 'section',
+              required: false,
+              position: 3,
+              metadata: {}
+            },
+            {
+              label: 'Phone Number',
+              field_type: 'text',
+              required: true,
+              position: 4,
+              metadata: {}
+            }
+          ]
+        }
+      }
+
+      post confirm_form_imports_path,
+           params: { form_data: form_data },
+           headers: headers,
+           as: :json
+
+      expect(response).to have_http_status(:created)
+
+      created_form = user.forms.find(JSON.parse(response.body)['form_id'])
+      phone_fields = created_form.form_fields.where(label: 'Phone Number').order(:position)
+
+      expect(phone_fields.map { |field| field.metadata['export_key'] }).to eq([
+        'phone_number_kyc',
+        'phone_number_kyb'
+      ])
+    end
+
+    it 'creates the form when duplicate labels repeat within the same section' do
+      form_data = {
+        name: 'Imported Form',
+        structure: {
+          fields: [
+            {
+              label: 'KYC',
+              field_type: 'section',
+              required: false,
+              position: 1,
+              metadata: {}
+            },
+            {
+              label: 'Phone Number',
+              field_type: 'text',
+              required: true,
+              position: 2,
+              metadata: {}
+            },
+            {
+              label: 'Phone Number',
+              field_type: 'text',
+              required: true,
+              position: 3,
+              metadata: {}
+            }
+          ]
+        }
+      }
+
+      post confirm_form_imports_path,
+           params: { form_data: form_data },
+           headers: headers,
+           as: :json
+
+      expect(response).to have_http_status(:created)
+
+      created_form = user.forms.find(JSON.parse(response.body)['form_id'])
+      phone_fields = created_form.form_fields.where(label: 'Phone Number').order(:position)
+
+      expect(phone_fields.map { |field| field.metadata['export_key'] }).to eq([
+        'phone_number_kyc',
+        'phone_number_kyc_2'
+      ])
+    end
+
     it 'requires authentication' do
       post confirm_form_imports_path,
            params: { form_data: valid_form_data },
@@ -277,6 +437,27 @@ RSpec.describe 'Form Imports', type: :request do
            as: :json
 
       expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'returns 429 on the sixth confirm request in a minute' do
+      allow(FormService).to receive(:create_form).and_return(instance_double(Form, id: 123))
+
+      5.times do
+        post confirm_form_imports_path,
+             params: { form_data: valid_form_data },
+             headers: headers,
+             as: :json
+
+        expect(response).to have_http_status(:created)
+      end
+
+      post confirm_form_imports_path,
+           params: { form_data: valid_form_data },
+           headers: headers,
+           as: :json
+
+      expect(response).to have_http_status(:too_many_requests)
+      expect(JSON.parse(response.body)).to include('error' => 'Too many requests. Please try again later.')
     end
   end
 end

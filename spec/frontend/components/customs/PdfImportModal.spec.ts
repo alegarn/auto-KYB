@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/routes', () => ({
+vi.mock('/routes/index.js', () => ({
   confirm_form_imports_path: vi.fn(() => '/form_imports/confirm'),
   edit_form_path: vi.fn((id: number | string) => `/forms/${id}/edit`),
   form_imports_path: vi.fn(() => '/form_imports'),
@@ -109,6 +109,66 @@ describe('PdfImportModal.svelte', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText(/Review generated options/i)).toBeInTheDocument();
     expect(screen.getByText(/Company name/i)).toBeInTheDocument();
+    expect(screen.getByTestId('pdf-import-review-reminder')).toHaveTextContent(
+      'Your form can contain typos or input errors. Always verify it before showing it to the client.',
+    );
+  });
+
+  it('resets preview state when closed and reopened', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(buildUploadResponse()), { status: 200 }));
+
+    const { rerender } = render(PdfImportModal, { props: { open: true } });
+
+    await fireEvent.change(screen.getByTestId('pdf-import-input'), {
+      target: { files: [createPdfFile()] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pdf-import-preview-state')).toBeInTheDocument();
+    });
+
+    expect(screen.getByDisplayValue('Imported Form')).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByTestId('pdf-import-close'));
+    await rerender({ open: false });
+    await rerender({ open: true });
+
+    expect(screen.getByTestId('pdf-import-idle-state')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Imported Form')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Review generated options/i)).not.toBeInTheDocument();
+  });
+
+  it('submits the edited preview name on confirm', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(buildUploadResponse()), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, form_id: 'form-123' }), { status: 201 }));
+
+    render(PdfImportModal, { props: { open: true } });
+
+    await fireEvent.change(screen.getByTestId('pdf-import-input'), {
+      target: { files: [createPdfFile()] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pdf-import-preview-state')).toBeInTheDocument();
+    });
+
+    await fireEvent.input(screen.getByLabelText('Form name'), {
+      target: { value: 'Renamed Imported Form' },
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Create form' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const confirmRequest = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(JSON.parse(String(confirmRequest.body))).toEqual(
+      expect.objectContaining({
+        form_data: expect.objectContaining({ name: 'Renamed Imported Form' }),
+      }),
+    );
   });
 
   it('shows the error state and returns to idle on retry', async () => {
@@ -131,6 +191,29 @@ describe('PdfImportModal.svelte', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
     expect(screen.getByTestId('pdf-import-idle-state')).toBeInTheDocument();
+  });
+
+  it('resets error state when closed and reopened', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: false, error: 'Import failed badly.' }), { status: 422 }),
+    );
+
+    const { rerender } = render(PdfImportModal, { props: { open: true } });
+
+    await fireEvent.change(screen.getByTestId('pdf-import-input'), {
+      target: { files: [createPdfFile()] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pdf-import-error-state')).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByTestId('pdf-import-close'));
+    await rerender({ open: false });
+    await rerender({ open: true });
+
+    expect(screen.getByTestId('pdf-import-idle-state')).toBeInTheDocument();
+    expect(screen.queryByText(/Import failed badly/i)).not.toBeInTheDocument();
   });
 
   it('validates file type client-side', async () => {

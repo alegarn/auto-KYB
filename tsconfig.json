@@ -10,8 +10,10 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "types": ["node", "vitest", "@testing-library/jest-dom"],
     "paths": {
+      "@/routes": ["./app/frontend/routes/index.d.ts"],
       "@/*": ["./app/frontend/*"],
       "/lib/*": ["./app/frontend/lib/*"],
       "/components/*": ["./app/frontend/components/*"],
@@ -33,6 +35,6 @@
     "src/types",
     "stories/**/*.svelte"
   ],
-  "exclude": ["app/frontend/routes/**/*"],
+  "exclude": ["app/frontend/routes/**/*.js"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

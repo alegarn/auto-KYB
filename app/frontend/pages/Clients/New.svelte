@@ -183,7 +183,7 @@
               <div class="text-rose-600 text-sm mt-1">{errors['form_id']?.[0]}</div>
             {/if}
             {#if !forms || forms.length === 0}
-              <p class="text-sm text-muted-foreground mt-1">No forms available yet. Create a form first to enable subspace access.</p>
+              <p class="text-sm text-muted-foreground mt-1">No forms available yet. Create a blank form or import your PDF first in the forms workspace to enable subspace access.</p>
             {/if}
           </div>
         </div>

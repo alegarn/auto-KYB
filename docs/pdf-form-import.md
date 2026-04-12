@@ -9,6 +9,8 @@ The flow is split into two HTTP steps:
 - `POST /form_imports` uploads the PDF and returns a preview payload as JSON.
 - `POST /form_imports/confirm` revalidates the preview payload, persists the form through `FormService`, and returns the new form id.
 
+The entry point for users is the forms workspace. From there they can either create a blank form or use `Import from PDF` to generate the first draft.
+
 ## Architecture
 
 The backend pipeline lives in `app/services/`:
@@ -17,14 +19,21 @@ The backend pipeline lives in `app/services/`:
 - `GeminiClient` sends the prompt and PDF to Gemini Flash and extracts the raw text response.
 - `FormJsonExtractor` strips fences/prose and parses the JSON object from the model response.
 - `FormJsonValidator` validates and normalizes the payload to the live builder schema.
-- `PdfFormImportService` orchestrates the pipeline and strips HTML from returned string values.
+- `PdfFormImportService` orchestrates the pipeline and normalizes returned string values by decoding HTML entities and stripping HTML tags.
 
 The controller boundary lives in `FormImportsController`:
 
-- `create` enforces file size and PDF signature checks before calling the service.
+- `create` validates the uploaded PDF through `PdfImportUploadValidator` before calling the service.
 - `confirm` revalidates the client-supplied preview payload before creating the form.
 
+Routes involved in the flow:
+
+- `POST /form_imports` generates the preview payload.
+- `POST /form_imports/confirm` persists the validated form.
+
 The frontend entry point is the forms index page. `PdfImportModal.svelte` uses a sheet, client-side file checks, `fetch()` for JSON endpoints, and `router.visit()` only after persistence succeeds.
+
+The generated preview is intentionally a draft. It can contain typos or input errors, so the user should verify it before showing the resulting form to a client.
 
 ## Configuration
 
@@ -102,8 +111,8 @@ The controller also revalidates the preview payload during confirm so edited cli
 - Uploads are limited to 10 MB before the Gemini request runs.
 - PDF acceptance is enforced with magic-byte validation (`%PDF-`), not just the browser filename or MIME type.
 - Gemini API keys are sent in the `x-goog-api-key` header instead of the URL.
-- Returned strings are stripped of HTML tags before the preview or persisted form uses them.
-- `Rack::Attack` throttles `POST /form_imports` to 5 requests per minute per session (with IP fallback).
+- Returned strings are decoded from HTML entities and stripped of HTML tags before the preview or persisted form uses them.
+- `Rack::Attack` throttles both `POST /form_imports` and `POST /form_imports/confirm` to 5 requests per minute per IP + `session_token` cookie combination. If the cookie is absent, the request is treated as `anonymous` for the discriminator.
 
 ## Testing
 
@@ -122,9 +131,12 @@ npm run test:unit -- spec/frontend/components/customs/PdfImportModal.spec.ts
 bundle exec rake js:routes
 ```
 
+`bundle exec rake js:routes` regenerates the frontend helpers in `app/frontend/routes/` so Svelte files keep using Rails-generated paths instead of hardcoded URLs.
+
 ## Limitations And Follow-Up
 
 - The import is synchronous. Large or slow PDFs still block the request/response cycle.
 - There is no page-count guard yet; the implementation currently relies on file size.
 - Image-only or badly scanned PDFs still depend on Gemini extracting enough structure.
 - The preview currently edits only the form name. A richer structured edit step would require a dedicated preview editor.
+- The preview is a draft generated from Gemini output. Users should always review it for typos or input errors before creating the form or sharing it with a client.

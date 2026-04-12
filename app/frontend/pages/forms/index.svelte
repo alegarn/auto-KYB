@@ -126,9 +126,9 @@
 					</Button>
 					<Sheet.Content side="right" class="w-full sm:max-w-lg">
 						<Sheet.Header>
-							<Sheet.Title>Create a new form</Sheet.Title>
+							<Sheet.Title>Create a blank form</Sheet.Title>
 							<Sheet.Description>
-								Start with a form name and optional description. You can add fields later.
+								Start with a blank form name and optional description, or close this sheet and use Import from PDF to build from an existing document.
 							</Sheet.Description>
 						</Sheet.Header>
 						<div class="mt-6">
@@ -238,7 +238,7 @@
 					{:else if filteredForms.length === 0}
 						<div class="rounded-lg border border-dashed border-muted-foreground/30 p-6 text-center">
 							<p class="text-sm font-medium">No forms found</p>
-							<p class="text-sm text-muted-foreground">Create a new form or adjust your filters.</p>
+							<p class="text-sm text-muted-foreground">Create a blank form, import your PDF, or adjust your filters.</p>
 						</div>
 					{:else}
 						<div class="max-h-[520px] space-y-3 overflow-auto pr-2">

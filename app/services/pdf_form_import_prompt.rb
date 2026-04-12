@@ -43,7 +43,8 @@ class PdfFormImportPrompt
     Metadata rules:
     - Shared metadata keys can be used when relevant: description, instruction, export_key, crm_mapping.
     - Use description for user-facing helper text. Use instruction only when the PDF contains separate internal guidance. Prefer description over instruction for anything the user should see.
-    - Omit export_key and crm_mapping unless the caller explicitly asks for export or CRM mapping metadata.
+    - Omit crm_mapping unless the caller explicitly asks for CRM mapping metadata.
+    - Omit export_key unless the caller explicitly asks for export metadata or you need it to disambiguate repeated data-field labels for exports.
     - Input field metadata keys: placeholder, validation.
     - Choice field metadata keys: options, allow_multiple.
     - File field metadata keys: file.
@@ -70,6 +71,7 @@ class PdfFormImportPrompt
     - Split side-by-side inputs into separate fields unless they clearly form one repeated row, which should use table.
     - Use section fields for major document sections; do not force sections when the PDF has no clear grouping.
     - Put explanatory text into metadata.description, metadata.text_content, or section descriptions instead of turning it into fake questions.
+    - If the same non-layout label appears more than once, keep the visible label faithful to the PDF and make metadata.export_key unique. Prefer the nearest section or subtitle label as the suffix, and use a numeric suffix only if context is still ambiguous.
     - Mark required true only when the PDF clearly makes the field mandatory or uses language like required, must, mandatory, or an asterisk.
     - Otherwise default required to false.
     - If the PDF is ambiguous, choose the most conservative supported field type and avoid inventing details.
@@ -94,6 +96,7 @@ class PdfFormImportPrompt
     - Confirm file fields use valid file metadata only.
     - Confirm table fields use metadata.columns and column.type is text or number.
     - Confirm layout fields do not have export-only metadata.
+    - Confirm repeated non-layout labels do not collide on effective export key; when needed, add unique metadata.export_key values using nearby section context before falling back to numeric suffixes.
     - Confirm there is no prose outside the JSON object.
   PROMPT
 
@@ -107,6 +110,7 @@ class PdfFormImportPrompt
       - Map only actual form inputs, choice lists, uploads, headings, instructions, and separators.
       - Use the supported schema exactly.
       - Do not invent unsupported field types or metadata keys.
+      - If the same data-field label appears more than once, keep the visible label as shown in the PDF and add unique metadata.export_key values. Prefer a nearby section or subtitle suffix like phone_number_kyc before falling back to numeric suffixes.
       - Use conservative defaults when the PDF is ambiguous.
       - Return only valid JSON.
 

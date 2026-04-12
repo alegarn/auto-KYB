@@ -297,7 +297,7 @@
                   {/each}
                 </select>
                 {#if !forms || forms.length === 0}
-                  <p class="text-xs text-muted-foreground">No forms available yet. Create a form first.</p>
+                  <p class="text-xs text-muted-foreground">No forms available yet. Create a blank form or import your PDF first in the forms workspace.</p>
                 {/if}
               </div>
               <Button type="submit" class="w-full sm:w-auto" data-onboarding-tutorial="client-create-subspace">Create subspace</Button>

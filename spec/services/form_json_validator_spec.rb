@@ -148,27 +148,76 @@ RSpec.describe FormJsonValidator do
       )
     end
 
-    it 'returns an error for duplicate export keys in the same CRM scope' do
+    it 'generates context-aware export keys for repeated labels in different sections' do
       payload = base_payload
       payload['structure']['fields'] = [
         {
-          'label' => 'Company name',
-          'field_type' => 'text',
-          'required' => true,
-          'metadata' => { 'export_key' => 'company_name' }
+          'label' => 'KYC',
+          'field_type' => 'section',
+          'required' => false,
+          'metadata' => {}
         },
         {
-          'label' => 'Registered business name',
+          'label' => 'Phone Number',
           'field_type' => 'text',
           'required' => false,
-          'metadata' => { 'export_key' => 'company_name' }
+          'metadata' => {}
+        },
+        {
+          'label' => 'KYB',
+          'field_type' => 'section',
+          'required' => false,
+          'metadata' => {}
+        },
+        {
+          'label' => 'Phone Number',
+          'field_type' => 'text',
+          'required' => false,
+          'metadata' => {}
         }
       ]
 
       result = described_class.call(payload)
 
-      expect(result.valid).to be(false)
-      expect(result.errors).to include('Duplicate export keys: company_name')
+      expect(result.valid).to be(true)
+      expect(result.data.dig('structure', 'fields', 1, 'metadata', 'export_key')).to eq('phone_number_kyc')
+      expect(result.data.dig('structure', 'fields', 3, 'metadata', 'export_key')).to eq('phone_number_kyb')
+      expect(result.warnings).to include(
+        "Generated unique export keys for duplicate field 'Phone Number': phone_number_kyc, phone_number_kyb"
+      )
+    end
+
+    it 'falls back to numeric suffixes when repeated labels share the same section context' do
+      payload = base_payload
+      payload['structure']['fields'] = [
+        {
+          'label' => 'KYC',
+          'field_type' => 'section',
+          'required' => false,
+          'metadata' => {}
+        },
+        {
+          'label' => 'Phone Number',
+          'field_type' => 'text',
+          'required' => false,
+          'metadata' => {}
+        },
+        {
+          'label' => 'Phone Number',
+          'field_type' => 'text',
+          'required' => false,
+          'metadata' => {}
+        }
+      ]
+
+      result = described_class.call(payload)
+
+      expect(result.valid).to be(true)
+      expect(result.data.dig('structure', 'fields', 1, 'metadata', 'export_key')).to eq('phone_number_kyc')
+      expect(result.data.dig('structure', 'fields', 2, 'metadata', 'export_key')).to eq('phone_number_kyc_2')
+      expect(result.warnings).to include(
+        "Generated unique export keys for duplicate field 'Phone Number': phone_number_kyc, phone_number_kyc_2"
+      )
     end
 
     it 'removes malformed nested file metadata and warns' do

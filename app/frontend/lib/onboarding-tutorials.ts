@@ -6,6 +6,7 @@ import type {
   GuidePractice,
   OnboardingTutorialKey,
 } from '@/types/dashboard-onboarding';
+import { forms_path, new_form_path } from '@/routes';
 
 export const ONBOARDING_TUTORIAL_QUERY_PARAM = 'onboarding_tutorial';
 export const ONBOARDING_TUTORIAL_LOCATION_CHANGE_EVENT = 'quick-kyb:onboarding-tutorial-location-change';
@@ -258,7 +259,8 @@ export function clearOnboardingTutorialFromCurrentLocation() {
 }
 
 export function getGuidePracticeItems(guideKey: GuideKey, onboarding: DashboardOnboarding): GuidePractice[] {
-  const formHref = findStep(onboarding, 'form')?.href ?? '/forms/new';
+  const formWorkspaceHref = findStep(onboarding, 'form')?.href ?? forms_path();
+  const formBuilderHref = formWorkspaceHref === forms_path() ? new_form_path() : formWorkspaceHref;
   const reviewHref = findStep(onboarding, 'review')?.href ?? null;
   const concreteReviewHref = concreteClientPageHref(reviewHref);
 
@@ -270,14 +272,14 @@ export function getGuidePracticeItems(guideKey: GuideKey, onboarding: DashboardO
           title: 'Tune the form structure',
           description: 'Practice directly on the live builder: rename the form, inspect the palette, and switch to preview.',
           ctaLabel: 'Start mini tutorial',
-          href: withOnboardingTutorial(formHref, 'form_builder_basics'),
+          href: withOnboardingTutorial(formBuilderHref, 'form_builder_basics'),
         },
         {
           tutorialKey: 'form_export_basics',
           title: 'Prepare export-friendly output',
           description: 'Open mapping and validate how your output will look before you share the form or export data.',
           ctaLabel: 'Practice mapping',
-          href: withOnboardingTutorial(formHref, 'form_export_basics'),
+          href: withOnboardingTutorial(formBuilderHref, 'form_export_basics'),
         },
       ];
     case 'client_workflow':

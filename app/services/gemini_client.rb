@@ -5,18 +5,53 @@ require "uri"
 
 class GeminiClient
 
-  class ApiError < StandardError; end
+  class ApiError < StandardError
+    attr_reader :retry_count
+
+    def initialize(message = nil, retry_count: 0)
+      super(message)
+      @retry_count = retry_count
+    end
+  end
 
   API_BASE = "https://generativelanguage.googleapis.com/v1beta/models".freeze
-  MODEL = "gemini-3.0-flash".freeze
+  MODEL_CHAIN = [
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview"
+  ].freeze
   OPEN_TIMEOUT = 10
   READ_TIMEOUT = 30
 
   def self.generate(system_prompt:, user_prompt:, pdf_file:)
+    MODEL_CHAIN.each_with_index do |model, index|
+      begin
+        return generate_with_model(
+          model: model,
+          system_prompt: system_prompt,
+          user_prompt: user_prompt,
+          pdf_file: pdf_file
+        )
+      rescue ApiError => e
+        enhanced_error = ApiError.new(e.message, retry_count: index)
+
+        raise enhanced_error unless retryable_model_error?(e)
+
+        fallback_model = MODEL_CHAIN[index + 1]
+        raise enhanced_error unless fallback_model
+
+        Rails.logger.warn("[GeminiClient] #{model} failed with #{e.message}; retrying with #{fallback_model}")
+      end
+    end
+
+    raise ApiError.new("Gemini API request failed")
+  end
+
+  def self.generate_with_model(model:, system_prompt:, user_prompt:, pdf_file:)
     api_key = Rails.application.config.gemini.api_key
     raise ApiError, "Gemini API key not configured" if api_key.blank?
 
-    uri = URI("#{API_BASE}/#{MODEL}:generateContent")
+    uri = URI("#{API_BASE}/#{model}:generateContent")
     request_body = {
       system_instruction: {
         parts: [ { text: system_prompt } ]
@@ -59,6 +94,13 @@ class GeminiClient
          OpenSSL::SSL::SSLError => e
     raise ApiError, "Gemini API request failed: #{e.message}"
   end
+
+  def self.retryable_model_error?(error)
+    message = error.message.to_s
+
+    message.match?(/Gemini API error \((429|502|503|504)\)/)
+  end
+  private_class_method :retryable_model_error?
 
   def self.camelize_keys(value)
     case value
