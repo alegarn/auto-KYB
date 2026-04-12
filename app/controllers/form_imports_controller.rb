@@ -26,8 +26,10 @@ class FormImportsController < ApplicationController
   rescue ActionController::ParameterMissing
     render_error("No PDF file provided")
   rescue GeminiClient::ApiError => e
+    gemini_payload = gemini_api_error_payload(e)
     render_error(
-      "AI processing failed. Please try again.",
+      gemini_payload[:message],
+      details: gemini_payload[:details],
       log_details: [ e.message ],
       log_context: upload_context(pdf_file)
     )
@@ -94,6 +96,62 @@ class FormImportsController < ApplicationController
       content_type: pdf_file.respond_to?(:content_type) ? pdf_file.content_type : nil,
       size: pdf_file.size
     }.compact
+  end
+
+  def gemini_api_error_payload(error)
+    error_message = error.message.to_s
+    retry_count = error.respond_to?(:retry_count) ? error.retry_count.to_i : 0
+
+    if error_message.include?("Gemini API key not configured")
+      return {
+        message: "PDF import is unavailable because the Gemini API key is not configured.",
+        details: [ "Ask an admin to configure the Gemini API key, then try again." ]
+      }
+    end
+
+    if error_message.include?("Gemini API timed out")
+      return {
+        message: retry_count.positive? ? "PDF import timed out after #{retry_count} automatic Gemini #{retry_count == 1 ? 'retry' : 'retries'}." : "PDF import timed out while waiting for Gemini.",
+        details: [ "Gemini did not respond in time. Please try again later." ]
+      }
+    end
+
+    code = gemini_error_code(error_message)
+    summary = retry_count.positive? ? "after #{retry_count} automatic Gemini #{retry_count == 1 ? 'retry' : 'retries'}" : "while contacting Gemini"
+
+    case code
+    when 429
+      {
+        message: "PDF import failed #{summary}.",
+        details: [
+          "Gemini returned a 429 rate-limit or quota error on the final attempt.",
+          "Please check Gemini billing and quota, then try again later."
+        ]
+      }
+    when 502, 503, 504
+      {
+        message: "PDF import failed #{summary}.",
+        details: [
+          "Gemini returned a #{code} availability error on the final attempt.",
+          "The provider was unavailable or under heavy load."
+        ]
+      }
+    when nil
+      {
+        message: retry_count.positive? ? "PDF import failed #{summary}." : "PDF import failed while contacting Gemini.",
+        details: [ "Gemini returned an unexpected error on the final attempt." ]
+      }
+    else
+      {
+        message: "PDF import failed #{summary}.",
+        details: [ "Gemini returned HTTP #{code} on the final attempt." ]
+      }
+    end
+  end
+
+  def gemini_error_code(error_message)
+    match = error_message.match(/Gemini API error \((\d{3})\)/)
+    match && match[1].to_i
   end
 
 end

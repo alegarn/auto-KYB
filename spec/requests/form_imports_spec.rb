@@ -107,15 +107,22 @@ RSpec.describe 'Form Imports', type: :request do
       expect(payload.dig('form_data', 'name')).to eq('Imported Form')
     end
 
-    it 'returns 422 when Gemini processing fails' do
-      allow(PdfFormImportService).to receive(:call).and_raise(GeminiClient::ApiError, 'timeout')
+    it 'returns 422 with retry-aware details when Gemini processing fails' do
+      allow(PdfFormImportService).to receive(:call).and_raise(
+        GeminiClient::ApiError.new(
+          'Gemini API error (429): {"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details.","status":"RESOURCE_EXHAUSTED"}}',
+          retry_count: 2
+        )
+      )
 
       with_upload(content: minimal_pdf_content, filename: 'import.pdf') do |uploaded_file|
         post form_imports_path, params: { pdf_file: uploaded_file }, headers: headers
       end
 
       expect(response).to have_http_status(:unprocessable_entity)
-      expect(JSON.parse(response.body)).to include('success' => false, 'error' => 'AI processing failed. Please try again.')
+      payload = JSON.parse(response.body)
+      expect(payload).to include('success' => false, 'error' => 'PDF import failed after 2 automatic Gemini retries.')
+      expect(payload['details']).to include('Gemini returned a 429 rate-limit or quota error on the final attempt.')
     end
 
     it 'returns 422 when JSON extraction fails' do

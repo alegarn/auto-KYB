@@ -5,7 +5,14 @@ require "uri"
 
 class GeminiClient
 
-  class ApiError < StandardError; end
+  class ApiError < StandardError
+    attr_reader :retry_count
+
+    def initialize(message = nil, retry_count: 0)
+      super(message)
+      @retry_count = retry_count
+    end
+  end
 
   API_BASE = "https://generativelanguage.googleapis.com/v1beta/models".freeze
   MODEL_CHAIN = [
@@ -17,8 +24,6 @@ class GeminiClient
   READ_TIMEOUT = 30
 
   def self.generate(system_prompt:, user_prompt:, pdf_file:)
-    last_error = nil
-
     MODEL_CHAIN.each_with_index do |model, index|
       begin
         return generate_with_model(
@@ -28,18 +33,18 @@ class GeminiClient
           pdf_file: pdf_file
         )
       rescue ApiError => e
-        raise unless retryable_model_error?(e)
+        enhanced_error = ApiError.new(e.message, retry_count: index)
+
+        raise enhanced_error unless retryable_model_error?(e)
 
         fallback_model = MODEL_CHAIN[index + 1]
-        raise unless fallback_model
+        raise enhanced_error unless fallback_model
 
-        last_error = e
         Rails.logger.warn("[GeminiClient] #{model} failed with #{e.message}; retrying with #{fallback_model}")
       end
     end
 
-    raise last_error if last_error
-    raise ApiError, "Gemini API request failed"
+    raise ApiError.new("Gemini API request failed")
   end
 
   def self.generate_with_model(model:, system_prompt:, user_prompt:, pdf_file:)

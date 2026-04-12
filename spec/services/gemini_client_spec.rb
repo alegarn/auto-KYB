@@ -110,6 +110,38 @@ RSpec.describe GeminiClient do
     expect(a_request(:post, endpoint_for('gemini-3.1-pro-preview'))).to have_been_made.once
   end
 
+  it 'records the number of retries when all fallback models fail' do
+    stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))
+      .to_return(status: 503, body: overload_body, headers: { 'Content-Type' => 'application/json' })
+
+    stub_request(:post, endpoint_for('gemini-3-flash-preview'))
+      .to_return(status: 503, body: overload_body, headers: { 'Content-Type' => 'application/json' })
+
+    stub_request(:post, endpoint_for('gemini-3.1-pro-preview'))
+      .to_return(
+        status: 429,
+        body: {
+          error: {
+            code: 429,
+            message: 'You exceeded your current quota, please check your plan and billing details.',
+            status: 'RESOURCE_EXHAUSTED'
+          }
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    expect {
+      described_class.generate(system_prompt: 'system', user_prompt: 'user', pdf_file: pdf_file)
+    }.to raise_error(GeminiClient::ApiError) { |error|
+      expect(error.retry_count).to eq(2)
+      expect(error.message).to match(/Gemini API error \(429\)/)
+    }
+
+    expect(a_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))).to have_been_made.once
+    expect(a_request(:post, endpoint_for('gemini-3-flash-preview'))).to have_been_made.once
+    expect(a_request(:post, endpoint_for('gemini-3.1-pro-preview'))).to have_been_made.once
+  end
+
   it 'raises ApiError on HTTP error responses' do
     stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview')).to_return(status: 500, body: 'upstream failure')
 
