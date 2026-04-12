@@ -9,6 +9,7 @@
     identity_oauth_connection_path,
     settings_crm_preferences_path,
     settings_client_invitation_email_path,
+    settings_invite_auto_send_path,
     subscriptions_billing_portal_path,
     crm_connection_path,
     auth_crm_connections_path,
@@ -100,7 +101,10 @@
   let inviteAutoSend = $state(untrack(() => !!client_invitation_email_setting?.auto_send));
   let inviteSubject = $state(untrack(() => client_invitation_email_setting?.subject_template ?? ''));
   let inviteBody = $state(untrack(() => client_invitation_email_setting?.body_template ?? ''));
+  let inviteAutoSendSaving = $state(false);
+  let inviteAutoSendError = $state<string | null>(null);
   let inviteSaving = $state(false);
+  let inviteSuccess = $state<string | null>(null);
   let inviteError = $state<string | null>(null);
   const previewSubject = $derived(renderTemplate(inviteSubject || DEFAULT_SUBJECT, PREVIEW_VARIABLES));
   const previewBody = $derived(renderTemplate(inviteBody || DEFAULT_BODY, PREVIEW_VARIABLES));
@@ -196,14 +200,42 @@
     else inviteBody += variable;
   }
 
+  function toggleInviteAutoSend() {
+    if (inviteAutoSendSaving) return;
+    const nextValue = !inviteAutoSend;
+    inviteAutoSend = nextValue;
+    inviteAutoSendError = null;
+    inviteAutoSendSaving = true;
+    router.patch(
+      settings_invite_auto_send_path(),
+      { client_invitation_email_setting: { auto_send: nextValue } },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onError: () => {
+          inviteAutoSend = !!client_invitation_email_setting?.auto_send;
+          inviteAutoSendError = 'Unable to update auto-send preference.';
+        },
+        onFinish: () => { inviteAutoSendSaving = false; },
+      },
+    );
+  }
+
   function saveInviteEmailSettings() {
     if (inviteSaving) return;
     inviteSaving = true;
     inviteError = null;
+    inviteSuccess = null;
     router.patch(
       settings_client_invitation_email_path(),
-      { client_invitation_email_setting: { auto_send: inviteAutoSend, subject_template: inviteSubject || null, body_template: inviteBody || null } },
-      { preserveScroll: true, onError: (errs: any) => { inviteError = typeof errs === 'string' ? errs : 'Error saving'; }, onFinish: () => { inviteSaving = false; } }
+      { client_invitation_email_setting: { subject_template: inviteSubject || null, body_template: inviteBody || null } },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => { inviteSuccess = 'Email template saved.'; },
+        onError: (errs: any) => { inviteError = typeof errs === 'string' ? errs : 'Error saving'; },
+        onFinish: () => { inviteSaving = false; },
+      },
     );
   }
 </script>
@@ -466,7 +498,7 @@
     {/if}
 
     <!-- Client Invite Email -->
-    <Card.Root>
+    <Card.Root data-onboarding-tutorial="invite-email-card">
       <div 
         class="flex items-center justify-between p-6 cursor-pointer hover:bg-muted/30 transition-colors rounded-xl"
         onclick={() => inviteExpanded = !inviteExpanded}
@@ -489,23 +521,25 @@
         <div transition:slide={{ duration: 200, easing: cubicInOut }}>
           <Card.Content class="space-y-4 pb-6 pt-0">
             <div class="h-px bg-border mb-4 w-full"></div>
-            <div class="flex items-start justify-between gap-4 rounded-lg border bg-background p-4">
+            <div class="flex items-start justify-between gap-4 rounded-lg border bg-background p-4" data-onboarding-tutorial="invite-auto-send-toggle">
               <div class="space-y-1">
                 <p class="text-sm font-medium">Send client portal invite automatically</p>
-                <p class="text-xs text-muted-foreground">When enabled, the invite email is sent automatically if the client has an email address.</p>
+                <p class="text-xs text-muted-foreground">When enabled, the invite email is sent automatically if the client has an email address. Saves immediately.</p>
               </div>
               <button 
                 type="button" 
                 role="switch" 
                 aria-checked={inviteAutoSend} 
                 aria-label="Toggle automatic client invite email"
-                class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${inviteAutoSend ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'}`} 
-                onclick={(e) => { e.stopPropagation(); inviteAutoSend = !inviteAutoSend; }}
+                class={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${inviteAutoSend ? 'border-emerald-600 bg-emerald-600' : 'border-border bg-muted'} ${inviteAutoSendSaving ? 'cursor-wait opacity-70' : ''}`} 
+                onclick={(e) => { e.stopPropagation(); toggleInviteAutoSend(); }}
+                disabled={inviteAutoSendSaving}
               >
                 <span class={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform ${inviteAutoSend ? 'translate-x-5' : 'translate-x-0'}`}></span>
               </button>
             </div>
-            <div class="space-y-2">
+            {#if inviteAutoSendError}<p class="text-sm text-destructive">{inviteAutoSendError}</p>{/if}
+            <div class="space-y-2" data-onboarding-tutorial="invite-template-form">
               <label class="text-sm font-medium" for="invite-subject">Subject template</label>
               <Input id="invite-subject" placeholder="Your Quick KYB secure form access" bind:value={inviteSubject} onclick={(e) => e.stopPropagation()} />
               <div class="flex flex-wrap gap-1">
@@ -525,12 +559,13 @@
               </div>
               {#if errors?.body_template}<p class="text-sm text-destructive">{errors.body_template}</p>{/if}
             </div>
-            <div class="rounded-lg border border-dashed p-4 space-y-2">
+            <div class="rounded-lg border border-dashed p-4 space-y-2" data-onboarding-tutorial="invite-preview-panel">
               <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview (sample data)</p>
               <p class="text-sm"><strong>Subject:</strong> {previewSubject}</p>
               <div class="mt-2 whitespace-pre-wrap text-sm text-muted-foreground bg-muted/20 rounded p-3">{previewBody}</div>
             </div>
-            <Button onclick={(e) => { e.stopPropagation(); saveInviteEmailSettings(); }} disabled={inviteSaving}>{inviteSaving ? 'Saving…' : 'Save invite email settings'}</Button>
+            <Button onclick={(e) => { e.stopPropagation(); saveInviteEmailSettings(); }} disabled={inviteSaving}>{inviteSaving ? 'Saving…' : 'Save email template'}</Button>
+            {#if inviteSuccess}<p class="text-sm text-emerald-600">{inviteSuccess}</p>{/if}
             {#if inviteError}<p class="text-sm text-destructive">{inviteError}</p>{/if}
           </Card.Content>
         </div>

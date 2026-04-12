@@ -59,11 +59,14 @@ The delivery decision step appears only when a brand-new client portal invitatio
   - automatic send on or off
   - subject template
   - body template
-- If automatic send is enabled and the prerequisites are satisfied, the server attempts synchronous delivery immediately.
-- If automatic send is disabled or the prerequisites are not satisfied, the flow falls back to the manual delivery decision page.
+- The server keeps `GET /client_forms/:id/invitation_delivery` side-effect free.
+- If automatic send is enabled and the prerequisites are satisfied, the decision page renders a sending interstitial and the frontend immediately posts the existing `Send now` action.
+- If automatic send is disabled, the prerequisites are not satisfied, or a previous automatic attempt returned with an alert, the flow falls back to the manual delivery decision prompt.
 
 ### Step 3A - Automatic send path
-- The server validates that:
+- The decision page shows a non-interactive `Sending portal access...` state instead of the manual prompt.
+- The frontend posts the same invitation-delivery endpoint used by the manual `Send now` button.
+- The backend validates that:
   - the current user still owns the invitation
   - the subscription still allows access
   - the session secret is still live
@@ -73,6 +76,7 @@ The delivery decision step appears only when a brand-new client portal invitatio
   - marks the invitation decision as completed in session
   - records `invitation_emailed_at` and `invitation_emailed_to` on the `ClientForm`
   - redirects to `password_reveal` with a success flash
+- On failure, the backend redirects back to the same decision page with an alert, and the frontend must stop auto-posting so the operator sees the manual prompt.
 
 ### Step 3B - Manual delivery decision page
 - The operator is redirected to `GET /client_forms/:id/invitation_delivery`.
@@ -102,7 +106,7 @@ The delivery decision step appears only when a brand-new client portal invitatio
 
 ### Decision Page
 - **Page component:** `Clients/InvitationDeliveryDecision.svelte`
-- **Primary interaction:** modal shown on initial render
+- **Primary interaction:** modal shown on initial render for manual decisions; a sending interstitial shown on initial render for automatic delivery
 - **Fallback behavior:** if the modal closes unexpectedly, the page still shows the same actions inline so the operator is not trapped in a blank screen
 
 ### Modal Content
@@ -117,6 +121,8 @@ The delivery decision step appears only when a brand-new client portal invitatio
 - `Send now` shows a pending state while the request is in flight.
 - The modal must be keyboard accessible and use the same interaction style as the existing confirmation modal pattern.
 - The flow must not open a second confirmation modal on the reveal page.
+- Automatic send must not briefly render the `Send portal access now?` prompt before the request starts.
+- A failed automatic attempt must return to the manual decision prompt instead of retrying automatically in a loop.
 - The reveal page keeps its current role as the last step so the operator always has a manual fallback if the email was skipped or later reported missing by the client.
 - Automatic send must be framed as a settings-controlled convenience, not a silent replacement for the manual fallback.
 

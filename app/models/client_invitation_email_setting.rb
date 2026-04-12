@@ -6,6 +6,8 @@ class ClientInvitationEmailSetting < ApplicationRecord
 
   belongs_to :user
 
+  attr_accessor :skip_placeholder_validation
+
   validates :subject_template, length: { maximum: 500 }, allow_blank: true
   validates :body_template, length: { maximum: 5000 }, allow_blank: true
   validate :subject_template_uses_allowed_placeholders
@@ -43,10 +45,12 @@ class ClientInvitationEmailSetting < ApplicationRecord
   end
 
   def required_placeholders_when_auto_send
+    return if skip_placeholder_validation
     return unless auto_send?
+    return if body_template.blank? # blank means the default template is used, which already includes required placeholders
 
     REQUIRED_PLACEHOLDERS_FOR_AUTO_SEND.each do |placeholder|
-      unless body_template.to_s.include?(placeholder)
+      unless body_template.include?(placeholder)
         errors.add(:body_template, "must include #{placeholder} when automatic send is enabled")
       end
     end

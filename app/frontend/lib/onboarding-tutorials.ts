@@ -143,6 +143,41 @@ const TUTORIALS: Record<OnboardingTutorialKey, OnboardingTutorial> = {
       },
     ],
   },
+  settings_invite_email_basics: {
+    key: 'settings_invite_email_basics',
+    guideKey: 'client_workflow',
+    title: 'Personalise the invitation email',
+    summary: 'Use the real Settings controls to toggle auto-send, edit the subject and body templates, and check the live preview before the next invite goes out.',
+    steps: [
+      {
+        title: 'Find invite email settings',
+        body: 'This card holds all invite email controls: auto-send toggle, subject template, body template, and a live preview. Scroll here to locate it.',
+        target: '[data-onboarding-tutorial="invite-email-card"]',
+        action: { kind: 'scroll', label: 'Jump to invite email settings' },
+      },
+      {
+        title: 'Toggle auto-send',
+        body: 'When auto-send is on and the client already has an email address, Quick KYB sends the portal link and one-time password automatically — no confirmation prompt needed.',
+        target: '[data-onboarding-tutorial="invite-auto-send-toggle"]',
+        action: { kind: 'click', label: 'Toggle auto-send' },
+        missingTargetBody: 'Expand the "Client invite email" card first, then press Next to continue.',
+      },
+      {
+        title: 'Customise the email template',
+        body: 'Edit the subject line and body to match your brand voice. Use the variable chips below each field to insert {{client_name}}, {{form_name}}, {{invite_link}}, {{password}}, and more.',
+        target: '[data-onboarding-tutorial="invite-template-form"]',
+        action: { kind: 'focus', label: 'Focus subject field' },
+        missingTargetBody: 'Expand the "Client invite email" card to access the subject and body template fields.',
+      },
+      {
+        title: 'Preview the rendered email',
+        body: 'The preview renders the template with sample data so you can confirm the output looks right before saving. What you see here is what the client receives.',
+        target: '[data-onboarding-tutorial="invite-preview-panel"]',
+        action: { kind: 'scroll', label: 'Show email preview' },
+        missingTargetBody: 'Expand the "Client invite email" card to see the live preview panel.',
+      },
+    ],
+  },
   crm_sync_basics: {
     key: 'crm_sync_basics',
     guideKey: 'crm_sync',
@@ -261,6 +296,13 @@ export function getGuidePracticeItems(guideKey: GuideKey, onboarding: DashboardO
           ctaLabel: 'Practice exports',
           href: concreteReviewHref ? withOnboardingTutorial(concreteReviewHref, 'client_exports_basics') : null,
           unavailableReason: concreteReviewHref ? undefined : 'Create or open a client record first so the export panel exists on the page.',
+        },
+        {
+          tutorialKey: 'settings_invite_email_basics',
+          title: 'Personalise the invitation email',
+          description: 'Set up auto-send and customise the subject and body template so every credentials email matches your brand voice.',
+          ctaLabel: 'Open email tutorial',
+          href: withOnboardingTutorial('/settings', 'settings_invite_email_basics'),
         },
       ];
     case 'crm_sync':

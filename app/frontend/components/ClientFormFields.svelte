@@ -1,6 +1,7 @@
 <script lang="ts">
   import Input from '/components/ui/input/input.svelte';
   import { Label } from '/components/ui/label/index.js';
+  import FieldDescription from '/components/ui/field/field-description.svelte';
   import { hasError } from '@/lib/utils';
   import type { ClientFormData } from '@/lib/crm_domain';
 
@@ -23,6 +24,15 @@
   }: Props = $props();
 
   let countryOptions = $derived((countries || []).map((c: any) => ({ label: c.name, value: c.code, flag: c.flag })));
+  const emailReminder = $derived.by(() => {
+    const email = formData.email?.trim() ?? '';
+
+    if (!email || hasError(errors, 'email')) {
+      return 'No automatic email can be sent to the client without a valid email address.';
+    }
+
+    return null;
+  });
 </script>
 
 <div class="space-y-6">
@@ -54,8 +64,15 @@
             name="client[email]" 
             type="email" 
             bind:value={formData.email} 
+            aria-describedby={emailReminder ? 'client-email-reminder' : undefined}
+            aria-invalid={hasError(errors, 'email') ? 'true' : undefined}
             class={`w-full ${hasError(errors, 'email') ? 'border-rose-600' : ''}`} 
           />
+          {#if emailReminder}
+            <FieldDescription id="client-email-reminder" class="mt-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {emailReminder}
+            </FieldDescription>
+          {/if}
           {#if hasError(errors, 'email')}
             <div class="text-rose-600 text-sm mt-1">{errors['email']?.[0]}</div>
           {/if}
