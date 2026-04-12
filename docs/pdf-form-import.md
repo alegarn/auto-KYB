@@ -33,6 +33,8 @@ Routes involved in the flow:
 
 The frontend entry point is the forms index page. `PdfImportModal.svelte` uses a sheet, client-side file checks, `fetch()` for JSON endpoints, and `router.visit()` only after persistence succeeds.
 
+The generated preview is intentionally a draft. It can contain typos or input errors, so the user should verify it before showing the resulting form to a client.
+
 ## Configuration
 
 Gemini credentials are loaded from Rails credentials first, then from the environment:
@@ -137,3 +139,4 @@ bundle exec rake js:routes
 - There is no page-count guard yet; the implementation currently relies on file size.
 - Image-only or badly scanned PDFs still depend on Gemini extracting enough structure.
 - The preview currently edits only the form name. A richer structured edit step would require a dedicated preview editor.
+- The preview is a draft generated from Gemini output. Users should always review it for typos or input errors before creating the form or sharing it with a client.

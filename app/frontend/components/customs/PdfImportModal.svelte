@@ -499,6 +499,11 @@
             </div>
           </div>
 
+          <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="note" data-testid="pdf-import-review-reminder">
+            <TriangleAlert class="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />
+            <p>Your form can contain typos or input errors. Always verify it before showing it to the client.</p>
+          </div>
+
           <Sheet.Footer class="gap-2 sm:justify-between">
             <Button type="button" variant="secondary" onclick={resetToUpload} disabled={confirmingTarget !== null}>Try again</Button>
             <div class="flex flex-col gap-2 sm:flex-row">

@@ -109,6 +109,9 @@ describe('PdfImportModal.svelte', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText(/Review generated options/i)).toBeInTheDocument();
     expect(screen.getByText(/Company name/i)).toBeInTheDocument();
+    expect(screen.getByTestId('pdf-import-review-reminder')).toHaveTextContent(
+      'Your form can contain typos or input errors. Always verify it before showing it to the client.',
+    );
   });
 
   it('submits the edited preview name on confirm', async () => {
