@@ -98,26 +98,26 @@ class DashboardQuery
     return @has_workspace_form if defined?(@has_workspace_form)
 
     scope = form_scope
-    scope = scope.where('forms.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
-    
+    scope = scope.where("forms.created_at >= ?", @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+
     @has_workspace_form = scope.exists?
   end
 
   def has_clients?
     return @has_clients if defined?(@has_clients)
-    
+
     scope = client_scope
-    scope = scope.where('clients.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
-    
+    scope = scope.where("clients.created_at >= ?", @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+
     @has_clients = scope.exists?
   end
 
   def has_invited_client?
     return @has_invited_client if defined?(@has_invited_client)
-    
+
     scope = ClientForm.joins(:client).where(clients: { user_id: @user.id })
-    scope = scope.where('client_forms.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
-    
+    scope = scope.where("client_forms.created_at >= ?", @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+
     @has_invited_client = scope.exists?
   end
 
@@ -129,8 +129,8 @@ class DashboardQuery
     return @crm_connected if defined?(@crm_connected)
 
     scope = @user.crm_connections.active
-    scope = scope.where('crm_connections.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
-    
+    scope = scope.where("crm_connections.created_at >= ?", @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+
     @crm_connected = scope.exists?
   end
 
@@ -142,7 +142,7 @@ class DashboardQuery
     return @latest_form_id if defined?(@latest_form_id)
 
     scope = form_scope
-    scope = scope.where('forms.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+    scope = scope.where("forms.created_at >= ?", @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
     @latest_form_id = scope.order(updated_at: :desc).pick(:id)
   end
 
@@ -150,12 +150,12 @@ class DashboardQuery
     return @latest_client_id if defined?(@latest_client_id)
 
     scope = client_scope
-    scope = scope.where('clients.created_at >= ?', @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
+    scope = scope.where("clients.created_at >= ?", @user.dashboard_onboarding_restarted_at) if @user.dashboard_onboarding_restarted_at.present?
     @latest_client_id = scope.order(updated_at: :desc).pick(:id)
   end
 
   def form_step_href
-    return new_form_path if latest_form_id.blank?
+    return forms_path if latest_form_id.blank?
 
     edit_form_path(latest_form_id)
   end

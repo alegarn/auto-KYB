@@ -9,6 +9,8 @@ The flow is split into two HTTP steps:
 - `POST /form_imports` uploads the PDF and returns a preview payload as JSON.
 - `POST /form_imports/confirm` revalidates the preview payload, persists the form through `FormService`, and returns the new form id.
 
+The entry point for users is the forms workspace. From there they can either create a blank form or use `Import from PDF` to generate the first draft.
+
 ## Architecture
 
 The backend pipeline lives in `app/services/`:
@@ -21,8 +23,13 @@ The backend pipeline lives in `app/services/`:
 
 The controller boundary lives in `FormImportsController`:
 
-- `create` enforces file size and PDF signature checks before calling the service.
+- `create` validates the uploaded PDF through `PdfImportUploadValidator` before calling the service.
 - `confirm` revalidates the client-supplied preview payload before creating the form.
+
+Routes involved in the flow:
+
+- `POST /form_imports` generates the preview payload.
+- `POST /form_imports/confirm` persists the validated form.
 
 The frontend entry point is the forms index page. `PdfImportModal.svelte` uses a sheet, client-side file checks, `fetch()` for JSON endpoints, and `router.visit()` only after persistence succeeds.
 
@@ -103,7 +110,7 @@ The controller also revalidates the preview payload during confirm so edited cli
 - PDF acceptance is enforced with magic-byte validation (`%PDF-`), not just the browser filename or MIME type.
 - Gemini API keys are sent in the `x-goog-api-key` header instead of the URL.
 - Returned strings are stripped of HTML tags before the preview or persisted form uses them.
-- `Rack::Attack` throttles `POST /form_imports` to 5 requests per minute per session (with IP fallback).
+- `Rack::Attack` throttles both `POST /form_imports` and `POST /form_imports/confirm` to 5 requests per minute per IP + `session_token` cookie combination. If the cookie is absent, the request is treated as `anonymous` for the discriminator.
 
 ## Testing
 
@@ -121,6 +128,8 @@ bundle exec rspec spec/services/gemini_pdf_input_spec.rb spec/services/gemini_cl
 npm run test:unit -- spec/frontend/components/customs/PdfImportModal.spec.ts
 bundle exec rake js:routes
 ```
+
+`bundle exec rake js:routes` regenerates the frontend helpers in `app/frontend/routes/` so Svelte files keep using Rails-generated paths instead of hardcoded URLs.
 
 ## Limitations And Follow-Up
 

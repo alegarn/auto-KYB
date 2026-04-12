@@ -4,6 +4,19 @@ RSpec.describe DashboardQuery do
   let(:route_helpers) { Rails.application.routes.url_helpers }
 
   describe "#onboarding_summary" do
+    it "links the form step to the forms workspace when no form exists yet" do
+      user = create(:user, :subscribed, plan: :basic)
+      user.forms.destroy_all
+
+      summary = described_class.new(user).onboarding_summary
+
+      expect(summary[:quick_steps].first).to eq(
+        key: "form",
+        complete: false,
+        href: route_helpers.forms_path
+      )
+    end
+
     it "returns the basic variant for subscribed basic users" do
       user = create(:user, :subscribed, plan: :basic)
 

@@ -1,26 +1,13 @@
 class FormImportsController < ApplicationController
 
-  MAX_FILE_SIZE = 10.megabytes
-  PDF_SIGNATURE_BYTES = 5
-  PDF_SIGNATURE_PREFIX = "%PDF-".freeze
-
-  before_action :authorize_subscription
+  before_action :authorize_forms_access
 
   def create
     pdf_file = params.require(:pdf_file)
+    validation = PdfImportUploadValidator.validate(pdf_file)
 
-    unless uploaded_pdf_file?(pdf_file)
-      render json: { success: false, error: "Only PDF files are accepted" }, status: :unprocessable_entity
-      return
-    end
-
-    if pdf_file.size > MAX_FILE_SIZE
-      render json: { success: false, error: "File too large (max 10 MB)" }, status: :unprocessable_entity
-      return
-    end
-
-    unless pdf_signature?(pdf_file)
-      render json: { success: false, error: "Only PDF files are accepted" }, status: :unprocessable_entity
+    unless validation.valid?
+      render_error(validation.error)
       return
     end
 
@@ -34,25 +21,21 @@ class FormImportsController < ApplicationController
         field_count: result.data.dig("structure", "fields")&.size || 0
       }, status: :ok
     else
-      render json: {
-        success: false,
-        error: "The generated form structure is invalid",
-        details: result.errors
-      }, status: :unprocessable_entity
+      render_error("The generated form structure is invalid", details: result.errors)
     end
   rescue ActionController::ParameterMissing
-    render json: { success: false, error: "No PDF file provided" }, status: :unprocessable_entity
+    render_error("No PDF file provided")
   rescue GeminiClient::ApiError
-    render json: { success: false, error: "AI processing failed. Please try again." }, status: :unprocessable_entity
+    render_error("AI processing failed. Please try again.")
   rescue FormJsonExtractor::ExtractionError
-    render json: { success: false, error: "Could not interpret the AI response. Please try again." }, status: :unprocessable_entity
+    render_error("Could not interpret the AI response. Please try again.")
   end
 
   def confirm
     form_data = params.require(:form_data)
 
     unless form_data.is_a?(ActionController::Parameters)
-      render json: { success: false, error: "Invalid form data" }, status: :unprocessable_entity
+      render_error("Invalid form data")
       return
     end
 
@@ -60,38 +43,32 @@ class FormImportsController < ApplicationController
     result = PdfFormImportService.normalize_form_data(form_data)
 
     unless result.success
-      render json: { success: false, error: "Invalid form data", details: result.errors }, status: :unprocessable_entity
+      render_error("Invalid form data", details: result.errors)
       return
     end
 
     form = FormService.create_form(current_user, result.data.with_indifferent_access)
     render json: { success: true, form_id: form.id }, status: :created
   rescue ActionController::ParameterMissing
-    render json: { success: false, error: "No form data provided" }, status: :unprocessable_entity
+    render_error("No form data provided")
   rescue ActiveRecord::RecordInvalid => e
-    render json: { success: false, error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_entity
+    render_error(e.record.errors.full_messages.join(", "))
   rescue FormService::DuplicateExportKeysError => e
-    render json: {
-      success: false,
-      error: "Export mapping keys must be unique",
-      details: [ "Duplicate keys: #{e.duplicate_keys.join(', ')}" ]
-    }, status: :unprocessable_entity
+    render_error("Export mapping keys must be unique", details: [ "Duplicate keys: #{e.duplicate_keys.join(', ')}" ])
   end
 
   private
 
-  def authorize_subscription
+  def authorize_forms_access
     authorize :form, :index?
   end
 
-  def pdf_signature?(pdf_file)
-    signature = pdf_file.read(PDF_SIGNATURE_BYTES)
-    pdf_file.rewind
-    signature&.start_with?(PDF_SIGNATURE_PREFIX)
-  end
-
-  def uploaded_pdf_file?(pdf_file)
-    pdf_file.respond_to?(:size) && pdf_file.respond_to?(:read) && pdf_file.respond_to?(:rewind)
+  def render_error(message, details: nil, status: :unprocessable_entity)
+    render json: {
+      success: false,
+      error: message,
+      details: details
+    }.compact, status: status
   end
 
 end

@@ -111,6 +111,39 @@ describe('PdfImportModal.svelte', () => {
     expect(screen.getByText(/Company name/i)).toBeInTheDocument();
   });
 
+  it('submits the edited preview name on confirm', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(buildUploadResponse()), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, form_id: 'form-123' }), { status: 201 }));
+
+    render(PdfImportModal, { props: { open: true } });
+
+    await fireEvent.change(screen.getByTestId('pdf-import-input'), {
+      target: { files: [createPdfFile()] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pdf-import-preview-state')).toBeInTheDocument();
+    });
+
+    await fireEvent.input(screen.getByLabelText('Form name'), {
+      target: { value: 'Renamed Imported Form' },
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Create form' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const confirmRequest = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(JSON.parse(String(confirmRequest.body))).toEqual(
+      expect.objectContaining({
+        form_data: expect.objectContaining({ name: 'Renamed Imported Form' }),
+      }),
+    );
+  });
+
   it('shows the error state and returns to idle on retry', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ success: false, error: 'Import failed badly.' }), { status: 422 }),

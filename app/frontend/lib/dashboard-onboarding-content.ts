@@ -24,14 +24,14 @@ const VARIANT_CONTENT: Record<DashboardOnboardingVariant, VariantContent> = {
   basic: {
     eyebrow: 'Dashboard onboarding',
     title: 'Launch your first client workflow',
-    description: 'Your default form is ready. Review it, add a client, and share secure access from the dashboard flow.',
+    description: 'Your default form is ready. Review it, create a blank form, or import a PDF, then add a client and share secure access from the dashboard flow.',
     detailsTitle: 'Detailed onboarding',
     detailsDescription: 'Follow the same checklist with a bit more guidance so you can go from blank dashboard to real client handoff.'
   },
   pro: {
     eyebrow: 'Pro onboarding',
     title: 'Set up your client workflow and CRM handoff',
-    description: 'Finish the core checklist, then connect your CRM so exports and follow-up work stay in one flow.',
+    description: 'Finish the core checklist, starting from the forms workspace where you can review, create, or import a PDF, then connect your CRM so exports and follow-up work stay in one flow.',
     detailsTitle: 'Detailed pro onboarding',
     detailsDescription: 'Use the core checklist first, then wire the CRM step so your onboarding flow can move from local records to connected operations.'
   }
@@ -39,11 +39,11 @@ const VARIANT_CONTENT: Record<DashboardOnboardingVariant, VariantContent> = {
 
 const STEP_CONTENT: Record<DashboardOnboardingStepKey, StepContent> = {
   form: {
-    quickLabel: 'Review or create a new form',
-    quickDescription: 'A default form already exists, so the next move is to review it and shape it to your workflow.',
-    detailsTitle: 'Review or customize your default form',
-    detailsBody: 'Open your existing form, rename it if needed, and adjust the fields so the first client receives a workflow that matches your onboarding process.',
-    ctaLabel: 'Open form'
+    quickLabel: 'Review, create, or import a form',
+    quickDescription: 'Use the forms workspace to review the default form, create a blank form, or import your PDF to generate the first draft.',
+    detailsTitle: 'Open the forms workspace and choose your starting point',
+    detailsBody: 'Open the forms workspace to review the default form, create a blank form, or use Import from PDF to build the first draft from an existing document before you fine-tune the fields.',
+    ctaLabel: 'Open forms workspace'
   },
   client: {
     quickLabel: 'Add a client',
@@ -93,7 +93,12 @@ const GUIDE_CONTENT: Record<GuideKey, GuideTemplate> = {
     tips: [
       {
         title: 'Field types available',
-        body: 'You can add text, textarea, email, phone, number, date, checkbox, select, radio, file upload, country, and more. Each field can be marked as required.',
+        body: 'You can start with a blank form or import a PDF first, then add text, textarea, email, phone, number, date, checkbox, select, radio, file upload, country, and more. Each field can be marked as required.',
+      },
+      {
+        title: 'Import a PDF first when it saves time',
+        body: 'From the forms workspace, use Import from PDF to generate a first draft from an existing form or questionnaire before you refine the builder manually.',
+        href: forms_path(),
       },
       {
         title: 'Drag-and-drop ordering',

@@ -13,11 +13,14 @@ RSpec.describe 'Form Imports', type: :request do
 
   around do |example|
     original_enabled = Rack::Attack.enabled
+    original_store = Rack::Attack.cache.store
     Rack::Attack.enabled = true
+    Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
     Rack::Attack.cache.store.clear
     example.run
   ensure
     Rack::Attack.cache.store.clear
+    Rack::Attack.cache.store = original_store
     Rack::Attack.enabled = original_enabled
   end
 
@@ -149,8 +152,8 @@ RSpec.describe 'Form Imports', type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'is rate-limited to 5 requests per minute' do
-      throttle = Rack::Attack.throttles['form_imports/ip']
+    it 'uses the IP and session token to scope the preview throttle' do
+      throttle = Rack::Attack.throttles['form_imports/preview']
       discriminator_block = throttle.instance_variable_get(:@block)
 
       expect(throttle.instance_variable_get(:@limit)).to eq(5)
@@ -183,6 +186,27 @@ RSpec.describe 'Form Imports', type: :request do
       expect(discriminator_block.call(request_with_cookie)).to eq('203.0.113.10:throttle-test')
       expect(discriminator_block.call(request_without_cookie)).to eq('203.0.113.11:anonymous')
       expect(discriminator_block.call(request_with_format)).to eq('203.0.113.12:formatted-throttle-test')
+    end
+
+    it 'returns 429 on the sixth preview request in a minute' do
+      allow(PdfFormImportService).to receive(:call).and_return(
+        PdfFormImportService::Result.new(success: true, data: valid_form_data.deep_stringify_keys, warnings: [], errors: [])
+      )
+
+      5.times do
+        with_upload(content: minimal_pdf_content, filename: 'import.pdf') do |uploaded_file|
+          post form_imports_path, params: { pdf_file: uploaded_file }, headers: headers
+        end
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      with_upload(content: minimal_pdf_content, filename: 'import.pdf') do |uploaded_file|
+        post form_imports_path, params: { pdf_file: uploaded_file }, headers: headers
+      end
+
+      expect(response).to have_http_status(:too_many_requests)
+      expect(JSON.parse(response.body)).to include('error' => 'Too many requests. Please try again later.')
     end
   end
 
@@ -277,6 +301,27 @@ RSpec.describe 'Form Imports', type: :request do
            as: :json
 
       expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'returns 429 on the sixth confirm request in a minute' do
+      allow(FormService).to receive(:create_form).and_return(instance_double(Form, id: 123))
+
+      5.times do
+        post confirm_form_imports_path,
+             params: { form_data: valid_form_data },
+             headers: headers,
+             as: :json
+
+        expect(response).to have_http_status(:created)
+      end
+
+      post confirm_form_imports_path,
+           params: { form_data: valid_form_data },
+           headers: headers,
+           as: :json
+
+      expect(response).to have_http_status(:too_many_requests)
+      expect(JSON.parse(response.body)).to include('error' => 'Too many requests. Please try again later.')
     end
   end
 end
