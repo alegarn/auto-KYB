@@ -172,7 +172,13 @@
 
 <section class="mx-auto max-w-7xl">
       <div class="mb-6 flex items-center justify-between">
-        <h1 class="text-2xl font-semibold">Create Form</h1>
+        <div>
+          <h1 class="text-2xl font-semibold">Create Form</h1>
+          <div class="mt-1 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+            <span>Prefer to start from an existing document?</span>
+            <Button href={forms_path()} variant="link" class="h-auto px-0 py-0">Use Import from PDF in the forms workspace.</Button>
+          </div>
+        </div>
         <div class="flex gap-2">
           <Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
           <Button type="button" onclick={handleSubmit} disabled={submitting}>

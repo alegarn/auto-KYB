@@ -170,14 +170,22 @@ class FormService
       export_key = metadata[:export_key] || metadata["export_key"]
       effective_key = export_key.to_s.presence || label
 
-      normalized = effective_key.to_s.strip.downcase
+      normalized = normalize_export_key(effective_key)
       next if normalized.blank?
 
       # Scope uniqueness by CRM object_type — same key is allowed across different objects
-      crm_mapping = metadata[:crm_mapping] || metadata["crm_mapping"] || {}
-      object_type = crm_mapping.values
-                      .filter_map { |m| m["object_type"] || m[:object_type] }
-                      .first || "contact"
+      crm_mapping = metadata[:crm_mapping] || metadata["crm_mapping"]
+      object_type = if crm_mapping.is_a?(Hash)
+        crm_mapping.values
+                   .filter_map do |mapping|
+                     next unless mapping.is_a?(Hash)
+
+                     mapping["object_type"] || mapping[:object_type]
+                   end
+                   .first || "contact"
+      else
+        "contact"
+      end
 
       seen_by_scope[object_type] ||= {}
       if seen_by_scope[object_type].key?(normalized)
@@ -190,5 +198,10 @@ class FormService
     raise DuplicateExportKeysError.new(duplicates.uniq) if duplicates.any?
   end
   private_class_method :validate_unique_export_keys!
+
+  def self.normalize_export_key(value)
+    value.to_s.parameterize(separator: "_").presence || value.to_s.strip.downcase.presence
+  end
+  private_class_method :normalize_export_key
 
 end

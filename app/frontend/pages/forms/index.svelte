@@ -6,6 +6,7 @@
 	import { Skeleton } from "/components/ui/skeleton";
 	import { Form as InertiaForm, inertia, useForm } from '@inertiajs/svelte'
 	import Modal from "/components/ui/modal.svelte";
+	import PdfImportModal from "/components/customs/PdfImportModal.svelte";
 	import { new_form_path, form_path, edit_form_path, duplicate_form_path, forms_path } from "@/routes";
 	import { page } from '@inertiajs/svelte'
 	import Toast from "/components/customs/Toast.svelte"
@@ -22,6 +23,7 @@
 
 	let { user, forms: serverForms, active_form_ids: serverActiveFormIds } = $props();
   let showModal = $state(false);
+	let showImportModal = $state(false);
   let selectedToDelete = $state(null as Form | null);
 
   const deleteForm = useForm({});
@@ -115,15 +117,18 @@
 			</div>
 			<div class="flex flex-col gap-2 sm:flex-row">
 				<!-- <Button variant="secondary">Review submissions</Button> -->
+				<Button type="button" variant="secondary" onclick={() => (showImportModal = true)}>
+					Import from PDF
+				</Button>
 				<Sheet.Root>
 					<Button href={new_form_path()} variant="default">
 						New form
 					</Button>
 					<Sheet.Content side="right" class="w-full sm:max-w-lg">
 						<Sheet.Header>
-							<Sheet.Title>Create a new form</Sheet.Title>
+							<Sheet.Title>Create a blank form</Sheet.Title>
 							<Sheet.Description>
-								Start with a form name and optional description. You can add fields later.
+								Start with a blank form name and optional description, or close this sheet and use Import from PDF to build from an existing document.
 							</Sheet.Description>
 						</Sheet.Header>
 						<div class="mt-6">
@@ -233,7 +238,7 @@
 					{:else if filteredForms.length === 0}
 						<div class="rounded-lg border border-dashed border-muted-foreground/30 p-6 text-center">
 							<p class="text-sm font-medium">No forms found</p>
-							<p class="text-sm text-muted-foreground">Create a new form or adjust your filters.</p>
+							<p class="text-sm text-muted-foreground">Create a blank form, import your PDF, or adjust your filters.</p>
 						</div>
 					{:else}
 						<div class="max-h-[520px] space-y-3 overflow-auto pr-2">
@@ -260,6 +265,7 @@
 				</Card.Content>
 			</Card.Root>
 		</section>
+<PdfImportModal bind:open={showImportModal} />
 <Modal bind:showModal={showModal} title="Delete form" description={selectedToDelete ? `Delete "${selectedToDelete.name}"?` : ''} onConfirm={confirmDelete} onClose={() => { selectedToDelete = null; showModal = false; }}>
 	<p>Are you sure you want to delete "{selectedToDelete?.name}"?</p>
 	{#if selectedIsActive}

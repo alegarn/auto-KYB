@@ -23,6 +23,7 @@ The Dashboard Onboarding is a contextual, non-blocking guidance system designed 
     - `form`: User has at least one Workspace Form.
     - `client`: User has at least one Client.
     - `invite`: User has at least one `ClientForm` (invitation).
+    - `review`: User has exported onboarding data from the real workflow.
     - `crm` (Pro only): User has an active, authenticated CRM connection.
 - **UI State Persistence**: Dismissal and "detailed view seen" state must be persisted in `users.onboarding_state` (JSONB).
 - **Versioning**: Supports an `onboarding_state.version` (current: `1`) to allow resetting/updates for all users. 
@@ -32,11 +33,11 @@ The Dashboard Onboarding is a contextual, non-blocking guidance system designed 
 ### FR-02: User Experience (Checklist Card)
 - **Visibility**: Displayed at the top of the Dashboard for eligible users.
 - **Variants**:
-    - **Basic**: 3 steps (`form`, `client`, `invite`).
-    - **Pro**: 4 steps (adds `crm`).
+    - **Basic**: 4 steps (`form`, `client`, `invite`, `review`).
+    - **Pro**: 5 steps (adds `crm`).
 - **intelligent Deep-Linking**:
     - Each step provides a context-aware link (`href`).
-    - Example: The "Review or create a new form" step points to the most recently updated form's edit page if a form exists, otherwise to the form creation page.
+    - Example: The "Review, create, or import a form" step points to the most recently updated form's edit page if a form exists, otherwise to the forms workspace where the user can either create a blank form or import a PDF.
 - **Dismissal**: Users can permanently hide the card. Dismissal is version-scoped.
 
 ### FR-03: Detailed Guidance (Side Sheet)
@@ -90,11 +91,11 @@ The Dashboard Onboarding is a contextual, non-blocking guidance system designed 
 ### User Story 1: First-Time Login (Basic Plan)
 **Given** a new user on the Basic plan has just signed up
 **When** they land on the Dashboard
-**Then** they see a "Launch your first client workflow" checklist with 3 steps
-**And** the "Review or create a new form" step is marked as complete (due to auto-created default form)
+**Then** they see a "Launch your first client workflow" checklist with 4 steps
+**And** the "Review, create, or import a form" step is marked as complete (due to auto-created default form)
 
 ### User Story 2: Completing the Workflow
-**Given** the user has completed all 3-4 steps (Forms, Clients, Invitations, CRM)
+**Given** the user has completed all 4-5 steps (Forms, Clients, Invitations, Review, CRM)
 **When** the Dashboard is rendered
 **Then** the onboarding card is hidden automatically without requiring manual dismissal.
 

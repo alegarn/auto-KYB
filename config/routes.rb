@@ -28,6 +28,12 @@ Rails.application.routes.draw do
     end
   end
 
+  resources :form_imports, only: [ :create ] do
+    collection do
+      post :confirm
+    end
+  end
+
   resources :clients do
     member do
       get :export
