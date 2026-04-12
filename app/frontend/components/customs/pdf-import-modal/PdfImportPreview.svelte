@@ -115,7 +115,7 @@
       <div>
         <p class="font-semibold text-foreground">Detected fields</p>
         <p class="text-sm text-muted-foreground">
-          This preview is only a summary and may contain incomplete fields. Review labels and field types before creating the form.
+          Scroll down to see the whole form. Review labels and field types after creating the form.
         </p>
       </div>
       <div class="flex items-center gap-2 rounded-full bg-muted/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
