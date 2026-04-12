@@ -6,6 +6,7 @@
 	import { Skeleton } from "/components/ui/skeleton";
 	import { Form as InertiaForm, inertia, useForm } from '@inertiajs/svelte'
 	import Modal from "/components/ui/modal.svelte";
+	import PdfImportModal from "/components/customs/PdfImportModal.svelte";
 	import { new_form_path, form_path, edit_form_path, duplicate_form_path, forms_path } from "@/routes";
 	import { page } from '@inertiajs/svelte'
 	import Toast from "/components/customs/Toast.svelte"
@@ -22,6 +23,7 @@
 
 	let { user, forms: serverForms, active_form_ids: serverActiveFormIds } = $props();
   let showModal = $state(false);
+	let showImportModal = $state(false);
   let selectedToDelete = $state(null as Form | null);
 
   const deleteForm = useForm({});
@@ -115,6 +117,9 @@
 			</div>
 			<div class="flex flex-col gap-2 sm:flex-row">
 				<!-- <Button variant="secondary">Review submissions</Button> -->
+				<Button type="button" variant="secondary" onclick={() => (showImportModal = true)}>
+					Import from PDF
+				</Button>
 				<Sheet.Root>
 					<Button href={new_form_path()} variant="default">
 						New form
@@ -260,6 +265,7 @@
 				</Card.Content>
 			</Card.Root>
 		</section>
+<PdfImportModal bind:open={showImportModal} />
 <Modal bind:showModal={showModal} title="Delete form" description={selectedToDelete ? `Delete "${selectedToDelete.name}"?` : ''} onConfirm={confirmDelete} onClose={() => { selectedToDelete = null; showModal = false; }}>
 	<p>Are you sure you want to delete "{selectedToDelete?.name}"?</p>
 	{#if selectedIsActive}
