@@ -223,6 +223,36 @@ RSpec.describe 'Form Imports', type: :request do
       expect(user.forms.find(payload['form_id']).name).to eq('Imported Form')
     end
 
+    it 'decodes HTML entities before creating the form' do
+      form_data = {
+        name: 'Imported &amp; Form',
+        structure: {
+          description: 'Use 5 &gt; 2',
+          fields: [
+            {
+              label: 'Company &amp; name',
+              field_type: 'text',
+              required: true,
+              position: 1,
+              metadata: {}
+            }
+          ]
+        }
+      }
+
+      post confirm_form_imports_path,
+           params: { form_data: form_data },
+           headers: headers,
+           as: :json
+
+      expect(response).to have_http_status(:created)
+
+      created_form = user.forms.find(JSON.parse(response.body)['form_id'])
+      expect(created_form.name).to eq('Imported & Form')
+      expect(created_form.structure['description']).to eq('Use 5 > 2')
+      expect(created_form.form_fields.first.label).to eq('Company & name')
+    end
+
     it 'returns 422 on invalid form data' do
       post confirm_form_imports_path,
            params: { form_data: { structure: { fields: [] } } },

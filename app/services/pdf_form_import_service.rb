@@ -1,3 +1,5 @@
+require "nokogiri"
+
 class PdfFormImportService
 
   Result = Struct.new(:success, :data, :warnings, :errors, keyword_init: true)
@@ -35,7 +37,7 @@ class PdfFormImportService
         memo[key] = sanitize_value(nested_value)
       end
     when String
-      ActionController::Base.helpers.strip_tags(value).to_s.strip
+      Nokogiri::HTML.fragment(value).text.to_s.strip
     else
       value
     end

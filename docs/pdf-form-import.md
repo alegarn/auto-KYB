@@ -19,7 +19,7 @@ The backend pipeline lives in `app/services/`:
 - `GeminiClient` sends the prompt and PDF to Gemini Flash and extracts the raw text response.
 - `FormJsonExtractor` strips fences/prose and parses the JSON object from the model response.
 - `FormJsonValidator` validates and normalizes the payload to the live builder schema.
-- `PdfFormImportService` orchestrates the pipeline and strips HTML from returned string values.
+- `PdfFormImportService` orchestrates the pipeline and normalizes returned string values by decoding HTML entities and stripping HTML tags.
 
 The controller boundary lives in `FormImportsController`:
 
@@ -111,7 +111,7 @@ The controller also revalidates the preview payload during confirm so edited cli
 - Uploads are limited to 10 MB before the Gemini request runs.
 - PDF acceptance is enforced with magic-byte validation (`%PDF-`), not just the browser filename or MIME type.
 - Gemini API keys are sent in the `x-goog-api-key` header instead of the URL.
-- Returned strings are stripped of HTML tags before the preview or persisted form uses them.
+- Returned strings are decoded from HTML entities and stripped of HTML tags before the preview or persisted form uses them.
 - `Rack::Attack` throttles both `POST /form_imports` and `POST /form_imports/confirm` to 5 requests per minute per IP + `session_token` cookie combination. If the cookie is absent, the request is treated as `anonymous` for the discriminator.
 
 ## Testing

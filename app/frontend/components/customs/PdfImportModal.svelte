@@ -1,57 +1,33 @@
 <script lang="ts">
   import { router } from '@inertiajs/svelte';
-  import { FileText, Loader2, Sparkles, TriangleAlert, Upload } from '@lucide/svelte';
+  import { Loader2, Sparkles, Upload } from '@lucide/svelte';
   import { onDestroy } from 'svelte';
   import { Button } from '/components/ui/button';
-  import { Input } from '/components/ui/input';
   import { Skeleton } from '/components/ui/skeleton';
   import * as Sheet from '/components/ui/sheet';
-  import { FIELD_TYPE_LABELS, type FormField, type FormSettings } from '/components/customs/form-builder/types';
-  import { confirm_form_imports_path, edit_form_path, form_imports_path, forms_path } from '@/routes';
-
-  type ModalState = 'idle' | 'uploading' | 'preview' | 'error';
-  type ConfirmTarget = 'edit' | 'index';
-
-  interface PreviewFormData {
-    name: string;
-    structure: {
-      description?: string;
-      settings?: FormSettings;
-      fields: FormField[];
-    };
-  }
-
-  interface PdfImportResult {
-    form_data: PreviewFormData;
-    warnings: string[];
-    field_count: number;
-  }
-
-  interface SummaryItem {
-    key: string;
-    label: string;
-    count: number;
-  }
-
-  const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-  const SLOW_UPLOAD_MESSAGES = [
-    'Your pdf is still being processed',
-    'Yes, still on process',
-    'Not crashing yet...',
-    'Hold on i heard something :o',
-    "Oh no, i canno't hear i'm a web app...",
-    'Wow, are you on 64kB connection?',
-    'Did you gave a book to process?!',
-    'Maybe there is a problem on the server side...',
-    "At worse the biggest AI out there might process your pdf, cost a bunch, but when it's for you... $.$",
-    "If you see that message, 55 seconds have passed at least... there might be problem somewhere. You can reload the page and retry.",
-  ] as const;
+  import PdfImportPreview from '/components/customs/pdf-import-modal/PdfImportPreview.svelte';
+  import {
+    buildConfirmedFormData,
+    buildErrorMessage,
+    buildSummaryItems,
+    isConfirmSuccessPayload,
+    isPdfImportResult,
+    SLOW_UPLOAD_MESSAGE_DELAY_MS,
+    SLOW_UPLOAD_MESSAGE_INTERVAL_MS,
+    SLOW_UPLOAD_MESSAGES,
+    validateClientFile,
+    type ConfirmTarget,
+    type ModalState,
+    type PdfImportResult,
+  } from '/lib/pdf-import-modal';
+  import { confirm_form_imports_path, edit_form_path, form_imports_path, forms_path } from '/routes/index.js';
 
   let { open = $bindable(false) } = $props();
 
   let modalState: ModalState = $state('idle');
   let file: File | null = $state(null);
   let result: PdfImportResult | null = $state(null);
+  let draftFormName = $state('');
   let errorMessage = $state('');
   let dragOver = $state(false);
   let fileInput: HTMLInputElement | null = $state(null);
@@ -59,9 +35,10 @@
   let dismissedWarnings: string[] = $state([]);
   let slowUploadMessageVisible = $state(false);
   let slowUploadMessageIndex = $state(0);
-  let uploadSequence = $state(0);
   let allowModalClose = false;
   let requestVersion = 0;
+  let uploadAbortController: AbortController | null = null;
+  let confirmAbortController: AbortController | null = null;
   let slowUploadTimeout: ReturnType<typeof setTimeout> | null = null;
   let slowUploadInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -83,7 +60,7 @@
       return;
     }
 
-    startSlowUploadMessages(uploadSequence);
+    startSlowUploadMessages();
 
     return () => {
       clearSlowUploadTimers();
@@ -95,72 +72,34 @@
     stopSlowUploadMessages();
   });
 
-  const previewFields = $derived.by((): FormField[] => {
-    if (!result) return [];
-    return result.form_data.structure.fields;
-  });
+  const previewFields = $derived.by(() => result?.form_data.structure.fields ?? []);
 
   const visibleWarnings = $derived.by(() => {
     if (!result?.warnings?.length) return [];
     return result.warnings.filter((warning: string) => !dismissedWarnings.includes(warning));
   });
 
-  const summaryItems = $derived.by<SummaryItem[]>(() => {
-    if (!previewFields.length) return [];
+  const summaryItems = $derived.by(() => buildSummaryItems(previewFields));
 
-    const counts = {
-      inputs: 0,
-      choices: 0,
-      uploads: 0,
-      tables: 0,
-      layout: 0,
-    };
+  function clearPreviewState() {
+    result = null;
+    draftFormName = '';
+    dismissedWarnings = [];
+    confirmingTarget = null;
+  }
 
-    for (const field of previewFields) {
-      switch (field.field_type) {
-        case 'text':
-        case 'number':
-        case 'email':
-        case 'date':
-        case 'textarea':
-          counts.inputs += 1;
-          break;
-        case 'checkbox':
-        case 'buttons':
-        case 'select':
-        case 'radio':
-          counts.choices += 1;
-          break;
-        case 'file':
-          counts.uploads += 1;
-          break;
-        case 'table':
-          counts.tables += 1;
-          break;
-        default:
-          counts.layout += 1;
-      }
-    }
-
-    return [
-      { key: 'inputs', label: 'Inputs', count: counts.inputs },
-      { key: 'choices', label: 'Choices', count: counts.choices },
-      { key: 'uploads', label: 'Uploads', count: counts.uploads },
-      { key: 'tables', label: 'Tables', count: counts.tables },
-      { key: 'layout', label: 'Layout', count: counts.layout },
-    ].filter((item) => item.count > 0);
-  });
+  function clearTransientState() {
+    errorMessage = '';
+    dragOver = false;
+    allowModalClose = false;
+  }
 
   function resetState() {
     stopSlowUploadMessages();
     modalState = 'idle';
+    clearPreviewState();
+    clearTransientState();
     file = null;
-    result = null;
-    errorMessage = '';
-    dragOver = false;
-    confirmingTarget = null;
-    dismissedWarnings = [];
-    allowModalClose = false;
     if (fileInput) fileInput.value = '';
   }
 
@@ -170,6 +109,10 @@
 
   function invalidatePendingRequests() {
     requestVersion += 1;
+    uploadAbortController?.abort();
+    uploadAbortController = null;
+    confirmAbortController?.abort();
+    confirmAbortController = null;
   }
 
   function clearSlowUploadTimers() {
@@ -194,7 +137,7 @@
     resetSlowUploadMessage();
   }
 
-  function startSlowUploadMessages(_sequence: number) {
+  function startSlowUploadMessages() {
     clearSlowUploadTimers();
     resetSlowUploadMessage();
 
@@ -210,28 +153,12 @@
         }
 
         slowUploadMessageIndex += 1;
-      }, 5000);
-    }, 5000);
-  }
-
-  function isPdfFile(selectedFile: File): boolean {
-    const normalizedName = selectedFile.name.toLowerCase();
-    return selectedFile.type === 'application/pdf' || normalizedName.endsWith('.pdf');
-  }
-
-  function validateClientFile(selectedFile: File): string | null {
-    if (!isPdfFile(selectedFile)) {
-      return 'Only PDF files are accepted.';
-    }
-
-    if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
-      return 'File too large (max 10 MB).';
-    }
-
-    return null;
+      }, SLOW_UPLOAD_MESSAGE_INTERVAL_MS);
+    }, SLOW_UPLOAD_MESSAGE_DELAY_MS);
   }
 
   function dismissWarning(warning: string) {
+    if (dismissedWarnings.includes(warning)) return;
     dismissedWarnings = [...dismissedWarnings, warning];
   }
 
@@ -239,11 +166,9 @@
     invalidatePendingRequests();
     stopSlowUploadMessages();
     modalState = 'idle';
+    clearPreviewState();
+    clearTransientState();
     file = null;
-    result = null;
-    errorMessage = '';
-    dismissedWarnings = [];
-    confirmingTarget = null;
     if (fileInput) fileInput.value = '';
   }
 
@@ -275,14 +200,15 @@
   }
 
   async function startUpload(selectedFile: File) {
-    const currentRequestVersion = requestVersion + 1;
-    requestVersion = currentRequestVersion;
+    invalidatePendingRequests();
     stopSlowUploadMessages();
+    clearPreviewState();
+    clearTransientState();
+
     const validationError = validateClientFile(selectedFile);
 
     if (validationError) {
       file = selectedFile;
-      result = null;
       errorMessage = validationError;
       modalState = 'error';
       if (fileInput) fileInput.value = '';
@@ -290,12 +216,11 @@
     }
 
     file = selectedFile;
-    errorMessage = '';
-    result = null;
-    dismissedWarnings = [];
     modalState = 'uploading';
-    uploadSequence += 1;
 
+    const currentRequestVersion = requestVersion;
+    const controller = new AbortController();
+    uploadAbortController = controller;
     const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
     const formData = new FormData();
     formData.append('pdf_file', selectedFile);
@@ -308,42 +233,56 @@
           'X-CSRF-Token': csrfToken,
         },
         body: formData,
+        signal: controller.signal,
       });
 
-      const payload = await response.json().catch(() => null);
+      const payload: unknown = await response.json().catch(() => null);
 
       if (currentRequestVersion !== requestVersion || !open) {
         return;
       }
 
-      if (!response.ok || !payload?.success) {
-        errorMessage = buildErrorMessage(payload?.error, payload?.details);
+      if (!response.ok || !isPdfImportResult(payload)) {
+        const errorPayload = (payload as { error?: string; details?: unknown } | null) ?? {};
+        errorMessage = buildErrorMessage(errorPayload.error, errorPayload.details);
         modalState = 'error';
         return;
       }
 
-      result = payload as PdfImportResult;
+      result = payload;
+      draftFormName = payload.form_data.name;
+      errorMessage = '';
       modalState = 'preview';
     } catch {
       if (currentRequestVersion !== requestVersion || !open) {
         return;
       }
 
+      if (controller.signal.aborted) {
+        return;
+      }
+
       errorMessage = 'Network error. Please try again.';
       modalState = 'error';
     } finally {
+      if (uploadAbortController === controller) {
+        uploadAbortController = null;
+      }
+
       if (fileInput) fileInput.value = '';
     }
   }
 
   async function confirmForm(target: ConfirmTarget) {
-    if (!result) return;
+    if (!result || confirmingTarget !== null) return;
 
-    const currentRequestVersion = requestVersion + 1;
-    requestVersion = currentRequestVersion;
+    invalidatePendingRequests();
     confirmingTarget = target;
     errorMessage = '';
 
+    const currentRequestVersion = requestVersion;
+    const controller = new AbortController();
+    confirmAbortController = controller;
     const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
 
     try {
@@ -354,17 +293,19 @@
           'Content-Type': 'application/json',
           'X-CSRF-Token': csrfToken,
         },
-        body: JSON.stringify({ form_data: result.form_data }),
+        body: JSON.stringify({ form_data: buildConfirmedFormData(result.form_data, draftFormName) }),
+        signal: controller.signal,
       });
 
-      const payload = await response.json().catch(() => null);
+      const payload: unknown = await response.json().catch(() => null);
 
       if (currentRequestVersion !== requestVersion || !open) {
         return;
       }
 
-      if (!response.ok || !payload?.success) {
-        errorMessage = buildErrorMessage(payload?.error, payload?.details) || 'Could not create the form.';
+      if (!response.ok || !isConfirmSuccessPayload(payload)) {
+        const errorPayload = (payload as { error?: string; details?: unknown } | null) ?? {};
+        errorMessage = buildErrorMessage(errorPayload.error, errorPayload.details, 'Could not create the form.');
         return;
       }
 
@@ -376,24 +317,20 @@
         return;
       }
 
+      if (controller.signal.aborted) {
+        return;
+      }
+
       errorMessage = 'Network error. Please try again.';
     } finally {
+      if (confirmAbortController === controller) {
+        confirmAbortController = null;
+      }
+
       if (currentRequestVersion === requestVersion) {
         confirmingTarget = null;
       }
     }
-  }
-
-  function buildErrorMessage(error?: string, details?: unknown): string {
-    if (!details || !Array.isArray(details) || details.length === 0) {
-      return error || 'Import failed.';
-    }
-
-    return `${error || 'Import failed.'} ${details.join(' ')}`.trim();
-  }
-
-  function isConfirming(target: ConfirmTarget): boolean {
-    return confirmingTarget === target;
   }
 </script>
 
@@ -493,107 +430,20 @@
           </div>
         </div>
       {:else if modalState === 'preview' && result}
-        <div class="space-y-5" data-testid="pdf-import-preview-state">
-          <div class="rounded-xl border border-border/60 bg-background p-5 shadow-sm">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div class="flex-1 space-y-3">
-                <div class="space-y-2">
-                  <label class="text-sm font-medium text-foreground" for="pdf-import-form-name">Form name</label>
-                  <Input id="pdf-import-form-name" bind:value={result.form_data.name} disabled={confirmingTarget !== null} />
-                </div>
-
-                {#if result.form_data.structure.description}
-                  <p class="text-sm text-muted-foreground">{result.form_data.structure.description}</p>
-                {/if}
-              </div>
-
-              <div class="min-w-40 rounded-xl border border-border/60 bg-muted/20 p-4 lg:max-w-48">
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Preview</p>
-                <p class="mt-2 text-3xl font-semibold text-foreground">{result.field_count}</p>
-                <p class="text-sm text-muted-foreground">field{result.field_count === 1 ? '' : 's'} detected</p>
-              </div>
-            </div>
-
-            {#if summaryItems.length > 0}
-              <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {#each summaryItems as item}
-                  <div class="rounded-xl border border-border/60 bg-background px-4 py-3">
-                    <p class="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{item.label}</p>
-                    <p class="mt-1 text-2xl font-semibold text-foreground">{item.count}</p>
-                  </div>
-                {/each}
-              </div>
-            {/if}
-          </div>
-
-          {#if errorMessage}
-            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-              {errorMessage}
-            </div>
-          {/if}
-
-          {#if visibleWarnings.length > 0}
-            <div class="space-y-3">
-              {#each visibleWarnings as warning}
-                <div class="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
-                  <div class="flex items-start gap-3">
-                    <TriangleAlert class="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />
-                    <span>{warning}</span>
-                  </div>
-                  <button type="button" class="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700" aria-label={`Dismiss warning: ${warning}`} onclick={() => dismissWarning(warning)} disabled={confirmingTarget !== null}>
-                    Dismiss
-                  </button>
-                </div>
-              {/each}
-            </div>
-          {/if}
-
-          <div class="rounded-xl border border-border/60 bg-background p-5">
-            <div class="flex items-center justify-between gap-3 border-b border-border/60 pb-3">
-              <div>
-                <p class="font-semibold text-foreground">Detected fields</p>
-                <p class="text-sm text-muted-foreground">Review labels and field types before creating the form.</p>
-              </div>
-              <div class="flex items-center gap-2 rounded-full bg-muted/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                <FileText class="size-3.5" aria-hidden="true" />
-                {file?.name || 'PDF import'}
-              </div>
-            </div>
-
-            <div class="mt-4 max-h-[420px] space-y-3 overflow-auto pr-1">
-              {#each previewFields as field, index}
-                <div class="flex items-start justify-between gap-4 rounded-xl border border-border/60 px-4 py-3">
-                  <div>
-                    <p class="font-medium text-foreground">{index + 1}. {field.label}</p>
-                    {#if field.metadata?.description}
-                      <p class="mt-1 text-sm text-muted-foreground">{field.metadata.description}</p>
-                    {/if}
-                  </div>
-                  <div class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    {FIELD_TYPE_LABELS[field.field_type] || field.field_type}
-                  </div>
-                </div>
-              {/each}
-            </div>
-          </div>
-
-          <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="note" data-testid="pdf-import-review-reminder">
-            <TriangleAlert class="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />
-            <p>Your form can contain typos or input errors. Always verify it before showing it to the client.</p>
-          </div>
-
-          <Sheet.Footer class="gap-2 sm:justify-between">
-            <Button type="button" variant="secondary" onclick={resetToUpload} disabled={confirmingTarget !== null}>Try again</Button>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="outline" onclick={() => confirmForm('index')} disabled={confirmingTarget !== null}>
-                {isConfirming('index') ? 'Creating...' : 'Create form'}
-              </Button>
-              <Button type="button" onclick={() => confirmForm('edit')} disabled={confirmingTarget !== null}>
-                {isConfirming('edit') ? 'Creating...' : 'Create & Edit'}
-              </Button>
-            </div>
-          </Sheet.Footer>
-        </div>
+        <PdfImportPreview
+          bind:formName={draftFormName}
+          description={result.form_data.structure.description}
+          fieldCount={result.field_count}
+          fields={previewFields}
+          summaryItems={summaryItems}
+          visibleWarnings={visibleWarnings}
+          fileName={file?.name || 'PDF import'}
+          errorMessage={errorMessage}
+          confirmingTarget={confirmingTarget}
+          onDismissWarning={dismissWarning}
+          onResetToUpload={resetToUpload}
+          onConfirm={confirmForm}
+        />
       {:else}
         <div class="space-y-4" data-testid="pdf-import-error-state">
           <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700" role="alert">

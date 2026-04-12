@@ -12,6 +12,7 @@
     "baseUrl": ".",
     "types": ["node", "vitest", "@testing-library/jest-dom"],
     "paths": {
+      "@/routes": ["./app/frontend/routes/*"],
       "@/*": ["./app/frontend/*"],
       "/lib/*": ["./app/frontend/lib/*"],
       "/components/*": ["./app/frontend/components/*"],

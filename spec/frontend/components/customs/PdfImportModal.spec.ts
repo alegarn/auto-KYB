@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/routes', () => ({
+vi.mock('/routes/index.js', () => ({
   confirm_form_imports_path: vi.fn(() => '/form_imports/confirm'),
   edit_form_path: vi.fn((id: number | string) => `/forms/${id}/edit`),
   form_imports_path: vi.fn(() => '/form_imports'),
@@ -114,6 +114,30 @@ describe('PdfImportModal.svelte', () => {
     );
   });
 
+  it('resets preview state when closed and reopened', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(buildUploadResponse()), { status: 200 }));
+
+    const { rerender } = render(PdfImportModal, { props: { open: true } });
+
+    await fireEvent.change(screen.getByTestId('pdf-import-input'), {
+      target: { files: [createPdfFile()] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pdf-import-preview-state')).toBeInTheDocument();
+    });
+
+    expect(screen.getByDisplayValue('Imported Form')).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByTestId('pdf-import-close'));
+    await rerender({ open: false });
+    await rerender({ open: true });
+
+    expect(screen.getByTestId('pdf-import-idle-state')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Imported Form')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Review generated options/i)).not.toBeInTheDocument();
+  });
+
   it('submits the edited preview name on confirm', async () => {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify(buildUploadResponse()), { status: 200 }))
@@ -167,6 +191,29 @@ describe('PdfImportModal.svelte', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
     expect(screen.getByTestId('pdf-import-idle-state')).toBeInTheDocument();
+  });
+
+  it('resets error state when closed and reopened', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: false, error: 'Import failed badly.' }), { status: 422 }),
+    );
+
+    const { rerender } = render(PdfImportModal, { props: { open: true } });
+
+    await fireEvent.change(screen.getByTestId('pdf-import-input'), {
+      target: { files: [createPdfFile()] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pdf-import-error-state')).toBeInTheDocument();
+    });
+
+    await fireEvent.click(screen.getByTestId('pdf-import-close'));
+    await rerender({ open: false });
+    await rerender({ open: true });
+
+    expect(screen.getByTestId('pdf-import-idle-state')).toBeInTheDocument();
+    expect(screen.queryByText(/Import failed badly/i)).not.toBeInTheDocument();
   });
 
   it('validates file type client-side', async () => {

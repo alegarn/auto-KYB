@@ -8,18 +8,18 @@ RSpec.describe PdfFormImportService do
     it 'returns success with valid sanitized data when the pipeline succeeds' do
       allow(GeminiClient).to receive(:generate).and_return('ignored')
       allow(FormJsonExtractor).to receive(:call).and_return(
-        'name' => '<b>Imported Form</b>',
+        'name' => '<b>Imported &amp; Form</b>',
         'structure' => {
-          'description' => '<p>Intro</p>',
+          'description' => '<p>Use 5 &gt; 2</p>',
           'fields' => [
             {
-              'label' => '<script>alert(1)</script>Company name',
+              'label' => '<script>alert(1)</script>Company &amp; name',
               'field_type' => 'select',
               'required' => true,
               'position' => 1,
               'metadata' => {
-                'description' => '<em>Required</em>',
-                'options' => [ '<strong>Option A</strong>' ]
+                'description' => '<em>Required &amp; verified</em>',
+                'options' => [ '<strong>Option &amp; A</strong>' ]
               }
             }
           ]
@@ -30,11 +30,11 @@ RSpec.describe PdfFormImportService do
 
       expect(result.success).to be(true)
       expect(result.errors).to eq([])
-      expect(result.data['name']).to eq('Imported Form')
-      expect(result.data.dig('structure', 'description')).to eq('Intro')
-      expect(result.data.dig('structure', 'fields', 0, 'label')).to eq('alert(1)Company name')
-      expect(result.data.dig('structure', 'fields', 0, 'metadata', 'description')).to eq('Required')
-      expect(result.data.dig('structure', 'fields', 0, 'metadata', 'options')).to eq([ 'Option A' ])
+      expect(result.data['name']).to eq('Imported & Form')
+      expect(result.data.dig('structure', 'description')).to eq('Use 5 > 2')
+      expect(result.data.dig('structure', 'fields', 0, 'label')).to eq('alert(1)Company & name')
+      expect(result.data.dig('structure', 'fields', 0, 'metadata', 'description')).to eq('Required & verified')
+      expect(result.data.dig('structure', 'fields', 0, 'metadata', 'options')).to eq([ 'Option & A' ])
     end
 
     it 'propagates GeminiClient errors' do
