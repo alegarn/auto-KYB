@@ -18,7 +18,7 @@ class ClientFormsController < ApplicationController
 
     store_client_form_one_time_password(client_form, password)
 
-    redirect_to password_reveal_client_form_path(client_form), status: :see_other
+    redirect_to client_form_invitation_delivery_path(client_form), status: :see_other
   rescue ActiveRecord::RecordNotFound
     redirect_to clients_path, alert: "Client or form not found"
   rescue ActiveRecord::RecordInvalid => e
@@ -27,21 +27,17 @@ class ClientFormsController < ApplicationController
 
   # GET /client_forms/:id/password_reveal
   def password_reveal
-    entry = (session[:client_form_one_time_passwords] || {})[@client_form.id.to_s]
+    session_store = invitation_session_store
 
-    if entry
-      expires_at_val = entry[:expires_at] || entry["expires_at"]
-      if expires_at_val && Time.zone.parse(expires_at_val) > Time.current
-        @password = entry[:password] || entry["password"]
-        # remove so it is shown only once
-        session[:client_form_one_time_passwords].delete(@client_form.id.to_s)
-      else
-        @password = nil
-        session[:client_form_one_time_passwords].delete(@client_form.id.to_s)
-        flash.now[:alert] = "Password no longer available or expired."
-      end
-    else
-      @password = nil
+    # Guard: redirect to decision step if the decision is still pending
+    if session_store.decision_pending?(@client_form.id)
+      redirect_to client_form_invitation_delivery_path(@client_form)
+      return
+    end
+
+    @password = session_store.consume_password(@client_form.id)
+
+    unless @password
       flash.now[:alert] = "Password no longer available or expired."
     end
 
@@ -49,7 +45,8 @@ class ClientFormsController < ApplicationController
       client: { id: @client_form.client.id, name: @client_form.client.name },
       form: FormDetailSerializer.new(@client_form.form).as_json,
       access_url: client_portal_login_path(@client_form.access_token),
-      password: @password
+      password: @password,
+      invitation_emailed_to: @client_form.invitation_emailed_to
     }
   rescue ActiveRecord::RecordNotFound
     redirect_to clients_path, alert: "Link not found"

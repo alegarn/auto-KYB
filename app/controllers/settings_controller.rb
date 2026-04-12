@@ -7,7 +7,8 @@ class SettingsController < ApplicationController
 
     render inertia: "Settings/Index", props: {
       user: SettingsUserSerializer.new(current_user, crm_entitlement: entitlement).as_json,
-      crm_connections: settings_crm_connections(entitlement)
+      crm_connections: settings_crm_connections(entitlement),
+      client_invitation_email_setting: serialize_invitation_email_setting
     }
   end
 
@@ -35,6 +36,36 @@ class SettingsController < ApplicationController
     redirect_to settings_path, status: :see_other
   end
 
+  def update_invite_auto_send
+    authorize :settings, :update?
+
+    setting = current_user.client_invitation_email_setting ||
+              current_user.build_client_invitation_email_setting
+
+    setting.skip_placeholder_validation = true
+    setting.update!(invite_auto_send_params)
+    redirect_to settings_path, status: :see_other
+  end
+
+  def update_client_invitation_email
+    authorize :settings, :update?
+
+    setting = current_user.client_invitation_email_setting ||
+              current_user.build_client_invitation_email_setting
+
+    if setting.update(invitation_email_params)
+      redirect_to settings_path, notice: "Invite email settings saved.", status: :see_other
+    else
+      entitlement = Crm::Entitlement.new(current_user)
+      render inertia: "Settings/Index", props: {
+        user: SettingsUserSerializer.new(current_user, crm_entitlement: entitlement).as_json,
+        crm_connections: settings_crm_connections(entitlement),
+        client_invitation_email_setting: serialize_invitation_email_setting(setting),
+        errors: setting.errors.messages
+      }, status: :unprocessable_entity
+    end
+  end
+
   private
   # `current_user` and `current_session_id` provided by ApplicationController
 
@@ -47,6 +78,25 @@ class SettingsController < ApplicationController
 
     authorize_crm_access!
     current_user.crm_connections.as_json(only: [ :id, :provider, :status, :updated_at ])
+  end
+
+  def invite_auto_send_params
+    params.require(:client_invitation_email_setting).permit(:auto_send)
+  end
+
+  def invitation_email_params
+    params.require(:client_invitation_email_setting).permit(:subject_template, :body_template)
+  end
+
+  def serialize_invitation_email_setting(setting = nil)
+    setting ||= current_user.client_invitation_email_setting
+    return { auto_send: false, subject_template: nil, body_template: nil } unless setting
+
+    {
+      auto_send: setting.auto_send,
+      subject_template: setting.subject_template,
+      body_template: setting.body_template
+    }
   end
 
 end

@@ -17,6 +17,7 @@ class User < ApplicationRecord
   has_many :forms, dependent: :destroy
   has_many :clients, dependent: :destroy
   has_many :crm_connections, dependent: :destroy
+  has_one :client_invitation_email_setting, dependent: :destroy
 
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :provider, presence: true, if: -> { uid.present? }

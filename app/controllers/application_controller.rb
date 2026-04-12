@@ -85,11 +85,15 @@ class ApplicationController < ActionController::Base
   end
 
   def store_client_form_one_time_password(client_form, password, expires_in: 5.minutes)
-    session[:client_form_one_time_passwords] ||= {}
-    session[:client_form_one_time_passwords][client_form.id.to_s] = {
+    invitation_session_store.store(
+      client_form_id: client_form.id,
       password: password,
-      expires_at: expires_in.from_now.iso8601
-    }
+      expires_in: expires_in
+    )
+  end
+
+  def invitation_session_store
+    @invitation_session_store ||= ClientInvitationSessionStore.new(session)
   end
 
   private

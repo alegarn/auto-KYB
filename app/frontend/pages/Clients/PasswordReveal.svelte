@@ -2,16 +2,28 @@
   import Button from '@/components/ui/button/button.svelte';
   import { clients_path, dashboard_path } from '@/routes';
   import { page } from '@inertiajs/svelte'
-  const { client, form, access_url, password } = $props();
+  const { client, form, access_url, password, invitation_emailed_to = null } = $props();
 </script>
 
 <main class="min-h-screen bg-muted/40 px-4 py-6 md:px-8 flex items-center justify-center">
   <section class="w-full max-w-3xl rounded-lg border border-border bg-background p-6">
     <h1 class="text-2xl font-semibold text-foreground">Password Reveal</h1>
 
-    {#if $page.flash?.alert}
+    {#if $page.props.flash?.notice}
+      <div class="mb-4 rounded-md bg-emerald-50 p-4 text-sm text-emerald-700" role="status">
+        <span>{$page.props.flash.notice}</span>
+      </div>
+    {/if}
+
+    {#if $page.props.flash?.alert}
       <div class="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700" role="alert">
-        <span>{$page.flash?.alert}</span>
+        <span>{$page.props.flash?.alert}</span>
+      </div>
+    {/if}
+
+    {#if invitation_emailed_to && !$page.props.flash?.notice}
+      <div class="mb-4 rounded-md bg-emerald-50 p-4 text-sm text-emerald-700" role="status">
+        <span>Invitation email was sent to <strong>{invitation_emailed_to}</strong>.</span>
       </div>
     {/if}
 

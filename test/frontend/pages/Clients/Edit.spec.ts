@@ -64,7 +64,26 @@ test('renders all client fields with pre-filled values', async () => {
   expect(withinSection.getByDisplayValue('12345')).toBeInTheDocument();
   // Don't assert an exact displayed country label; just ensure the select exists.
   // Wait because country data may be loaded asynchronously by the component.
-  await withinSection.findByRole('combobox', { name: "Company's country" }, { timeout: 2000 });
+  await withinSection.findByRole('combobox', { name: /Company's Country of Incorporation/i }, { timeout: 2000 });
+});
+
+test('shows the email reminder when the client email is missing', () => {
+  const client = {
+    id: '1',
+    name: 'Acme Corp',
+    company_name: 'Acme Inc.',
+    email: '',
+    phone: '555-1234'
+  };
+  const { container } = render(EditClient, {
+    props: { client, errors: {}, session_id: 'session-123', forms: [] }
+  });
+  const mainSection = container.querySelector('section');
+  const withinSection = within(mainSection!);
+
+  expect(
+    withinSection.getByText(/No automatic email can be sent to the client without a valid email address/i)
+  ).toBeInTheDocument();
 });
 
 test('displays array-based errors', () => {
@@ -371,7 +390,7 @@ test('renders submit button', () => {
   const withinSection = within(mainSection!);
 
   // Find submit button within main section
-  const submitButton = withinSection.getByRole('button', { name: 'Update client' });
+  const submitButton = withinSection.getByRole('button', { name: 'Update Client Profile' });
   expect(submitButton).toBeInTheDocument();
   expect(submitButton).toHaveAttribute('type', 'submit');
 });
@@ -390,20 +409,19 @@ test('shows error styling on fields with errors', async () => {
   const mainSection = container.querySelector('section');
   const withinSection = within(mainSection!);
 
-  const nameInput = await withinSection.findByLabelText('Name', {}, { timeout: 2000 }) as HTMLInputElement;
+  const nameInput = await withinSection.findByLabelText(/Full Name/i, {}, { timeout: 2000 }) as HTMLInputElement;
   expect(nameInput).not.toBeNull();
   expect((nameInput.className || '')).toContain('border-rose-600');
 });
 
-test('includes confirm_replace hidden input', () => {
+test('does not include confirm_replace hidden input by default', () => {
   const client = { id: '1', name: 'Acme', email: 'a@a.com' };
   render(EditClient, {
     props: { client, errors: {}, session_id: 'session-123', forms: [] }
   });
 
   const hiddenInput = document.querySelector('input[name="client_form[confirm_replace]"]');
-  expect(hiddenInput).toBeInTheDocument();
-  expect(hiddenInput).toHaveAttribute('value', 'false');
+  expect(hiddenInput).toBeNull();
 });
 
 test('shows client email in header', () => {
