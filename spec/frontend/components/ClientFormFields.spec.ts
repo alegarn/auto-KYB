@@ -37,7 +37,7 @@ describe('ClientFormFields.svelte', () => {
     expect(screen.getByText(/Client Personal Details/i)).toBeDefined();
     expect(screen.getByText(/Company Information/i)).toBeDefined();
     expect(screen.getByLabelText(/Full Name/i)).toBeDefined();
-    expect(screen.getByLabelText(/Personal\/Work Email/i)).toBeDefined();
+    expect(screen.getByLabelText(/Work Email/i)).toBeDefined();
     expect(screen.getByLabelText(/Phone Number/i)).toBeDefined();
     expect(screen.getByLabelText(/Registered Company Name/i)).toBeDefined();
     expect(screen.getByLabelText(/Company Registration ID/i)).toBeDefined();
@@ -80,6 +80,36 @@ describe('ClientFormFields.svelte', () => {
     expect(screen.getByText("is invalid")).toBeDefined();
     expect(screen.getByText("is too short")).toBeDefined();
     expect(screen.getByText("has already been taken")).toBeDefined();
+  });
+
+  it('shows the email reminder when the email is missing', () => {
+    render(ClientFormFields, { props: defaultProps });
+
+    expect(
+      screen.getByText(/No automatic email can be sent to the client without a valid email address/i)
+    ).toBeDefined();
+  });
+
+  it('shows the email reminder alongside an invalid email error', () => {
+    const errors = {
+      email: ['is invalid']
+    };
+
+    render(ClientFormFields, {
+      props: {
+        ...defaultProps,
+        formData: {
+          ...defaultProps.formData,
+          email: 'not-an-email'
+        },
+        errors
+      }
+    });
+
+    expect(
+      screen.getByText(/No automatic email can be sent to the client without a valid email address/i)
+    ).toBeDefined();
+    expect(screen.getByText('is invalid')).toBeDefined();
   });
 
   it('applies error styling classes to invalid fields', () => {

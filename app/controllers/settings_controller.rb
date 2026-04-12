@@ -36,6 +36,17 @@ class SettingsController < ApplicationController
     redirect_to settings_path, status: :see_other
   end
 
+  def update_invite_auto_send
+    authorize :settings, :update?
+
+    setting = current_user.client_invitation_email_setting ||
+              current_user.build_client_invitation_email_setting
+
+    setting.skip_placeholder_validation = true
+    setting.update!(invite_auto_send_params)
+    redirect_to settings_path, status: :see_other
+  end
+
   def update_client_invitation_email
     authorize :settings, :update?
 
@@ -69,8 +80,12 @@ class SettingsController < ApplicationController
     current_user.crm_connections.as_json(only: [ :id, :provider, :status, :updated_at ])
   end
 
+  def invite_auto_send_params
+    params.require(:client_invitation_email_setting).permit(:auto_send)
+  end
+
   def invitation_email_params
-    params.require(:client_invitation_email_setting).permit(:auto_send, :subject_template, :body_template)
+    params.require(:client_invitation_email_setting).permit(:subject_template, :body_template)
   end
 
   def serialize_invitation_email_setting(setting = nil)
