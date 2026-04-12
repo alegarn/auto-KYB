@@ -52,6 +52,23 @@ RSpec.describe FormService do
         FormService.create_form(user, params)
       }.not_to raise_error
     end
+
+    it 'falls back to the default scope when crm_mapping metadata is malformed' do
+      user = User.create!(email: 'svc1_bad_scope@example.com', password: 'securepassword123')
+      params = {
+        name: 'Malformed Scope Keys',
+        structure: {
+          fields: [
+            { label: 'Phone Number', field_type: 'text', metadata: { crm_mapping: 'invalid' } },
+            { label: 'Phone Number', field_type: 'email', metadata: { crm_mapping: 'invalid' } }
+          ]
+        }
+      }
+
+      expect {
+        FormService.create_form(user, params)
+      }.to raise_error(FormService::DuplicateExportKeysError)
+    end
   end
 
   describe '.update_form' do

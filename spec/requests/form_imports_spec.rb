@@ -294,6 +294,105 @@ RSpec.describe 'Form Imports', type: :request do
       ])
     end
 
+    it 'creates the form when duplicate labels can be disambiguated by section context' do
+      form_data = {
+        name: 'Imported Form',
+        structure: {
+          fields: [
+            {
+              label: 'KYC',
+              field_type: 'section',
+              required: false,
+              position: 1,
+              metadata: {}
+            },
+            {
+              label: 'Phone Number',
+              field_type: 'text',
+              required: true,
+              position: 2,
+              metadata: {}
+            },
+            {
+              label: 'KYB',
+              field_type: 'section',
+              required: false,
+              position: 3,
+              metadata: {}
+            },
+            {
+              label: 'Phone Number',
+              field_type: 'text',
+              required: true,
+              position: 4,
+              metadata: {}
+            }
+          ]
+        }
+      }
+
+      post confirm_form_imports_path,
+           params: { form_data: form_data },
+           headers: headers,
+           as: :json
+
+      expect(response).to have_http_status(:created)
+
+      created_form = user.forms.find(JSON.parse(response.body)['form_id'])
+      phone_fields = created_form.form_fields.where(label: 'Phone Number').order(:position)
+
+      expect(phone_fields.map { |field| field.metadata['export_key'] }).to eq([
+        'phone_number_kyc',
+        'phone_number_kyb'
+      ])
+    end
+
+    it 'creates the form when duplicate labels repeat within the same section' do
+      form_data = {
+        name: 'Imported Form',
+        structure: {
+          fields: [
+            {
+              label: 'KYC',
+              field_type: 'section',
+              required: false,
+              position: 1,
+              metadata: {}
+            },
+            {
+              label: 'Phone Number',
+              field_type: 'text',
+              required: true,
+              position: 2,
+              metadata: {}
+            },
+            {
+              label: 'Phone Number',
+              field_type: 'text',
+              required: true,
+              position: 3,
+              metadata: {}
+            }
+          ]
+        }
+      }
+
+      post confirm_form_imports_path,
+           params: { form_data: form_data },
+           headers: headers,
+           as: :json
+
+      expect(response).to have_http_status(:created)
+
+      created_form = user.forms.find(JSON.parse(response.body)['form_id'])
+      phone_fields = created_form.form_fields.where(label: 'Phone Number').order(:position)
+
+      expect(phone_fields.map { |field| field.metadata['export_key'] }).to eq([
+        'phone_number_kyc',
+        'phone_number_kyc_2'
+      ])
+    end
+
     it 'requires authentication' do
       post confirm_form_imports_path,
            params: { form_data: valid_form_data },

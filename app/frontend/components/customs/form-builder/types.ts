@@ -184,7 +184,8 @@ export function duplicateExportKeys(fields: FormField[]): string[] {
     const key = effectiveExportKey(field, index).trim();
     if (!key) return;
 
-    const normalized = key.toLowerCase();
+    const normalized = normalizeExportKey(key);
+    if (!normalized) return;
 
     // Scope uniqueness by CRM object_type — same key allowed across different objects
     const crmMapping = field.metadata?.crm_mapping ?? {};
@@ -207,6 +208,20 @@ export function duplicateExportKeys(fields: FormField[]): string[] {
   });
 
   return Array.from(duplicates);
+}
+
+function normalizeExportKey(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const normalized = trimmed
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return normalized || trimmed.toLowerCase();
 }
 
 /**

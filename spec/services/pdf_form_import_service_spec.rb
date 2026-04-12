@@ -91,5 +91,122 @@ RSpec.describe PdfFormImportService do
       expect(result.success).to be(true)
       expect(result.warnings).to eq([ "Field 'alert(1)Company name' had invalid metadata and was reset" ])
     end
+
+    it 'generates unique export keys when duplicate labels appear in separate sections' do
+      result = described_class.normalize_form_data(
+        'name' => 'Imported Form',
+        'structure' => {
+          'fields' => [
+            {
+              'label' => 'KYC',
+              'field_type' => 'section',
+              'required' => false,
+              'metadata' => {}
+            },
+            {
+              'label' => 'Phone Number',
+              'field_type' => 'text',
+              'required' => true,
+              'metadata' => {}
+            },
+            {
+              'label' => 'KYB',
+              'field_type' => 'section',
+              'required' => false,
+              'metadata' => {}
+            },
+            {
+              'label' => 'Phone Number',
+              'field_type' => 'text',
+              'required' => false,
+              'metadata' => {}
+            }
+          ]
+        }
+      )
+
+      expect(result.success).to be(true)
+      expect(result.data.dig('structure', 'fields', 1, 'metadata', 'export_key')).to eq('phone_number_kyc')
+      expect(result.data.dig('structure', 'fields', 3, 'metadata', 'export_key')).to eq('phone_number_kyb')
+      expect(result.warnings).to include(
+        "Generated unique export keys for duplicate field 'Phone Number': phone_number_kyc, phone_number_kyb"
+      )
+    end
+
+    it 'uses numeric suffixes when duplicate labels repeat within the same section' do
+      result = described_class.normalize_form_data(
+        'name' => 'Imported Form',
+        'structure' => {
+          'fields' => [
+            {
+              'label' => 'KYC',
+              'field_type' => 'section',
+              'required' => false,
+              'metadata' => {}
+            },
+            {
+              'label' => 'Phone Number',
+              'field_type' => 'text',
+              'required' => true,
+              'metadata' => {}
+            },
+            {
+              'label' => 'Phone Number',
+              'field_type' => 'text',
+              'required' => false,
+              'metadata' => {}
+            }
+          ]
+        }
+      )
+
+      expect(result.success).to be(true)
+      expect(result.data.dig('structure', 'fields', 1, 'metadata', 'export_key')).to eq('phone_number_kyc')
+      expect(result.data.dig('structure', 'fields', 2, 'metadata', 'export_key')).to eq('phone_number_kyc_2')
+      expect(result.warnings).to include(
+        "Generated unique export keys for duplicate field 'Phone Number': phone_number_kyc, phone_number_kyc_2"
+      )
+    end
+
+    it 'keeps the most specific section and subtitle context before adding numeric suffixes' do
+      result = described_class.normalize_form_data(
+        'name' => 'Imported Form',
+        'structure' => {
+          'fields' => [
+            {
+              'label' => 'KYC',
+              'field_type' => 'section',
+              'required' => false,
+              'metadata' => {}
+            },
+            {
+              'label' => 'Primary Contact',
+              'field_type' => 'subtitle',
+              'required' => false,
+              'metadata' => {}
+            },
+            {
+              'label' => 'Phone Number',
+              'field_type' => 'text',
+              'required' => true,
+              'metadata' => {}
+            },
+            {
+              'label' => 'Phone Number',
+              'field_type' => 'text',
+              'required' => false,
+              'metadata' => {}
+            }
+          ]
+        }
+      )
+
+      expect(result.success).to be(true)
+      expect(result.data.dig('structure', 'fields', 2, 'metadata', 'export_key')).to eq('phone_number_kyc_primary_contact')
+      expect(result.data.dig('structure', 'fields', 3, 'metadata', 'export_key')).to eq('phone_number_kyc_primary_contact_2')
+      expect(result.warnings).to include(
+        "Generated unique export keys for duplicate field 'Phone Number': phone_number_kyc_primary_contact, phone_number_kyc_primary_contact_2"
+      )
+    end
   end
 end
