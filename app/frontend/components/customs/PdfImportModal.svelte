@@ -34,6 +34,18 @@
   }
 
   const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+  const SLOW_UPLOAD_MESSAGES = [
+    'Your pdf is still being processed',
+    'Yes, still on process',
+    'Not crashing yet...',
+    'Hold on i heard something :o',
+    "Oh no, i canno't hear i'm a web app...",
+    'Wow, are you on 64kB connection?',
+    'Did you gave a book to process?!',
+    'Maybe there is a problem on the server side...',
+    "At worse the biggest AI out there might process your pdf, cost a bunch, but when it's for you... $.$",
+    "If you see that message, 50 seconds have passed at least... there might be problem somewhere. You can reload the page and retry.",
+  ] as const;
 
   let { open = $bindable(false) } = $props();
 
@@ -45,8 +57,13 @@
   let fileInput: HTMLInputElement | null = $state(null);
   let confirmingTarget: ConfirmTarget | null = $state(null);
   let dismissedWarnings: string[] = $state([]);
+  let slowUploadMessageVisible = $state(false);
+  let slowUploadMessageIndex = $state(0);
+  let uploadSequence = $state(0);
   let allowModalClose = false;
   let requestVersion = 0;
+  let slowUploadTimeout: ReturnType<typeof setTimeout> | null = null;
+  let slowUploadInterval: ReturnType<typeof setInterval> | null = null;
 
   $effect(() => {
     if (!open) {
@@ -60,8 +77,22 @@
     }
   });
 
+  $effect(() => {
+    if (!open || modalState !== 'uploading') {
+      stopSlowUploadMessages();
+      return;
+    }
+
+    startSlowUploadMessages(uploadSequence);
+
+    return () => {
+      clearSlowUploadTimers();
+    };
+  });
+
   onDestroy(() => {
     invalidatePendingRequests();
+    stopSlowUploadMessages();
   });
 
   const previewFields = $derived.by((): FormField[] => {
@@ -121,6 +152,7 @@
   });
 
   function resetState() {
+    stopSlowUploadMessages();
     modalState = 'idle';
     file = null;
     result = null;
@@ -138,6 +170,48 @@
 
   function invalidatePendingRequests() {
     requestVersion += 1;
+  }
+
+  function clearSlowUploadTimers() {
+    if (slowUploadTimeout !== null) {
+      clearTimeout(slowUploadTimeout);
+      slowUploadTimeout = null;
+    }
+
+    if (slowUploadInterval !== null) {
+      clearInterval(slowUploadInterval);
+      slowUploadInterval = null;
+    }
+  }
+
+  function resetSlowUploadMessage() {
+    slowUploadMessageVisible = false;
+    slowUploadMessageIndex = 0;
+  }
+
+  function stopSlowUploadMessages() {
+    clearSlowUploadTimers();
+    resetSlowUploadMessage();
+  }
+
+  function startSlowUploadMessages(_sequence: number) {
+    clearSlowUploadTimers();
+    resetSlowUploadMessage();
+
+    slowUploadTimeout = setTimeout(() => {
+      slowUploadTimeout = null;
+      slowUploadMessageVisible = true;
+      slowUploadMessageIndex = 0;
+
+      slowUploadInterval = setInterval(() => {
+        if (slowUploadMessageIndex >= SLOW_UPLOAD_MESSAGES.length - 1) {
+          clearSlowUploadTimers();
+          return;
+        }
+
+        slowUploadMessageIndex += 1;
+      }, 5000);
+    }, 5000);
   }
 
   function isPdfFile(selectedFile: File): boolean {
@@ -163,6 +237,7 @@
 
   function resetToUpload() {
     invalidatePendingRequests();
+    stopSlowUploadMessages();
     modalState = 'idle';
     file = null;
     result = null;
@@ -202,6 +277,7 @@
   async function startUpload(selectedFile: File) {
     const currentRequestVersion = requestVersion + 1;
     requestVersion = currentRequestVersion;
+    stopSlowUploadMessages();
     const validationError = validateClientFile(selectedFile);
 
     if (validationError) {
@@ -218,6 +294,7 @@
     result = null;
     dismissedWarnings = [];
     modalState = 'uploading';
+    uploadSequence += 1;
 
     const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
     const formData = new FormData();
@@ -377,7 +454,6 @@
         </div>
       {:else if modalState === 'uploading'}
         <div class="space-y-5" data-testid="pdf-import-uploading-state" aria-busy="true">
-          <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">Analyzing your PDF. Upload in progress.</p>
           <div class="rounded-xl border border-border/60 bg-slate-50 p-4">
             <div class="flex items-center gap-3 text-slate-900">
               <div class="rounded-full bg-white p-2 shadow-sm">
@@ -385,7 +461,9 @@
               </div>
               <div>
                 <p class="font-semibold">Analyzing your PDF...</p>
-                <p class="text-sm text-slate-600">This usually takes a few seconds.</p>
+                <p class="text-sm text-slate-600" role="status" aria-live="polite" aria-atomic="true">
+                  {slowUploadMessageVisible ? SLOW_UPLOAD_MESSAGES[slowUploadMessageIndex] : 'This usually takes a few seconds.'}
+                </p>
               </div>
             </div>
           </div>
