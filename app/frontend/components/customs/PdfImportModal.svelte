@@ -44,7 +44,7 @@
     'Did you gave a book to process?!',
     'Maybe there is a problem on the server side...',
     "At worse the biggest AI out there might process your pdf, cost a bunch, but when it's for you... $.$",
-    "If you see that message, 50 seconds have passed at least... there might be problem somewhere. You can reload the page and retry.",
+    "If you see that message, 55 seconds have passed at least... there might be problem somewhere. You can reload the page and retry.",
   ] as const;
 
   let { open = $bindable(false) } = $props();
