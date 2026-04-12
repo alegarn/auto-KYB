@@ -3,6 +3,7 @@
   import Button from '@/components/ui/button/button.svelte';
   import Modal from '@/components/ui/modal.svelte';
   import { clients_path } from '@/routes';
+  import Loader from "@lucide/svelte/icons/loader-2";
 
   let { client_form_id, client, form, has_email, auto_send = false, flash_message = null } = $props();
 
@@ -73,6 +74,9 @@
 
     {#if showSendingState}
       <div class="rounded-lg border border-border bg-background p-6 shadow-sm" role="status" aria-live="polite" aria-busy="true">
+        <div class="absolute inset-0 flex items-center justify-center z-10 bg-background/50">
+          <Loader class="h-12 w-12 animate-spin text-primary" />
+        </div>        
         <h2 class="text-lg font-semibold text-foreground">Sending portal access…</h2>
         <p class="mt-2 text-sm text-muted-foreground">
           Quick KYB is sending the client portal link and one-time password to
