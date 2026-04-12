@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText, TriangleAlert } from '@lucide/svelte'
+  import { ChevronDown, FileText, TriangleAlert } from '@lucide/svelte'
   import { Button } from '/components/ui/button'
   import { Input } from '/components/ui/input'
   import * as Sheet from '/components/ui/sheet'
@@ -115,7 +115,11 @@
       <div>
         <p class="font-semibold text-foreground">Detected fields</p>
         <p class="text-sm text-muted-foreground">
-          Scroll down to see the whole form. Review labels and field types after creating the form.
+          Review labels and field types after creating the form.
+        </p>
+        <p class="mt-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          <ChevronDown class="size-3.5" aria-hidden="true" />
+          Scroll down to see more fields
         </p>
       </div>
       <div class="flex items-center gap-2 rounded-full bg-muted/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
