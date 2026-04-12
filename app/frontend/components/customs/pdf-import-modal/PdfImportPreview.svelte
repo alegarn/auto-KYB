@@ -114,7 +114,9 @@
     <div class="flex items-center justify-between gap-3 border-b border-border/60 pb-3">
       <div>
         <p class="font-semibold text-foreground">Detected fields</p>
-        <p class="text-sm text-muted-foreground">Review labels and field types before creating the form.</p>
+        <p class="text-sm text-muted-foreground">
+          This preview is only a summary and may contain incomplete fields. Review labels and field types before creating the form.
+        </p>
       </div>
       <div class="flex items-center gap-2 rounded-full bg-muted/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         <FileText class="size-3.5" aria-hidden="true" />
