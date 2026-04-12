@@ -7,7 +7,7 @@ class FormImportsController < ApplicationController
     validation = PdfImportUploadValidator.validate(pdf_file)
 
     unless validation.valid?
-      render_error(validation.error)
+      render_error(validation.error, log_context: upload_context(pdf_file))
       return
     end
 
@@ -25,10 +25,18 @@ class FormImportsController < ApplicationController
     end
   rescue ActionController::ParameterMissing
     render_error("No PDF file provided")
-  rescue GeminiClient::ApiError
-    render_error("AI processing failed. Please try again.")
-  rescue FormJsonExtractor::ExtractionError
-    render_error("Could not interpret the AI response. Please try again.")
+  rescue GeminiClient::ApiError => e
+    render_error(
+      "AI processing failed. Please try again.",
+      log_details: [ e.message ],
+      log_context: upload_context(pdf_file)
+    )
+  rescue FormJsonExtractor::ExtractionError => e
+    render_error(
+      "Could not interpret the AI response. Please try again.",
+      log_details: [ e.message ],
+      log_context: upload_context(pdf_file)
+    )
   end
 
   def confirm
@@ -63,12 +71,29 @@ class FormImportsController < ApplicationController
     authorize :form, :index?
   end
 
-  def render_error(message, details: nil, status: :unprocessable_entity)
+  def render_error(message, details: nil, status: :unprocessable_entity, log_details: nil, log_context: nil)
+    log_payload = log_details || details
+    log_parts = [ "[FormImportsController##{action_name}] #{message}" ]
+    log_parts << "details=#{log_payload.inspect}" if log_payload.present?
+    log_parts << "context=#{log_context.inspect}" if log_context.present?
+
+    Rails.logger.warn(log_parts.join(" "))
+
     render json: {
       success: false,
       error: message,
       details: details
     }.compact, status: status
+  end
+
+  def upload_context(pdf_file)
+    return unless pdf_file.respond_to?(:size)
+
+    {
+      original_filename: pdf_file.respond_to?(:original_filename) ? pdf_file.original_filename : nil,
+      content_type: pdf_file.respond_to?(:content_type) ? pdf_file.content_type : nil,
+      size: pdf_file.size
+    }.compact
   end
 
 end
