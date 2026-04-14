@@ -1,17 +1,28 @@
 <script lang="ts">
-  import { areTypesCompatible, getFieldDataType, analyzeMappings, getProviderFileActions, getCrmObjectLabel, toCrmKey, fromCrmKey, CRM_KEY_SEP, type CrmExportSummary, type CrmObjectStatus } from '../../lib/crm-utils';
-  import { isHubSpotCompatible } from '../../lib/crm/hubspot-compat';
-  import { isLayoutField } from './form-builder/types';
-  import { Select } from "bits-ui";
-  import { Check, ChevronsUpDown, Search, Loader2 } from "@lucide/svelte";
+  import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select/index.js";
+  import { ChevronsUpDown, Loader2, Search } from "@lucide/svelte";
   import { cn } from "../../lib/utils";
+  import { isHubSpotCompatible } from '../../lib/crm/hubspot-compat';
+  import { areTypesCompatible, analyzeMappings, autoMapFields, getCrmObjectLabel, getFieldDataType, getProviderFileActions, type CrmExportSummary } from '../../lib/crm-utils';
+  import {
+    applyCrmExportKeyAlignment,
+    applyCrmMappingSelection,
+    applyCrmOptionsSync,
+    buildCrmMappingFieldLookup,
+    getCrmMappingFieldStateKey,
+    getCrmMappingPropertyName,
+    getCrmMappingSelectionValue,
+    hydrateCrmMappingDraft,
+    mergeCrmAutoMappedDraft,
+    serializeCrmMappingFields,
+  } from '../../lib/crm-mapping-modal';
+  import { isLayoutField } from './form-builder/types';
 
-  // Props
   let { 
     open = $bindable(false), 
     form = {}, 
     crmProperties = {}, 
-    loadingProperties = false, // Add loading prop
+    loadingProperties = false, 
     fields = [],
     onsave,
     ontestcrm,
@@ -20,41 +31,27 @@
     testCrmSuccess = false
   } = $props();
 
-  // Local state for mapping
-  // Maps a stable per-row modal key to provider mappings so unsaved fields do not collide on undefined ids.
   let mappings = $state<Record<string, Record<string, any>>>({});
   let exportKeyOverrides = $state<Record<string, string>>({});
   let optionsOverrides = $state<Record<string, string[]>>({});
   let fieldSearch = $state<Record<string, string>>({});
+  let hasHydratedForOpen = $state(false);
   const dataFields = $derived(fields.map((field, index) => ({ field, index })).filter(({ field }) => !isLayoutField(field.field_type)));
+  const fieldIdToStateKey = $derived(buildCrmMappingFieldLookup(dataFields));
 
-  function getFieldStateKey(field: any, index: number) {
-    return field.id ? `id:${field.id}` : `draft:${index}`;
-  }
-
-  // Initialize mappings from fields metadata if it exists
   $effect(() => {
-    if (open) {
-      const newMappings: Record<string, Record<string, any>> = {};
-      dataFields.forEach(({ field, index }) => {
-        const providerMap: Record<string, any> = {};
-        if (field.metadata?.crm_mapping) {
-          for (const [prov, rawMapping] of Object.entries(field.metadata.crm_mapping as Record<string, any>)) {
-            const m = { ...rawMapping };
-            // Normalize legacy data: add compound key prefix if missing
-            if (m.property_name && m.object_type && !m.property_name.includes(CRM_KEY_SEP)) {
-              m.property_name = toCrmKey(m.object_type, m.property_name);
-            }
-            providerMap[prov] = m;
-          }
-        }
-        newMappings[getFieldStateKey(field, index)] = providerMap;
-      });
-      mappings = newMappings;
-      exportKeyOverrides = {};
-      optionsOverrides = {};
-      fieldSearch = {};
+    if (!open) {
+      hasHydratedForOpen = false;
+      return;
     }
+
+    if (hasHydratedForOpen) return;
+
+    mappings = hydrateCrmMappingDraft(dataFields);
+    exportKeyOverrides = {};
+    optionsOverrides = {};
+    fieldSearch = {};
+    hasHydratedForOpen = true;
   });
 
   function checkCompatible(field: any, prop: any, provider: string): boolean {
@@ -74,7 +71,6 @@
     }
     if (!field) return filtered;
 
-    // Sort: compatible properties first, then alphabetically
     return filtered.slice().sort((a, b) => {
       const aCompat = checkCompatible(field, a, provider || '') ? 1 : 0;
       const bCompat = checkCompatible(field, b, provider || '') ? 1 : 0;
@@ -89,52 +85,12 @@
     return `${label} [${getCrmObjectLabel(provider, objectType)}]${type}`;
   }
 
-  function handleSave() {
-    onsave?.({ fields: getUpdatedFields() });
-    open = false;
-  }
-
-  function getUpdatedFields() {
-    return fields.map((field, index) => {
-      const fieldKey = getFieldStateKey(field, index);
-      const fieldMapping = mappings[fieldKey];
-      const metadata = { ...field.metadata };
-      
-      if (fieldMapping && Object.keys(fieldMapping).length > 0) {
-        metadata.crm_mapping = fieldMapping;
-      } else {
-        delete metadata.crm_mapping;
-      }
-
-      if (exportKeyOverrides[fieldKey]) {
-        metadata.export_key = exportKeyOverrides[fieldKey];
-      }
-
-      if (optionsOverrides[fieldKey]) {
-        metadata.options = [...optionsOverrides[fieldKey]];
-      }
-      
-      return {
-        ...field,
-        metadata
-      };
-    });
-  }
-
-  function handleTest() {
-    ontestcrm?.(getUpdatedFields());
-  }
-
-  function close() {
-    open = false;
-  }
-
   function getExportKey(field: any, index: number) {
-    return exportKeyOverrides[getFieldStateKey(field, index)] ?? field.metadata?.export_key;
+    return exportKeyOverrides[getCrmMappingFieldStateKey(field, index)] ?? field.metadata?.export_key;
   }
 
   function getFieldOptions(field: any, index: number) {
-    return optionsOverrides[getFieldStateKey(field, index)] ?? field.metadata?.options ?? [];
+    return optionsOverrides[getCrmMappingFieldStateKey(field, index)] ?? field.metadata?.options ?? [];
   }
 
   function hasOptionsMismatch(formOptions: string[], crmOptions: {label: string, value: string}[]) {
@@ -149,56 +105,39 @@
     });
   }
 
-  function syncOptions(fieldKey: string, crmOptions: {label: string, value: string}[]) {
-    optionsOverrides[fieldKey] = crmOptions.map(o => o.label);
+  function handleAutoMap() {
+    const autoMapped = autoMapFields(fields, crmProperties, (field, prop, provider) => checkCompatible(field, prop, provider));
+    const merged = mergeCrmAutoMappedDraft(mappings, exportKeyOverrides, autoMapped, fieldIdToStateKey);
+    mappings = merged.mappings;
+    exportKeyOverrides = merged.exportKeyOverrides;
   }
 
-  // Helper to update mapping for a specific field and provider
-  function updateMapping(fieldKey: string, provider: string, value: string) {
-    if (!mappings[fieldKey]) {
-      mappings[fieldKey] = {};
-    }
-    
-    if (value === '__custom_contact__') {
-      mappings[fieldKey][provider] = {
-        type: 'custom',
-        object_type: 'contact',
-        property_name: '' // Will be generated or asked later, keeping it simple here
-      };
-    } else if (value === '__custom_company__') {
-      mappings[fieldKey][provider] = {
-        type: 'custom',
-        object_type: 'company',
-        property_name: ''
-      };
-    } else if (value === '') {
-      delete mappings[fieldKey][provider];
-    } else {
-      // Format from Select is "object_type:property_name" (single colon)
-      const [object_type, ...rest] = value.split(':');
-      const rawPropertyName = rest.join(':');
-      
-      mappings[fieldKey][provider] = {
-        type: 'existing',
-        object_type,
-        property_name: toCrmKey(object_type, rawPropertyName),
-        read_only: (crmProperties[provider][object_type] || []).find((p: any) => p.name === rawPropertyName)?.read_only || false
-      };
-    }
+  function handleSave() {
+    onsave?.({ fields: serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides) });
+    open = false;
+  }
+
+  function handleTest() {
+    ontestcrm?.(serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides));
+  }
+
+  function close() {
+    open = false;
   }
 
   function syncExportKey(fieldKey: string, provider: string) {
     const mapping = mappings[fieldKey]?.[provider];
-    if (mapping?.property_name) {
-      // Strip compound key prefix — export_key is user-facing (CSV/JSON)
-      exportKeyOverrides = {
-        ...exportKeyOverrides,
-        [fieldKey]: fromCrmKey(mapping.property_name).propertyName,
-      };
-    }
+    exportKeyOverrides = applyCrmExportKeyAlignment(exportKeyOverrides, fieldKey, mapping);
   }
 
-  // Reactive summary: what CRM records will be created per provider
+  function syncOptions(fieldKey: string, crmOptions: {label: string, value: string}[]) {
+    optionsOverrides = applyCrmOptionsSync(optionsOverrides, fieldKey, crmOptions);
+  }
+
+  function updateMapping(fieldKey: string, provider: string, value: string, providerProperties: any) {
+    mappings = applyCrmMappingSelection(mappings, fieldKey, provider, value, providerProperties);
+  }
+
   let summaries = $derived.by(() => {
     const result: Record<string, CrmExportSummary> = {};
     for (const provider of Object.keys(crmProperties)) {
@@ -219,36 +158,7 @@
             type="button" 
             data-testid="auto-map-fields"
             class="text-sm px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded border border-indigo-200" 
-            onclick={async () => {
-              const { autoMapFields } = await import('../../lib/crm-utils');
-              const autoMapped = autoMapFields(fields, crmProperties, (field, prop, provider) => checkCompatible(field, prop, provider));
-              
-              // Build a lookup from raw field.id to modal state key
-              const fieldIdToStateKey: Record<string, string> = {};
-              dataFields.forEach(({ field, index }) => {
-                if (field.id) fieldIdToStateKey[field.id] = getFieldStateKey(field, index);
-              });
-              
-              // Merge auto-mappings with user's current ones, preferring existing if already set
-              const merged = Object.fromEntries(
-                Object.entries(mappings).map(([fieldId, providerMap]) => [fieldId, { ...providerMap }])
-              );
-              const autoAlignedExportKeys: Record<string, string> = { ...exportKeyOverrides };
-              for (const [rawFieldId, providerMap] of Object.entries(autoMapped)) {
-                const stateKey = fieldIdToStateKey[rawFieldId] || rawFieldId;
-                if (!merged[stateKey]) merged[stateKey] = {};
-                for (const [provider, mapping] of Object.entries(providerMap)) {
-                  if (!merged[stateKey][provider]) {
-                    merged[stateKey][provider] = mapping;
-                    if (!autoAlignedExportKeys[stateKey] && mapping?.property_name) {
-                      autoAlignedExportKeys[stateKey] = fromCrmKey(mapping.property_name).propertyName;
-                    }
-                  }
-                }
-              }
-              mappings = merged;
-              exportKeyOverrides = autoAlignedExportKeys;
-            }}
+            onclick={handleAutoMap}
           >
             Auto-Map Fields
           </button>
@@ -349,6 +259,17 @@
                     </thead>
                     <tbody class="divide-y">
                       {#each dataFields as { field, index }}
+                        {@const fieldKey = getCrmMappingFieldStateKey(field, index)}
+                        {@const mapping = mappings[fieldKey]?.[provider]}
+                        {@const currentValue = getCrmMappingSelectionValue(mapping)}
+                        {@const rawPropName = getCrmMappingPropertyName(mapping)}
+                        {@const selectedProp = mapping?.type === 'existing' 
+                          ? (properties[mapping.object_type] || []).find((p: any) => p.name === rawPropName) 
+                          : null}
+                        {@const isCompatible = !selectedProp || checkCompatible(field, selectedProp, provider)}
+                        {@const providerFileActions = getProviderFileActions(provider)}
+                        {@const selectedFileAction = providerFileActions.find(a => a.value === currentValue)}
+
                         <tr class="hover:bg-gray-50">
                           <td class="px-4 py-3 font-medium text-gray-900">
                             <div class="flex flex-col">
@@ -362,159 +283,150 @@
                             </div>
                           </td>
                           <td class="px-4 py-3">
-                            {#if true}
-                              {@const fieldKey = getFieldStateKey(field, index)}
-                              {@const mapping = mappings[fieldKey]?.[provider]}
-                              {@const rawPropName = mapping?.property_name ? fromCrmKey(mapping.property_name).propertyName : ''}
-                              {@const currentValue = mapping?.type === 'custom' 
-                                ? `__custom_${mapping.object_type}__` 
-                                : rawPropName ? `${mapping.object_type}:${rawPropName}` : ''}
-                              
-                              {@const selectedProp = mapping?.type === 'existing' 
-                                ? (properties[mapping.object_type] || []).find((p: any) => p.name === rawPropName) 
-                                : null}
-                              {@const isCompatible = !selectedProp || checkCompatible(field, selectedProp, provider)}
-                              {@const providerFileActions = getProviderFileActions(provider)}
-                              {@const selectedFileAction = providerFileActions.find(a => a.value === currentValue)}
-
-                              <div class="space-y-1">
-                                <Select.Root 
-                                  type="single"
-                                  bind:value={() => currentValue, (v) => updateMapping(fieldKey, provider, v)}
-                                  onOpenChange={(isOpen: boolean) => { if (!isOpen) fieldSearch[`${fieldKey}-${provider}`] = ''; }}
+                            <div class="space-y-1">
+                              <Select
+                                type="single"
+                                value={currentValue || undefined}
+                                onValueChange={(value) => updateMapping(fieldKey, provider, value, properties)}
+                                onOpenChange={(isOpen: boolean) => { if (!isOpen) fieldSearch[`${fieldKey}-${provider}`] = ''; }}
+                              >
+                                <SelectTrigger
+                                  class={cn(
+                                    "flex h-9 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500",
+                                    !isCompatible && "border-red-300 ring-1 ring-red-300"
+                                  )}
+                                  data-testid={`crm-mapping-select-${fieldKey}-${provider}`}
                                 >
-                                  <Select.Trigger
-                                    class={cn(
-                                      "flex h-9 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500",
-                                      !isCompatible && "border-red-300 ring-1 ring-red-300"
-                                    )}
-                                    data-testid={`crm-mapping-select-${fieldKey}-${provider}`}
-                                  >
-                                    {#if currentValue === "__custom_contact__"}
+                                  {#if currentValue === "__custom_contact__"}
+                                    + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
+                                  {:else if selectedFileAction}
+                                    {selectedFileAction.label}
+                                  {:else}
+                                    {selectedProp ? formatSelectedPropertyLabel(provider, selectedProp, mapping.object_type) : "-- Do not map --"}
+                                  {/if}
+                                  <ChevronsUpDown class="h-4 w-4 opacity-50" />
+                                </SelectTrigger>
+                                <SelectContent 
+                                  class="z-50 min-w-[8rem] overflow-hidden rounded-md border bg-white p-1 text-gray-950 shadow-md animate-in fade-in-80"
+                                  data-slot="select-content"
+                                >
+                                  <div class="flex items-center border-b px-3 mb-1 bg-white sticky top-0 z-10">
+                                    <Search class="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                    <input 
+                                      class="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                      placeholder={`Filter ${provider} properties...`}
+                                      value={fieldSearch[`${fieldKey}-${provider}`] || ''}
+                                      oninput={(e) => fieldSearch[`${fieldKey}-${provider}`] = e.currentTarget.value}
+                                      onkeydown={(e) => {
+                                        if (e.key === ' ') e.stopPropagation();
+                                      }}
+                                    />
+                                  </div>
+                                  <div class="max-h-60 overflow-y-auto">
+                                    <SelectItem
+                                      value=""
+                                      class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                      data-slot="select-item"
+                                    >
+                                      -- Do not map --
+                                    </SelectItem>
+                                    <SelectItem
+                                      value="__custom_contact__"
+                                      class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm font-semibold text-blue-600 outline-none focus:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                      data-slot="select-item"
+                                    >
                                       + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
-                                    {:else if selectedFileAction}
-                                      {selectedFileAction.label}
-                                    {:else}
-                                      {selectedProp ? formatSelectedPropertyLabel(provider, selectedProp, mapping.object_type) : "-- Do not map --"}
+                                    </SelectItem>
+                                    
+                                    {#if getFieldDataType(field) === 'file' && providerFileActions.length > 0}
+                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">File Actions</div>
+                                      {#each providerFileActions as fileAction}
+                                        <SelectItem
+                                          value={fileAction.value}
+                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                          data-slot="select-item"
+                                        >
+                                          {fileAction.label}
+                                        </SelectItem>
+                                      {/each}
                                     {/if}
-                                    <ChevronsUpDown class="h-4 w-4 opacity-50" />
-                                  </Select.Trigger>
-                                  <Select.Content 
-                                    class="z-50 min-w-[8rem] overflow-hidden rounded-md border bg-white p-1 text-gray-950 shadow-md animate-in fade-in-80"
-                                    data-slot="select-content"
-                                  >
-                                    <div class="flex items-center border-b px-3 mb-1 bg-white sticky top-0 z-10">
-                                      <Search class="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                                      <input 
-                                        class="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
-                                        placeholder={`Filter ${provider} properties...`}
-                                        value={fieldSearch[`${fieldKey}-${provider}`] || ''}
-                                        oninput={(e) => fieldSearch[`${fieldKey}-${provider}`] = e.currentTarget.value}
-                                        onkeydown={(e) => {
-                                          if (e.key === 'Space') e.stopPropagation();
-                                        }}
-                                      />
-                                    </div>
-                                    <div class="max-h-60 overflow-y-auto">
-                                      <Select.Item
-                                        value=""
-                                        class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+
+                                    <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'contact')} Properties</div>
+                                    {#each getFilteredProperties(properties.contact || [], fieldSearch[`${fieldKey}-${provider}`], field, provider) as prop}
+                                      <SelectItem
+                                        value={`contact:${prop.name}`}
+                                        disabled={prop.read_only}
+                                        class={cn(
+                                          "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                                          !checkCompatible(field, prop, provider) && "text-gray-400"
+                                        )}
                                         data-slot="select-item"
                                       >
-                                        -- Do not map --
-                                      </Select.Item>
-                                      <Select.Item
-                                        value="__custom_contact__"
-                                        class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm font-semibold text-blue-600 outline-none focus:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                        <span class="flex-1 truncate">{prop.label || prop.name} [{getCrmObjectLabel(provider, 'contact')}] {prop.read_only ? '(Read Only)' : ''}</span>
+                                        <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
+                                      </SelectItem>
+                                    {/each}
+
+                                    <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'company')} Properties</div>
+                                    {#each getFilteredProperties(properties.company || [], fieldSearch[`${fieldKey}-${provider}`], field, provider) as prop}
+                                      <SelectItem
+                                        value={`company:${prop.name}`}
+                                        disabled={prop.read_only}
+                                        class={cn(
+                                          "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                                          !checkCompatible(field, prop, provider) && "text-gray-400"
+                                        )}
                                         data-slot="select-item"
                                       >
-                                        + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
-                                      </Select.Item>
-                                      
-                                      {#if getFieldDataType(field) === 'file' && providerFileActions.length > 0}
-                                        <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">File Actions</div>
-                                        {#each providerFileActions as fileAction}
-                                          <Select.Item
-                                            value={fileAction.value}
-                                            class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                                            data-slot="select-item"
-                                          >
-                                            {fileAction.label}
-                                          </Select.Item>
-                                        {/each}
-                                      {/if}
+                                        <span class="flex-1 truncate">{prop.label || prop.name} [{getCrmObjectLabel(provider, 'company')}] {prop.read_only ? '(Read Only)' : ''}</span>
+                                        <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
+                                      </SelectItem>
+                                    {/each}
+                                  </div>
+                                </SelectContent>
+                              </Select>
+                              
+                              {#if !isCompatible}
+                                <p data-testid={`type-mismatch-${field.id}-${provider}`} class="text-[10px] text-red-600 font-medium">
+                                  Type mismatch: {getFieldDataType(field)} vs {selectedProp.type}. This might lead to data issues.
+                                </p>
+                              {/if}
 
-                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'contact')} Properties</div>
-                                      {#each getFilteredProperties(properties.contact || [], fieldSearch[`${fieldKey}-${provider}`], field, provider) as prop}
-                                        <Select.Item
-                                          value={`contact:${prop.name}`}
-                                          disabled={prop.read_only}
-                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 {(!checkCompatible(field, prop, provider) ? 'text-gray-400' : '')}"
-                                          data-slot="select-item"
-                                        >
-                                          <span class="flex-1 truncate">{prop.label || prop.name} [{getCrmObjectLabel(provider, 'contact')}] {prop.read_only ? '(Read Only)' : ''}</span>
-                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
-                                        </Select.Item>
-                                      {/each}
-
-                                      <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'company')} Properties</div>
-                                      {#each getFilteredProperties(properties.company || [], fieldSearch[`${fieldKey}-${provider}`], field, provider) as prop}
-                                        <Select.Item
-                                          value={`company:${prop.name}`}
-                                          disabled={prop.read_only}
-                                          class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 {(!checkCompatible(field, prop, provider) ? 'text-gray-400' : '')}"
-                                          data-slot="select-item"
-                                        >
-                                          <span class="flex-1 truncate">{prop.label || prop.name} [{getCrmObjectLabel(provider, 'company')}] {prop.read_only ? '(Read Only)' : ''}</span>
-                                          <span class="ml-2 text-[10px] text-gray-400 uppercase tracking-tighter">{prop.type}</span>
-                                        </Select.Item>
-                                      {/each}
-                                    </div>
-                                  </Select.Content>
-                                </Select.Root>
-                                
-                                {#if !isCompatible}
-                                  <p data-testid={`type-mismatch-${field.id}-${provider}`} class="text-[10px] text-red-600 font-medium">
-                                    Type mismatch: {getFieldDataType(field)} vs {selectedProp.type}. This might lead to data issues.
+                              {#if selectedProp && getExportKey(field, index) !== selectedProp.name}
+                                <div class="flex items-center justify-between">
+                                  <p class="text-[10px] text-amber-600 font-medium">
+                                    Key mismatch: export key ({getExportKey(field, index) || 'label'}) != {selectedProp.name}
                                   </p>
-                                {/if}
+                                  <button 
+                                    type="button"
+                                    onclick={() => syncExportKey(fieldKey, provider)}
+                                    class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors"
+                                    title="Update Data Export Key to match CRM property name"
+                                  >
+                                    Align Key
+                                  </button>
+                                </div>
+                              {/if}
 
-                                {#if selectedProp && getExportKey(field, index) !== selectedProp.name}
-                                  <div class="flex items-center justify-between">
-                                    <p class="text-[10px] text-amber-600 font-medium">
-                                      Key mismatch: export key ({getExportKey(field, index) || 'label'}) != {selectedProp.name}
+                              {#if selectedProp && selectedProp.type === 'enumeration' && selectedProp.options?.length > 0}
+                                {@const formOpts = getFieldOptions(field, index)}
+                                {#if hasOptionsMismatch(formOpts, selectedProp.options)}
+                                  <div class="flex items-center justify-between mt-1">
+                                    <p class="text-[10px] text-amber-600 font-medium leading-tight max-w-[80%]">
+                                      Options mismatch: Form options don't match CRM allowed values. Submissions may fail.
                                     </p>
                                     <button 
                                       type="button"
-                                      onclick={() => syncExportKey(fieldKey, provider)}
-                                      class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors"
-                                      title="Update Data Export Key to match CRM property name"
+                                      onclick={() => syncOptions(fieldKey, selectedProp.options)}
+                                      class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors shrink-0"
+                                      title="Overwrite form options with CRM options"
                                     >
-                                      Align Key
+                                      Sync Options
                                     </button>
                                   </div>
                                 {/if}
-
-                                {#if selectedProp && selectedProp.type === 'enumeration' && selectedProp.options?.length > 0}
-                                  {@const formOpts = getFieldOptions(field, index)}
-                                  {#if hasOptionsMismatch(formOpts, selectedProp.options)}
-                                    <div class="flex items-center justify-between mt-1">
-                                      <p class="text-[10px] text-amber-600 font-medium leading-tight max-w-[80%]">
-                                        Options mismatch: Form options don't match CRM allowed values. Submissions may fail.
-                                      </p>
-                                      <button 
-                                        type="button"
-                                        onclick={() => syncOptions(fieldKey, selectedProp.options)}
-                                        class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors shrink-0"
-                                        title="Overwrite form options with CRM options"
-                                      >
-                                        Sync Options
-                                      </button>
-                                    </div>
-                                  {/if}
-                                {/if}
-                              </div>
-                            {/if}
+                              {/if}
+                            </div>
                           </td>
                         </tr>
                       {/each}

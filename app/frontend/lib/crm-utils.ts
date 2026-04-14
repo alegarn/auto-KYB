@@ -7,6 +7,10 @@ export type DataType = 'string' | 'number' | 'boolean' | 'date' | 'file' | 'json
 
 export const CRM_KEY_SEP = '::';
 
+export function getFieldIdentityKey(field: { id?: string | number | null }, index: number): string {
+  return field.id !== undefined && field.id !== null ? String(field.id) : `draft:${index}`;
+}
+
 const CRM_OBJECT_LABELS: Record<string, Record<string, string>> = {
   hubspot: {
     contact: 'Contact',
