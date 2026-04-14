@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { areTypesCompatible, getCrmObjectLabel, getFieldDataType, analyzeMappings, autoMapFields, toCrmKey, fromCrmKey, isCompoundKey } from './crm-utils';
+import { areTypesCompatible, getCrmObjectLabel, getFieldDataType, analyzeMappings, autoMapFields, toCrmKey, fromCrmKey, isCompoundKey, getFieldIdentityKey } from './crm-utils';
 
 describe('getFieldDataType', () => {
   it('identifies string types', () => {
@@ -22,6 +22,14 @@ describe('getFieldDataType', () => {
 
   it('identifies date types', () => {
     expect(getFieldDataType('date')).toBe('date');
+  });
+});
+
+describe('getFieldIdentityKey', () => {
+  it('returns the raw id when one exists and a draft key otherwise', () => {
+    expect(getFieldIdentityKey({ id: 42 }, 0)).toBe('42');
+    expect(getFieldIdentityKey({ id: 'abc' }, 1)).toBe('abc');
+    expect(getFieldIdentityKey({}, 2)).toBe('draft:2');
   });
 });
 
