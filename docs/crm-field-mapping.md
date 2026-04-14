@@ -57,9 +57,38 @@ In the Form Builder's Mapping sidebar, the **"Sync with CRM"** button will updat
 
 > **Note**: If a field is mapped to multiple CRMs (e.g., both HubSpot and Salesforce) with different property names, the sync tool prioritizes the first active connection found.
 
+## Advanced Auto-Mapping (Pro or higher)
+
+When the standard "Auto-Map Fields" leaves fields unmapped — because field labels differ semantically from CRM property names — users can activate **AI Auto-Map** for semantic matching.
+
+### How It Works
+
+1. Click **"Auto-Map Fields"** to run the programmatic matcher.
+2. If unmapped fields remain, click **"✨ AI Auto-Map Remaining"**.
+3. The AI analyzes:
+   - Each unmapped field's label, type, export key, and options.
+   - The form's section structure and descriptive text for object-type inference (e.g., a field under "Company Details" likely maps to Company).
+   - All available (non-read-only, non-already-mapped) CRM properties from your connected CRM.
+4. Suggestions appear in the mapping table with an **"AI" badge** and confidence indicator (tooltip with reasoning).
+5. Review and save — AI suggestions behave like any other mapping after save.
+
+### Limitations
+
+- Maximum **10 AI auto-map requests per day** per account.
+- If no match exists, the AI **creates custom properties** in the right object ("Lead"/"Contact" or "Company").
+- **Type compatibility is enforced server-side** (same rules as manual mapping). Invalid AI suggestions are silently discarded.
+- If the AI cannot confidently match a field, nor create a custom property on the right object, it leaves it unmapped rather than guessing.
+
+### CRM Agnostic
+
+Advanced Auto-Mapping works identically across all supported CRM providers. The AI receives the property list from your specific CRM connection, regardless of provider.
+
+---
+
 ## Best Practices
 
 1. **Set Export Keys Early**: Define your technical keys before sharing the form to ensure CSV/JSON stability.
 2. **Use technical names for keys**: Prefer `company_domain` over "What is your website?".
 3. **Align with your Primary CRM**: If HubSpot is your main system of record, click "Sync with CRM" to ensure your CSV exports use the exact same property names as your HubSpot portal.
 4. **Mind the Data Types**: Ensure your form field type (e.g., Date) is compatible with the CRM property type. Quick KYB will show a warning if it detects a potential mismatch.
+5. **Use AI Auto-Map for complex forms**: If your form uses natural-language labels (e.g., "What is your company's legal name?"), run AI Auto-Map after the standard auto-map to catch semantic matches that string matching misses.
