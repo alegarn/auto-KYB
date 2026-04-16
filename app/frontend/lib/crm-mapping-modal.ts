@@ -27,10 +27,43 @@ export interface CrmMappingIndexedField {
   index: number;
 }
 
+export interface CrmInventoryProperty {
+  name?: string | null;
+  read_only?: boolean;
+}
+
+export type CrmProviderProperties = Record<string, CrmInventoryProperty[]>;
+
 export interface CrmMappingDraftState {
   mappings: CrmMappings;
   exportKeyOverrides: CrmExportKeyOverrides;
   optionsOverrides: CrmOptionsOverrides;
+}
+
+export function countAvailableWritableCrmProperties(
+  providerProperties: CrmProviderProperties = {},
+  mappings: CrmMappings,
+  provider: string,
+): number {
+  const mappedPropertyKeys = new Set(
+    Object.values(mappings)
+      .map((providerMap) => providerMap?.[provider])
+      .flatMap((mapping) => {
+        const propertyName = getCrmMappingPropertyName(mapping);
+        if (!mapping?.object_type || !propertyName) return [];
+
+        return [ toCrmKey(mapping.object_type, propertyName) ];
+      }),
+  );
+
+  return Object.entries(providerProperties).reduce((count, [objectType, properties]) => {
+    return count + properties.filter((property) => {
+      const propertyName = property?.name?.toString().trim();
+      if (!propertyName || property?.read_only) return false;
+
+      return !mappedPropertyKeys.has(toCrmKey(objectType, propertyName));
+    }).length;
+  }, 0);
 }
 
 export function getCrmMappingFieldStateKey(field: CrmMappingField, index: number): string {

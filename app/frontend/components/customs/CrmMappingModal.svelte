@@ -10,6 +10,7 @@
     applyCrmMappingSelection,
     applyCrmOptionsSync,
     buildCrmMappingFieldLookup,
+    countAvailableWritableCrmProperties,
     getCrmMappingFieldStateKey,
     getCrmMappingPropertyName,
     getCrmMappingSelectionValue,
@@ -53,6 +54,15 @@
         const fieldKey = getCrmMappingFieldStateKey(field, index);
         return count + (mappings[fieldKey]?.[provider] ? 0 : 1);
       }, 0);
+    }
+
+    return result;
+  });
+  let aiAvailablePropertyCounts = $derived.by(() => {
+    const result: Record<string, number> = {};
+
+    for (const [provider, providerProperties] of Object.entries(crmProperties)) {
+      result[provider] = countAvailableWritableCrmProperties(providerProperties, mappings, provider);
     }
 
     return result;
@@ -185,15 +195,9 @@
       && getCrmMappingPropertyName(mapping) === suggestion.property_name;
   }
 
-  function hasProviderProperties(providerProperties: any): boolean {
-    return (providerProperties?.contact?.length || 0) > 0 || (providerProperties?.company?.length || 0) > 0;
-  }
-
   async function handleAiAutoMap(provider: string) {
     if (!form?.id || aiLoading[provider]) return;
-
-    const providerProperties = crmProperties[provider];
-    if (!hasProviderProperties(providerProperties)) return;
+    if ((aiAvailablePropertyCounts[provider] || 0) === 0) return;
 
     const unmappedFields = dataFields
       .filter(({ field, index }) => !mappings[getCrmMappingFieldStateKey(field, index)]?.[provider])
@@ -333,7 +337,7 @@
             <div class="mb-8" data-provider={provider}>
               <div class="mb-4 flex items-center justify-between gap-3">
                 <h3 class="text-lg font-medium capitalize">{provider} Integration</h3>
-                {#if unmappedCounts[provider] > 0 && hasProviderProperties(properties)}
+                {#if unmappedCounts[provider] > 0 && (aiAvailablePropertyCounts[provider] || 0) > 0}
                   <button
                     type="button"
                     data-testid={`ai-auto-map-${provider}`}

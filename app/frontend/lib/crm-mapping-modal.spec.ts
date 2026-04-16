@@ -4,6 +4,7 @@ import {
   applyCrmMappingSelection,
   applyCrmOptionsSync,
   buildCrmMappingFieldLookup,
+  countAvailableWritableCrmProperties,
   getCrmMappingFieldStateKey,
   getCrmMappingPropertyName,
   getCrmMappingSelectionValue,
@@ -175,6 +176,70 @@ describe('crm-mapping-modal helpers', () => {
 
     expect(merged.mappings['id:42'].hubspot.property_name).toBe('contact::email');
     expect(merged.exportKeyOverrides['id:42']).toBeUndefined();
+  });
+
+  it('counts only writable CRM properties that are still available for AI suggestions', () => {
+    const mappings: CrmMappings = {
+      'id:42': {
+        hubspot: {
+          type: 'existing',
+          object_type: 'contact',
+          property_name: 'contact::email',
+        },
+      },
+    };
+
+    const count = countAvailableWritableCrmProperties(
+      {
+        contact: [
+          { name: 'email', read_only: false },
+          { name: 'firstname', read_only: false },
+          { name: 'lifecycle_stage', read_only: true },
+          { name: '', read_only: false },
+        ],
+        company: [
+          { name: 'name', read_only: false },
+        ],
+      },
+      mappings,
+      'hubspot',
+    );
+
+    expect(count).toBe(2);
+  });
+
+  it('returns zero when all writable CRM properties are already mapped', () => {
+    const mappings: CrmMappings = {
+      'id:42': {
+        hubspot: {
+          type: 'existing',
+          object_type: 'contact',
+          property_name: 'contact::email',
+        },
+      },
+      'id:43': {
+        hubspot: {
+          type: 'existing',
+          object_type: 'company',
+          property_name: 'company::name',
+        },
+      },
+    };
+
+    const count = countAvailableWritableCrmProperties(
+      {
+        contact: [
+          { name: 'email', read_only: false },
+        ],
+        company: [
+          { name: 'name', read_only: false },
+        ],
+      },
+      mappings,
+      'hubspot',
+    );
+
+    expect(count).toBe(0);
   });
 
   it('skips custom-only AI suggestions that do not target an existing property', () => {

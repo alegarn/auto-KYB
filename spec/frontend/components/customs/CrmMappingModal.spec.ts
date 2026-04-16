@@ -272,7 +272,7 @@ describe('CrmMappingModal', () => {
     expect(savedFields[1].metadata.export_key).toBe('years_old');
   });
 
-  it('shows the AI auto-map button when unmapped fields remain', () => {
+  it('shows the AI auto-map button when unmapped fields remain and writable properties are available', () => {
     render(CrmMappingModal, {
       props: {
         ...defaultProps,
@@ -281,6 +281,70 @@ describe('CrmMappingModal', () => {
     });
 
     expect(screen.getByTestId('ai-auto-map-hubspot')).toBeInTheDocument();
+  });
+
+  it('hides the AI auto-map button when the provider only has read-only properties', () => {
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+        crmProperties: {
+          hubspot: {
+            contact: [
+              { name: 'lifecycle_stage', label: 'Lifecycle Stage', type: 'enumeration', read_only: true },
+            ],
+            company: [],
+          },
+        },
+      }
+    });
+
+    expect(screen.queryByTestId('ai-auto-map-hubspot')).not.toBeInTheDocument();
+  });
+
+  it('hides the AI auto-map button when all writable provider properties are already mapped', () => {
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+        crmProperties: {
+          hubspot: {
+            contact: [
+              { name: 'company', label: 'Company', type: 'string', read_only: false },
+            ],
+            company: [],
+          },
+        },
+        fields: [
+          {
+            id: 'f1',
+            label: 'Company Name',
+            field_type: 'text',
+            required: false,
+            position: 0,
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'contact',
+                  property_name: 'company',
+                },
+              },
+            },
+          },
+          {
+            id: 'f2',
+            label: 'Company Alias',
+            field_type: 'text',
+            required: false,
+            position: 1,
+            metadata: {},
+          },
+        ],
+      }
+    });
+
+    expect(screen.queryByTestId('ai-auto-map-hubspot')).not.toBeInTheDocument();
   });
 
   it('disables the AI auto-map button and shows loading skeletons while fetching suggestions', async () => {

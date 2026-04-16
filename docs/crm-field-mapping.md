@@ -77,6 +77,7 @@ When the standard "Auto-Map Fields" leaves fields unmapped because labels differ
 ### Limitations
 
 - Maximum **10 AI auto-map requests per day**.
+- The AI action is only shown for providers that still have at least one writable CRM property available after excluding read-only and already-mapped properties.
 - The AI only suggests mappings to writable CRM properties that are not already used elsewhere in the same provider mapping.
 - **Type compatibility is enforced server-side** using the same compatibility rules as manual mapping. Invalid AI suggestions are discarded.
 - When no safe native property exists, the UI can suggest a **custom property name**, but it does not silently create that property for you.
