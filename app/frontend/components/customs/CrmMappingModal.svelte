@@ -1,22 +1,47 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select/index.js";
   import { ChevronsUpDown, Loader2, Search } from "@lucide/svelte";
   import { cn } from "../../lib/utils";
-  import { isHubSpotCompatible } from '../../lib/crm/hubspot-compat';
-  import { areTypesCompatible, analyzeMappings, autoMapFields, getCrmObjectLabel, getFieldDataType, getProviderFileActions, type CrmExportSummary } from '../../lib/crm-utils';
+  import { requestAiAutoMap, type AiSuggestion } from '@/lib/crm/ai-auto-map';
+  import { analyzeMappings, autoMapFields, getCrmObjectLabel, getFieldDataType, getProviderFileActions, type CrmExportSummary } from '../../lib/crm-utils';
   import {
+    aiSuggestionMatchesCrmMapping,
     applyCrmExportKeyAlignment,
     applyCrmMappingSelection,
     applyCrmOptionsSync,
+    buildAiAutoMapRequest,
+    buildAiLoadingFieldKeySets,
     buildCrmMappingFieldLookup,
+    buildCrmUnmappedCounts,
+    DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE,
+    filterCrmProperties,
+    getAiAutoMapErrorMessage,
     getCrmMappingFieldStateKey,
     getCrmMappingPropertyName,
     getCrmMappingSelectionValue,
+    hasCrmOptionsMismatch,
     hydrateCrmMappingDraft,
+    isCrmPropertyCompatible,
+    mergeAiSuggestionsDraft,
     mergeCrmAutoMappedDraft,
+    normalizeAiSuggestions,
     serializeCrmMappingFields,
   } from '../../lib/crm-mapping-modal';
   import { isLayoutField } from './form-builder/types';
+
+  interface AiAutoMapProgress {
+    roundNumber: number;
+    batchNumber: number;
+    totalBatches: number;
+    mappedCount: number;
+    remainingCount: number;
+  }
+
+  interface AiAutoMapReviewNotice {
+    tone: 'success' | 'warning';
+    message: string;
+  }
 
   let { 
     open = $bindable(false), 
@@ -35,12 +60,40 @@
   let exportKeyOverrides = $state<Record<string, string>>({});
   let optionsOverrides = $state<Record<string, string[]>>({});
   let fieldSearch = $state<Record<string, string>>({});
+  let aiSuggestions = $state<Record<string, Record<string, AiSuggestion>>>({});
+  let aiLoading = $state<Record<string, boolean>>({});
+  let aiPendingFieldKeys = $state<Record<string, string[]>>({});
+  let aiErrors = $state<Record<string, string | null>>({});
+  let aiProgress = $state<Record<string, AiAutoMapProgress | null>>({});
+  let aiReviewNoticeVisible = $state<Record<string, boolean>>({});
   let hasHydratedForOpen = $state(false);
-  const dataFields = $derived(fields.map((field, index) => ({ field, index })).filter(({ field }) => !isLayoutField(field.field_type)));
+  const aiRequestControllers = new Map<string, AbortController>();
+  const indexedFields = $derived(fields.map((field, index) => ({ field, index })));
+  const dataFields = $derived(indexedFields.filter(({ field }) => !isLayoutField(field.field_type)));
   const fieldIdToStateKey = $derived(buildCrmMappingFieldLookup(dataFields));
+  let unmappedCounts = $derived.by(() => buildCrmUnmappedCounts(Object.keys(crmProperties), dataFields, mappings));
+  let aiLoadingFieldKeys = $derived.by(() => buildAiLoadingFieldKeySets(aiPendingFieldKeys));
+  const hasActiveAiRun = $derived.by(() => Object.values(aiLoading).some(Boolean));
+
+  onDestroy(() => {
+    for (const controller of aiRequestControllers.values()) {
+      controller.abort();
+    }
+    aiRequestControllers.clear();
+  });
 
   $effect(() => {
     if (!open) {
+      for (const controller of aiRequestControllers.values()) {
+        controller.abort();
+      }
+      aiRequestControllers.clear();
+      aiSuggestions = {};
+      aiLoading = {};
+      aiPendingFieldKeys = {};
+      aiErrors = {};
+      aiProgress = {};
+      aiReviewNoticeVisible = {};
       hasHydratedForOpen = false;
       return;
     }
@@ -51,33 +104,14 @@
     exportKeyOverrides = {};
     optionsOverrides = {};
     fieldSearch = {};
+    aiSuggestions = {};
+    aiLoading = {};
+    aiPendingFieldKeys = {};
+    aiErrors = {};
+    aiProgress = {};
+    aiReviewNoticeVisible = {};
     hasHydratedForOpen = true;
   });
-
-  function checkCompatible(field: any, prop: any, provider: string): boolean {
-    if (provider === 'hubspot') return isHubSpotCompatible(field, prop);
-    return areTypesCompatible(field, prop.type);
-  }
-
-  function getFilteredProperties(providerProperties: any[], search: string, field?: any, provider?: string) {
-    if (!providerProperties) return [];
-    const s = (search || '').toLowerCase();
-    let filtered = providerProperties;
-    if (s) {
-      filtered = providerProperties.filter(p => 
-        (p.label || '').toLowerCase().includes(s) || 
-        (p.name || '').toLowerCase().includes(s)
-      );
-    }
-    if (!field) return filtered;
-
-    return filtered.slice().sort((a, b) => {
-      const aCompat = checkCompatible(field, a, provider || '') ? 1 : 0;
-      const bCompat = checkCompatible(field, b, provider || '') ? 1 : 0;
-      if (aCompat !== bCompat) return bCompat - aCompat;
-      return (a.label || a.name || '').localeCompare(b.label || b.name || '');
-    });
-  }
 
   function formatSelectedPropertyLabel(provider: string, prop: any, objectType: string) {
     const label = prop?.label || prop?.name || 'Unknown property';
@@ -93,23 +127,194 @@
     return optionsOverrides[getCrmMappingFieldStateKey(field, index)] ?? field.metadata?.options ?? [];
   }
 
-  function hasOptionsMismatch(formOptions: string[], crmOptions: {label: string, value: string}[]) {
-    if (!formOptions || formOptions.length === 0) return false;
-    if (!crmOptions || crmOptions.length === 0) return false;
-    return formOptions.some(opt => {
-      const normalized = String(opt).trim().toLowerCase();
-      return !crmOptions.some(crmOpt => 
-        (crmOpt.label || '').toLowerCase() === normalized || 
-        (crmOpt.value || '').toLowerCase() === normalized
-      );
-    });
-  }
-
   function handleAutoMap() {
-    const autoMapped = autoMapFields(fields, crmProperties, (field, prop, provider) => checkCompatible(field, prop, provider));
+    const autoMapped = autoMapFields(fields, crmProperties, (field, prop, provider) => isCrmPropertyCompatible(field, prop, provider));
     const merged = mergeCrmAutoMappedDraft(mappings, exportKeyOverrides, autoMapped, fieldIdToStateKey);
     mappings = merged.mappings;
     exportKeyOverrides = merged.exportKeyOverrides;
+  }
+
+  function getAiSuggestion(provider: string, fieldKey: string): AiSuggestion | undefined {
+    return aiSuggestions[provider]?.[fieldKey];
+  }
+
+  function buildAiReviewNotice(remainingCount: number): AiAutoMapReviewNotice {
+    if (remainingCount === 0) {
+      return {
+        tone: 'success',
+        message: 'AI auto-map finished. Please verify the suggested mappings before saving, as AI can make mistakes.',
+      };
+    }
+
+    return {
+      tone: 'warning',
+      message: `AI auto-map finished for now. ${remainingCount} field${remainingCount > 1 ? 's still need' : ' still needs'} manual mapping. Please verify the suggested mappings before saving, as AI can make mistakes.`,
+    };
+  }
+
+  function countRemainingFieldsForProvider(provider: string, nextMappings = mappings): number {
+    return buildCrmUnmappedCounts([provider], dataFields, nextMappings)[provider] || 0;
+  }
+
+  function getAiReviewNotice(provider: string): AiAutoMapReviewNotice | null {
+    if (!aiReviewNoticeVisible[provider]) return null;
+    return buildAiReviewNotice(countRemainingFieldsForProvider(provider));
+  }
+
+  async function handleAiAutoMap(provider: string) {
+    if (!form?.id || hasActiveAiRun) return;
+
+    const initialRequest = buildAiAutoMapRequest(
+      indexedFields,
+      mappings,
+      provider,
+      fieldIdToStateKey,
+      { batchSize: DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE },
+    );
+
+    if (initialRequest.unmappedFields.length === 0) return;
+
+  const maxRounds = Math.max(1, initialRequest.totalUnmappedCount);
+
+    aiLoading = { ...aiLoading, [provider]: true };
+    aiPendingFieldKeys = { ...aiPendingFieldKeys, [provider]: [] };
+    aiErrors = { ...aiErrors, [provider]: null };
+    aiProgress = { ...aiProgress, [provider]: null };
+  aiReviewNoticeVisible = { ...aiReviewNoticeVisible, [provider]: false };
+    aiRequestControllers.get(provider)?.abort();
+
+    const controller = new AbortController();
+    aiRequestControllers.set(provider, controller);
+
+    try {
+      let roundNumber = 0;
+      let totalMappedThisRun = 0;
+      let encounteredError = false;
+
+      while (roundNumber < maxRounds) {
+        if (!open || aiRequestControllers.get(provider) !== controller || controller.signal.aborted) return;
+
+        const roundRequest = buildAiAutoMapRequest(
+          indexedFields,
+          mappings,
+          provider,
+          fieldIdToStateKey,
+          { batchSize: DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE },
+        );
+
+        if (roundRequest.unmappedFields.length === 0) break;
+
+        roundNumber += 1;
+        let mappedThisRound = 0;
+        const roundFieldIds = roundRequest.allUnmappedFieldIds;
+        const totalBatches = Math.ceil(roundFieldIds.length / DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE);
+
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex += 1) {
+          if (!open || aiRequestControllers.get(provider) !== controller || controller.signal.aborted) return;
+
+          const batchFieldIds = roundFieldIds.slice(
+            batchIndex * DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE,
+            (batchIndex + 1) * DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE,
+          );
+
+          const request = buildAiAutoMapRequest(
+            indexedFields,
+            mappings,
+            provider,
+            fieldIdToStateKey,
+            { fieldIds: batchFieldIds },
+          );
+
+          if (request.unmappedFields.length === 0) continue;
+
+          aiPendingFieldKeys = {
+            ...aiPendingFieldKeys,
+            [provider]: request.pendingFieldKeys,
+          };
+          aiProgress = {
+            ...aiProgress,
+            [provider]: {
+              roundNumber,
+              batchNumber: batchIndex + 1,
+              totalBatches,
+              mappedCount: totalMappedThisRun,
+              remainingCount: request.totalUnmappedCount,
+            },
+          };
+
+          const result = await requestAiAutoMap(
+            form.id,
+            provider,
+            request.unmappedFields,
+            request.alreadyMapped,
+            request.draftFields,
+            controller.signal,
+          );
+
+          if (!open || aiRequestControllers.get(provider) !== controller || controller.signal.aborted) return;
+
+          const merged = mergeAiSuggestionsDraft(
+            mappings,
+            exportKeyOverrides,
+            result.suggestions,
+            provider,
+            fieldIdToStateKey,
+          );
+          const remainingAfterBatch = countRemainingFieldsForProvider(provider, merged.mappings);
+          const mappedThisBatch = Math.max(0, request.totalUnmappedCount - remainingAfterBatch);
+
+          mappedThisRound += mappedThisBatch;
+          totalMappedThisRun += mappedThisBatch;
+
+          mappings = merged.mappings;
+          exportKeyOverrides = merged.exportKeyOverrides;
+          aiSuggestions = {
+            ...aiSuggestions,
+            [provider]: {
+              ...(aiSuggestions[provider] || {}),
+              ...normalizeAiSuggestions(result.suggestions, fieldIdToStateKey),
+            },
+          };
+          aiProgress = {
+            ...aiProgress,
+            [provider]: {
+              roundNumber,
+              batchNumber: batchIndex + 1,
+              totalBatches,
+              mappedCount: totalMappedThisRun,
+              remainingCount: remainingAfterBatch,
+            },
+          };
+
+          if (result.error) {
+            aiErrors = { ...aiErrors, [provider]: getAiAutoMapErrorMessage(result.error) };
+            encounteredError = true;
+            break;
+          }
+        }
+
+        if (encounteredError) break;
+
+        const remainingAfterRound = countRemainingFieldsForProvider(provider);
+        if (remainingAfterRound === 0 || mappedThisRound === 0) break;
+      }
+
+      if (!encounteredError) {
+        aiReviewNoticeVisible = { ...aiReviewNoticeVisible, [provider]: true };
+      }
+    } catch (error: unknown) {
+      if (controller.signal.aborted) return;
+
+      const message = error instanceof Error ? error.message : 'ai_auto_map_failed';
+      aiErrors = { ...aiErrors, [provider]: getAiAutoMapErrorMessage(message) };
+    } finally {
+      if (aiRequestControllers.get(provider) === controller) {
+        aiRequestControllers.delete(provider);
+        aiLoading = { ...aiLoading, [provider]: false };
+        aiPendingFieldKeys = { ...aiPendingFieldKeys, [provider]: [] };
+        aiProgress = { ...aiProgress, [provider]: null };
+      }
+    }
   }
 
   function handleSave() {
@@ -134,8 +339,8 @@
     optionsOverrides = applyCrmOptionsSync(optionsOverrides, fieldKey, crmOptions);
   }
 
-  function updateMapping(fieldKey: string, provider: string, value: string, providerProperties: any) {
-    mappings = applyCrmMappingSelection(mappings, fieldKey, provider, value, providerProperties);
+  function updateMapping(fieldKey: string, provider: string, value: string, providerProperties: any, field: any, index: number) {
+    mappings = applyCrmMappingSelection(mappings, fieldKey, provider, value, providerProperties, field, index);
   }
 
   let summaries = $derived.by(() => {
@@ -157,8 +362,9 @@
           <button 
             type="button" 
             data-testid="auto-map-fields"
-            class="text-sm px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded border border-indigo-200" 
+            class="text-sm px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded border border-indigo-200 disabled:cursor-not-allowed disabled:opacity-60" 
             onclick={handleAutoMap}
+            disabled={hasActiveAiRun}
           >
             Auto-Map Fields
           </button>
@@ -183,8 +389,56 @@
           </div>
         {:else}
           {#each Object.entries(crmProperties) as [provider, properties]}
+            {@const reviewNotice = getAiReviewNotice(provider)}
             <div class="mb-8" data-provider={provider}>
-              <h3 class="text-lg font-medium mb-4 capitalize">{provider} Integration</h3>
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <h3 class="text-lg font-medium capitalize">{provider} Integration</h3>
+                {#if form?.id && unmappedCounts[provider] > 0}
+                  <button
+                    type="button"
+                    data-testid={`ai-auto-map-${provider}`}
+                    class="inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    onclick={() => handleAiAutoMap(provider)}
+                    disabled={hasActiveAiRun}
+                  >
+                    {#if aiLoading[provider]}
+                      <Loader2 class="h-4 w-4 animate-spin" />
+                      {#if aiProgress[provider]}
+                        Mapping round {aiProgress[provider]?.roundNumber}, batch {aiProgress[provider]?.batchNumber} of {aiProgress[provider]?.totalBatches}...
+                      {:else}
+                        Analyzing remaining fields...
+                      {/if}
+                    {:else}
+                      AI Auto-Map Remaining ({unmappedCounts[provider]})
+                    {/if}
+                  </button>
+                {/if}
+              </div>
+
+              {#if aiErrors[provider]}
+                <div role="alert" class="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  {aiErrors[provider]}
+                </div>
+              {/if}
+
+              {#if aiLoading[provider] && aiProgress[provider]}
+                <div
+                  data-testid={`ai-progress-${provider}`}
+                  class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"
+                >
+                  Quick KYB is still mapping the remaining fields. Batch {aiProgress[provider]?.batchNumber} of {aiProgress[provider]?.totalBatches} in round {aiProgress[provider]?.roundNumber}, {aiProgress[provider]?.mappedCount} mapped in this run, {aiProgress[provider]?.remainingCount} still remaining.
+                </div>
+              {/if}
+
+              {#if reviewNotice}
+                <div
+                  data-testid={`ai-review-notice-${provider}`}
+                  role="status"
+                  class={`mb-4 rounded-md border px-3 py-2 text-sm ${reviewNotice.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-300 bg-amber-50 text-amber-900'}`}
+                >
+                  {reviewNotice.message}
+                </div>
+              {/if}
               
               <!-- CRM Export Summary Banner -->
               {#if summaries[provider]}
@@ -263,17 +517,34 @@
                         {@const mapping = mappings[fieldKey]?.[provider]}
                         {@const currentValue = getCrmMappingSelectionValue(mapping)}
                         {@const rawPropName = getCrmMappingPropertyName(mapping)}
+                        {@const suggestion = getAiSuggestion(provider, fieldKey)}
+                        {@const showAiBadge = aiSuggestionMatchesCrmMapping(mapping, suggestion)}
+                        {@const showCustomSuggestion = !mapping && suggestion?.suggest_custom && !suggestion?.property_name}
+                        {@const customPropertyName = mapping?.type === 'custom' ? rawPropName : ''}
+                        {@const isAiLoadingField = aiLoadingFieldKeys[provider]?.has(fieldKey)}
                         {@const selectedProp = mapping?.type === 'existing' 
                           ? (properties[mapping.object_type] || []).find((p: any) => p.name === rawPropName) 
                           : null}
-                        {@const isCompatible = !selectedProp || checkCompatible(field, selectedProp, provider)}
+                        {@const isCompatible = !selectedProp || isCrmPropertyCompatible(field, selectedProp, provider)}
                         {@const providerFileActions = getProviderFileActions(provider)}
                         {@const selectedFileAction = providerFileActions.find(a => a.value === currentValue)}
 
                         <tr class="hover:bg-gray-50">
                           <td class="px-4 py-3 font-medium text-gray-900">
                             <div class="flex flex-col">
-                              <span>{field.label || field.id || 'Unnamed Field'}</span>
+                              <div class="flex items-center gap-2">
+                                <span>{field.label || field.id || 'Unnamed Field'}</span>
+                                {#if showAiBadge}
+                                  <span
+                                    data-testid={`ai-badge-${fieldKey}-${provider}`}
+                                    class="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"
+                                    title={suggestion?.reason}
+                                  >
+                                    AI
+                                    <span class={suggestion?.confidence === 'high' ? 'text-emerald-500' : 'text-amber-500'}>●</span>
+                                  </span>
+                                {/if}
+                              </div>
                               <div class="flex items-center gap-1.5 mt-0.5">
                                 <span class="text-[10px] text-gray-500 uppercase font-semibold">Type: {getFieldDataType(field)}</span>
                                 {#if getExportKey(field, index)}
@@ -287,8 +558,9 @@
                               <Select
                                 type="single"
                                 value={currentValue || undefined}
-                                onValueChange={(value) => updateMapping(fieldKey, provider, value, properties)}
+                                onValueChange={(value) => updateMapping(fieldKey, provider, value, properties, field, index)}
                                 onOpenChange={(isOpen: boolean) => { if (!isOpen) fieldSearch[`${fieldKey}-${provider}`] = ''; }}
+                                disabled={hasActiveAiRun}
                               >
                                 <SelectTrigger
                                   class={cn(
@@ -297,8 +569,8 @@
                                   )}
                                   data-testid={`crm-mapping-select-${fieldKey}-${provider}`}
                                 >
-                                  {#if currentValue === "__custom_contact__"}
-                                    + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
+                                  {#if currentValue === "__custom_contact__" || currentValue === "__custom_company__"}
+                                    + Create as Custom {getCrmObjectLabel(provider, mapping?.object_type || (currentValue === '__custom_company__' ? 'company' : 'contact'))} Property
                                   {:else if selectedFileAction}
                                     {selectedFileAction.label}
                                   {:else}
@@ -337,6 +609,13 @@
                                     >
                                       + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
                                     </SelectItem>
+                                    <SelectItem
+                                      value="__custom_company__"
+                                      class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm font-semibold text-blue-600 outline-none focus:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                      data-slot="select-item"
+                                    >
+                                      + Create as Custom {getCrmObjectLabel(provider, 'company')} Property
+                                    </SelectItem>
                                     
                                     {#if getFieldDataType(field) === 'file' && providerFileActions.length > 0}
                                       <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">File Actions</div>
@@ -352,13 +631,13 @@
                                     {/if}
 
                                     <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'contact')} Properties</div>
-                                    {#each getFilteredProperties(properties.contact || [], fieldSearch[`${fieldKey}-${provider}`], field, provider) as prop}
+                                    {#each filterCrmProperties(properties.contact || [], fieldSearch[`${fieldKey}-${provider}`], field, provider) as prop}
                                       <SelectItem
                                         value={`contact:${prop.name}`}
                                         disabled={prop.read_only}
                                         class={cn(
                                           "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-                                          !checkCompatible(field, prop, provider) && "text-gray-400"
+                                          !isCrmPropertyCompatible(field, prop, provider) && "text-gray-400"
                                         )}
                                         data-slot="select-item"
                                       >
@@ -368,13 +647,13 @@
                                     {/each}
 
                                     <div class="px-2 py-1.5 text-xs font-semibold text-gray-400">Existing {getCrmObjectLabel(provider, 'company')} Properties</div>
-                                    {#each getFilteredProperties(properties.company || [], fieldSearch[`${fieldKey}-${provider}`], field, provider) as prop}
+                                    {#each filterCrmProperties(properties.company || [], fieldSearch[`${fieldKey}-${provider}`], field, provider) as prop}
                                       <SelectItem
                                         value={`company:${prop.name}`}
                                         disabled={prop.read_only}
                                         class={cn(
                                           "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-gray-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-                                          !checkCompatible(field, prop, provider) && "text-gray-400"
+                                          !isCrmPropertyCompatible(field, prop, provider) && "text-gray-400"
                                         )}
                                         data-slot="select-item"
                                       >
@@ -385,6 +664,32 @@
                                   </div>
                                 </SelectContent>
                               </Select>
+
+                              {#if isAiLoadingField}
+                                <div
+                                  data-testid={`ai-loading-${fieldKey}-${provider}`}
+                                  class="h-8 rounded-md border border-sky-100 bg-sky-50 animate-pulse"
+                                ></div>
+                              {/if}
+
+                              {#if customPropertyName}
+                                <p
+                                  data-testid={`custom-property-${fieldKey}-${provider}`}
+                                  class="text-xs text-amber-600 font-medium"
+                                >
+                                  Custom property: <span class="font-mono">{customPropertyName}</span>
+                                </p>
+                              {/if}
+
+                              {#if showCustomSuggestion}
+                                <p
+                                  data-testid={`ai-custom-suggestion-${fieldKey}-${provider}`}
+                                  class="text-xs text-amber-600 font-medium"
+                                  title={suggestion?.reason}
+                                >
+                                  Create as: <span class="font-mono">{suggestion?.suggested_custom_name}</span>
+                                </p>
+                              {/if}
                               
                               {#if !isCompatible}
                                 <p data-testid={`type-mismatch-${field.id}-${provider}`} class="text-[10px] text-red-600 font-medium">
@@ -400,8 +705,9 @@
                                   <button 
                                     type="button"
                                     onclick={() => syncExportKey(fieldKey, provider)}
-                                    class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors"
+                                    class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                                     title="Update Data Export Key to match CRM property name"
+                                    disabled={hasActiveAiRun}
                                   >
                                     Align Key
                                   </button>
@@ -410,7 +716,7 @@
 
                               {#if selectedProp && selectedProp.type === 'enumeration' && selectedProp.options?.length > 0}
                                 {@const formOpts = getFieldOptions(field, index)}
-                                {#if hasOptionsMismatch(formOpts, selectedProp.options)}
+                                {#if hasCrmOptionsMismatch(formOpts, selectedProp.options)}
                                   <div class="flex items-center justify-between mt-1">
                                     <p class="text-[10px] text-amber-600 font-medium leading-tight max-w-[80%]">
                                       Options mismatch: Form options don't match CRM allowed values. Submissions may fail.
@@ -418,8 +724,9 @@
                                     <button 
                                       type="button"
                                       onclick={() => syncOptions(fieldKey, selectedProp.options)}
-                                      class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors shrink-0"
+                                      class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
                                       title="Overwrite form options with CRM options"
+                                      disabled={hasActiveAiRun}
                                     >
                                       Sync Options
                                     </button>
@@ -451,7 +758,7 @@
           <button 
             onclick={handleTest}
             class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
-            disabled={testingCrm || Object.keys(crmProperties).length === 0}
+            disabled={testingCrm || Object.keys(crmProperties).length === 0 || hasActiveAiRun}
           >
             {testingCrm ? 'Sending Test...' : 'Send Test Data'}
           </button>
@@ -466,7 +773,7 @@
         <button 
           onclick={handleSave}
           class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
-          disabled={Object.keys(crmProperties).length === 0}
+          disabled={hasActiveAiRun || Object.keys(crmProperties).length === 0}
         >
           Save Mapping
         </button>

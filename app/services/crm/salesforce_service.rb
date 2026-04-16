@@ -37,5 +37,9 @@ module Crm
       true
     end
 
+    def fetch_properties(force: false)
+      { contact: [], company: [] }
+    end
+
   end
 end

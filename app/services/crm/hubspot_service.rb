@@ -107,6 +107,16 @@ module Crm
       false
     end
 
+    def fetch_properties(force: false)
+      ensure_valid_token!
+
+      properties_service = Crm::Hubspot::PropertiesService.new(connection.user)
+      {
+        contact: properties_service.list_properties(object_type: "contact", force: force),
+        company: properties_service.list_properties(object_type: "company", force: force)
+      }
+    end
+
     # --- Import (HubSpot -> Quick KYB) ---
 
     # Fetch contacts from HubSpot and return mapped data
