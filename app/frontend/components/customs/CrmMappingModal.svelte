@@ -14,6 +14,7 @@
     buildAiLoadingFieldKeySets,
     buildCrmMappingFieldLookup,
     buildCrmUnmappedCounts,
+    DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE,
     filterCrmProperties,
     getAiAutoMapErrorMessage,
     getCrmMappingFieldStateKey,
@@ -28,6 +29,19 @@
     serializeCrmMappingFields,
   } from '../../lib/crm-mapping-modal';
   import { isLayoutField } from './form-builder/types';
+
+  interface AiAutoMapProgress {
+    roundNumber: number;
+    batchNumber: number;
+    totalBatches: number;
+    mappedCount: number;
+    remainingCount: number;
+  }
+
+  interface AiAutoMapReviewNotice {
+    tone: 'success' | 'warning';
+    message: string;
+  }
 
   let { 
     open = $bindable(false), 
@@ -50,6 +64,8 @@
   let aiLoading = $state<Record<string, boolean>>({});
   let aiPendingFieldKeys = $state<Record<string, string[]>>({});
   let aiErrors = $state<Record<string, string | null>>({});
+  let aiProgress = $state<Record<string, AiAutoMapProgress | null>>({});
+  let aiReviewNoticeVisible = $state<Record<string, boolean>>({});
   let hasHydratedForOpen = $state(false);
   const aiRequestControllers = new Map<string, AbortController>();
   const indexedFields = $derived(fields.map((field, index) => ({ field, index })));
@@ -57,6 +73,7 @@
   const fieldIdToStateKey = $derived(buildCrmMappingFieldLookup(dataFields));
   let unmappedCounts = $derived.by(() => buildCrmUnmappedCounts(Object.keys(crmProperties), dataFields, mappings));
   let aiLoadingFieldKeys = $derived.by(() => buildAiLoadingFieldKeySets(aiPendingFieldKeys));
+  const hasActiveAiRun = $derived.by(() => Object.values(aiLoading).some(Boolean));
 
   onDestroy(() => {
     for (const controller of aiRequestControllers.values()) {
@@ -75,6 +92,8 @@
       aiLoading = {};
       aiPendingFieldKeys = {};
       aiErrors = {};
+      aiProgress = {};
+      aiReviewNoticeVisible = {};
       hasHydratedForOpen = false;
       return;
     }
@@ -89,6 +108,8 @@
     aiLoading = {};
     aiPendingFieldKeys = {};
     aiErrors = {};
+    aiProgress = {};
+    aiReviewNoticeVisible = {};
     hasHydratedForOpen = true;
   });
 
@@ -117,53 +138,169 @@
     return aiSuggestions[provider]?.[fieldKey];
   }
 
-  async function handleAiAutoMap(provider: string) {
-    if (!form?.id || aiLoading[provider]) return;
+  function buildAiReviewNotice(remainingCount: number): AiAutoMapReviewNotice {
+    if (remainingCount === 0) {
+      return {
+        tone: 'success',
+        message: 'AI auto-map finished. Please verify the suggested mappings before saving, as AI can make mistakes.',
+      };
+    }
 
-    const { unmappedFields, alreadyMapped, pendingFieldKeys, draftFields } = buildAiAutoMapRequest(
+    return {
+      tone: 'warning',
+      message: `AI auto-map finished for now. ${remainingCount} field${remainingCount > 1 ? 's still need' : ' still needs'} manual mapping. Please verify the suggested mappings before saving, as AI can make mistakes.`,
+    };
+  }
+
+  function countRemainingFieldsForProvider(provider: string, nextMappings = mappings): number {
+    return buildCrmUnmappedCounts([provider], dataFields, nextMappings)[provider] || 0;
+  }
+
+  function getAiReviewNotice(provider: string): AiAutoMapReviewNotice | null {
+    if (!aiReviewNoticeVisible[provider]) return null;
+    return buildAiReviewNotice(countRemainingFieldsForProvider(provider));
+  }
+
+  async function handleAiAutoMap(provider: string) {
+    if (!form?.id || hasActiveAiRun) return;
+
+    const initialRequest = buildAiAutoMapRequest(
       indexedFields,
       mappings,
       provider,
       fieldIdToStateKey,
+      { batchSize: DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE },
     );
 
-    if (unmappedFields.length === 0) return;
+    if (initialRequest.unmappedFields.length === 0) return;
+
+  const maxRounds = Math.max(1, initialRequest.totalUnmappedCount);
 
     aiLoading = { ...aiLoading, [provider]: true };
-    aiPendingFieldKeys = {
-      ...aiPendingFieldKeys,
-      [provider]: pendingFieldKeys,
-    };
+    aiPendingFieldKeys = { ...aiPendingFieldKeys, [provider]: [] };
     aiErrors = { ...aiErrors, [provider]: null };
+    aiProgress = { ...aiProgress, [provider]: null };
+  aiReviewNoticeVisible = { ...aiReviewNoticeVisible, [provider]: false };
     aiRequestControllers.get(provider)?.abort();
 
     const controller = new AbortController();
     aiRequestControllers.set(provider, controller);
 
     try {
-      const result = await requestAiAutoMap(form.id, provider, unmappedFields, alreadyMapped, draftFields, controller.signal);
-      if (!open || aiRequestControllers.get(provider) !== controller) return;
+      let roundNumber = 0;
+      let totalMappedThisRun = 0;
+      let encounteredError = false;
 
-      const merged = mergeAiSuggestionsDraft(
-        mappings,
-        exportKeyOverrides,
-        result.suggestions,
-        provider,
-        fieldIdToStateKey,
-      );
+      while (roundNumber < maxRounds) {
+        if (!open || aiRequestControllers.get(provider) !== controller || controller.signal.aborted) return;
 
-      mappings = merged.mappings;
-      exportKeyOverrides = merged.exportKeyOverrides;
-      aiSuggestions = {
-        ...aiSuggestions,
-        [provider]: {
-          ...(aiSuggestions[provider] || {}),
-          ...normalizeAiSuggestions(result.suggestions, fieldIdToStateKey),
-        },
-      };
+        const roundRequest = buildAiAutoMapRequest(
+          indexedFields,
+          mappings,
+          provider,
+          fieldIdToStateKey,
+          { batchSize: DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE },
+        );
 
-      if (result.error) {
-        aiErrors = { ...aiErrors, [provider]: getAiAutoMapErrorMessage(result.error) };
+        if (roundRequest.unmappedFields.length === 0) break;
+
+        roundNumber += 1;
+        let mappedThisRound = 0;
+        const roundFieldIds = roundRequest.allUnmappedFieldIds;
+        const totalBatches = Math.ceil(roundFieldIds.length / DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE);
+
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex += 1) {
+          if (!open || aiRequestControllers.get(provider) !== controller || controller.signal.aborted) return;
+
+          const batchFieldIds = roundFieldIds.slice(
+            batchIndex * DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE,
+            (batchIndex + 1) * DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE,
+          );
+
+          const request = buildAiAutoMapRequest(
+            indexedFields,
+            mappings,
+            provider,
+            fieldIdToStateKey,
+            { fieldIds: batchFieldIds },
+          );
+
+          if (request.unmappedFields.length === 0) continue;
+
+          aiPendingFieldKeys = {
+            ...aiPendingFieldKeys,
+            [provider]: request.pendingFieldKeys,
+          };
+          aiProgress = {
+            ...aiProgress,
+            [provider]: {
+              roundNumber,
+              batchNumber: batchIndex + 1,
+              totalBatches,
+              mappedCount: totalMappedThisRun,
+              remainingCount: request.totalUnmappedCount,
+            },
+          };
+
+          const result = await requestAiAutoMap(
+            form.id,
+            provider,
+            request.unmappedFields,
+            request.alreadyMapped,
+            request.draftFields,
+            controller.signal,
+          );
+
+          if (!open || aiRequestControllers.get(provider) !== controller || controller.signal.aborted) return;
+
+          const merged = mergeAiSuggestionsDraft(
+            mappings,
+            exportKeyOverrides,
+            result.suggestions,
+            provider,
+            fieldIdToStateKey,
+          );
+          const remainingAfterBatch = countRemainingFieldsForProvider(provider, merged.mappings);
+          const mappedThisBatch = Math.max(0, request.totalUnmappedCount - remainingAfterBatch);
+
+          mappedThisRound += mappedThisBatch;
+          totalMappedThisRun += mappedThisBatch;
+
+          mappings = merged.mappings;
+          exportKeyOverrides = merged.exportKeyOverrides;
+          aiSuggestions = {
+            ...aiSuggestions,
+            [provider]: {
+              ...(aiSuggestions[provider] || {}),
+              ...normalizeAiSuggestions(result.suggestions, fieldIdToStateKey),
+            },
+          };
+          aiProgress = {
+            ...aiProgress,
+            [provider]: {
+              roundNumber,
+              batchNumber: batchIndex + 1,
+              totalBatches,
+              mappedCount: totalMappedThisRun,
+              remainingCount: remainingAfterBatch,
+            },
+          };
+
+          if (result.error) {
+            aiErrors = { ...aiErrors, [provider]: getAiAutoMapErrorMessage(result.error) };
+            encounteredError = true;
+            break;
+          }
+        }
+
+        if (encounteredError) break;
+
+        const remainingAfterRound = countRemainingFieldsForProvider(provider);
+        if (remainingAfterRound === 0 || mappedThisRound === 0) break;
+      }
+
+      if (!encounteredError) {
+        aiReviewNoticeVisible = { ...aiReviewNoticeVisible, [provider]: true };
       }
     } catch (error: unknown) {
       if (controller.signal.aborted) return;
@@ -175,6 +312,7 @@
         aiRequestControllers.delete(provider);
         aiLoading = { ...aiLoading, [provider]: false };
         aiPendingFieldKeys = { ...aiPendingFieldKeys, [provider]: [] };
+        aiProgress = { ...aiProgress, [provider]: null };
       }
     }
   }
@@ -224,8 +362,9 @@
           <button 
             type="button" 
             data-testid="auto-map-fields"
-            class="text-sm px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded border border-indigo-200" 
+            class="text-sm px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded border border-indigo-200 disabled:cursor-not-allowed disabled:opacity-60" 
             onclick={handleAutoMap}
+            disabled={hasActiveAiRun}
           >
             Auto-Map Fields
           </button>
@@ -250,6 +389,7 @@
           </div>
         {:else}
           {#each Object.entries(crmProperties) as [provider, properties]}
+            {@const reviewNotice = getAiReviewNotice(provider)}
             <div class="mb-8" data-provider={provider}>
               <div class="mb-4 flex items-center justify-between gap-3">
                 <h3 class="text-lg font-medium capitalize">{provider} Integration</h3>
@@ -259,11 +399,15 @@
                     data-testid={`ai-auto-map-${provider}`}
                     class="inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
                     onclick={() => handleAiAutoMap(provider)}
-                    disabled={!!aiLoading[provider]}
+                    disabled={hasActiveAiRun}
                   >
                     {#if aiLoading[provider]}
                       <Loader2 class="h-4 w-4 animate-spin" />
-                      Analyzing remaining fields...
+                      {#if aiProgress[provider]}
+                        Mapping round {aiProgress[provider]?.roundNumber}, batch {aiProgress[provider]?.batchNumber} of {aiProgress[provider]?.totalBatches}...
+                      {:else}
+                        Analyzing remaining fields...
+                      {/if}
                     {:else}
                       AI Auto-Map Remaining ({unmappedCounts[provider]})
                     {/if}
@@ -274,6 +418,25 @@
               {#if aiErrors[provider]}
                 <div role="alert" class="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                   {aiErrors[provider]}
+                </div>
+              {/if}
+
+              {#if aiLoading[provider] && aiProgress[provider]}
+                <div
+                  data-testid={`ai-progress-${provider}`}
+                  class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"
+                >
+                  Quick KYB is still mapping the remaining fields. Batch {aiProgress[provider]?.batchNumber} of {aiProgress[provider]?.totalBatches} in round {aiProgress[provider]?.roundNumber}, {aiProgress[provider]?.mappedCount} mapped in this run, {aiProgress[provider]?.remainingCount} still remaining.
+                </div>
+              {/if}
+
+              {#if reviewNotice}
+                <div
+                  data-testid={`ai-review-notice-${provider}`}
+                  role="status"
+                  class={`mb-4 rounded-md border px-3 py-2 text-sm ${reviewNotice.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-300 bg-amber-50 text-amber-900'}`}
+                >
+                  {reviewNotice.message}
                 </div>
               {/if}
               
@@ -397,6 +560,7 @@
                                 value={currentValue || undefined}
                                 onValueChange={(value) => updateMapping(fieldKey, provider, value, properties, field, index)}
                                 onOpenChange={(isOpen: boolean) => { if (!isOpen) fieldSearch[`${fieldKey}-${provider}`] = ''; }}
+                                disabled={hasActiveAiRun}
                               >
                                 <SelectTrigger
                                   class={cn(
@@ -541,8 +705,9 @@
                                   <button 
                                     type="button"
                                     onclick={() => syncExportKey(fieldKey, provider)}
-                                    class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors"
+                                    class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                                     title="Update Data Export Key to match CRM property name"
+                                    disabled={hasActiveAiRun}
                                   >
                                     Align Key
                                   </button>
@@ -559,8 +724,9 @@
                                     <button 
                                       type="button"
                                       onclick={() => syncOptions(fieldKey, selectedProp.options)}
-                                      class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors shrink-0"
+                                      class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
                                       title="Overwrite form options with CRM options"
+                                      disabled={hasActiveAiRun}
                                     >
                                       Sync Options
                                     </button>
@@ -592,7 +758,7 @@
           <button 
             onclick={handleTest}
             class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
-            disabled={testingCrm || Object.keys(crmProperties).length === 0}
+            disabled={testingCrm || Object.keys(crmProperties).length === 0 || hasActiveAiRun}
           >
             {testingCrm ? 'Sending Test...' : 'Send Test Data'}
           </button>
@@ -607,7 +773,7 @@
         <button 
           onclick={handleSave}
           class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
-          disabled={Object.keys(crmProperties).length === 0}
+          disabled={hasActiveAiRun || Object.keys(crmProperties).length === 0}
         >
           Save Mapping
         </button>

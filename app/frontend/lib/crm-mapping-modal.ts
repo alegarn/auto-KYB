@@ -5,6 +5,8 @@ import { areTypesCompatible, fromCrmKey, getFieldIdentityKey, toCrmKey } from '.
 
 const LAYOUT_FIELD_TYPES = new Set(['section', 'subtitle', 'static_text', 'separator', 'logo']);
 
+export const DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE = 12;
+
 export type CrmMappingValue = {
   type: 'custom' | 'existing';
   object_type: string;
@@ -59,6 +61,13 @@ export interface CrmAiAutoMapRequest {
   alreadyMapped: string[];
   pendingFieldKeys: string[];
   draftFields: CrmAiAutoMapField[];
+  totalUnmappedCount: number;
+  allUnmappedFieldIds: string[];
+}
+
+export interface CrmAiAutoMapRequestOptions {
+  batchSize?: number;
+  fieldIds?: string[];
 }
 
 export interface CrmMappingDraftState {
@@ -227,12 +236,26 @@ export function buildAiAutoMapRequest(
   mappings: CrmMappings,
   provider: string,
   fieldIdToStateKey: Record<string, string>,
+  options: CrmAiAutoMapRequestOptions = {},
 ): CrmAiAutoMapRequest {
-  const draftFields = fields.map(({ field, index }) => buildAiAutoMapField(field, index));
-  const unmappedFields = fields
+  const allUnmappedFields = fields
     .filter(({ field }) => !isLayoutFieldType(field.field_type))
     .filter(({ field, index }) => !mappings[getCrmMappingFieldStateKey(field, index)]?.[provider])
     .map(({ field, index }) => buildAiAutoMapField(field, index));
+
+  const selectedFieldIds = normalizeAiAutoMapFieldIds(options.fieldIds);
+  const selectedUnmappedFields = selectedFieldIds.length > 0
+    ? allUnmappedFields.filter(({ id }) => selectedFieldIds.includes(String(id)))
+    : allUnmappedFields.slice(0, normalizeAiAutoMapBatchSize(options.batchSize));
+
+  const contextualFieldIds = new Set(selectedUnmappedFields.map(({ id }) => String(id)));
+  const draftFields = selectedUnmappedFields.length === 0
+    ? []
+    : fields
+        .filter(({ field, index }) => {
+          return isLayoutFieldType(field.field_type) || contextualFieldIds.has(getFieldIdentityKey(field, index));
+        })
+        .map(({ field, index }) => buildAiAutoMapField(field, index));
 
   const alreadyMapped = Object.values(mappings)
     .map((providerMap) => providerMap?.[provider])
@@ -241,10 +264,12 @@ export function buildAiAutoMapRequest(
     .filter((propertyName): propertyName is string => propertyName.length > 0);
 
   return {
-    unmappedFields,
+    unmappedFields: selectedUnmappedFields,
     alreadyMapped,
-    pendingFieldKeys: unmappedFields.map(({ id }) => fieldIdToStateKey[String(id)] || String(id)),
+    pendingFieldKeys: selectedUnmappedFields.map(({ id }) => fieldIdToStateKey[String(id)] || String(id)),
     draftFields,
+    totalUnmappedCount: allUnmappedFields.length,
+    allUnmappedFieldIds: allUnmappedFields.map(({ id }) => String(id)),
   };
 }
 
@@ -684,6 +709,27 @@ function buildAiAutoMapMetadata(metadata?: Record<string, any>): CrmAiAutoMapFie
   }
 
   return Object.keys(nextMetadata).length > 0 ? nextMetadata : undefined;
+}
+
+function normalizeAiAutoMapFieldIds(fieldIds?: string[]): string[] {
+  const uniqueFieldIds = new Set<string>();
+
+  for (const fieldId of fieldIds || []) {
+    const normalized = String(fieldId || '').trim();
+    if (!normalized) continue;
+
+    uniqueFieldIds.add(normalized);
+  }
+
+  return Array.from(uniqueFieldIds);
+}
+
+function normalizeAiAutoMapBatchSize(batchSize?: number): number {
+  if (!Number.isFinite(batchSize) || (batchSize || 0) <= 0) {
+    return DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE;
+  }
+
+  return Math.max(1, Math.floor(batchSize as number));
 }
 
 function nextCustomPropertyName(

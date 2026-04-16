@@ -379,6 +379,7 @@ describe('CrmMappingModal', () => {
     await waitFor(() => expect(button).toBeDisabled());
     expect(screen.getByTestId('ai-loading-id:f1-hubspot')).toBeInTheDocument();
     expect(screen.getByTestId('ai-loading-id:f2-hubspot')).toBeInTheDocument();
+    expect(screen.getByTestId('ai-progress-hubspot')).toHaveTextContent('Quick KYB is still mapping the remaining fields.');
 
     resolveRequest?.({ suggestions: {}, unmapped_count: 2, error: null });
 
@@ -401,6 +402,11 @@ describe('CrmMappingModal', () => {
       unmapped_count: 1,
       error: null,
     });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 1,
+      error: null,
+    });
 
     render(CrmMappingModal, {
       props: {
@@ -411,7 +417,8 @@ describe('CrmMappingModal', () => {
 
     await user.click(screen.getByTestId('ai-auto-map-hubspot'));
 
-    expect(requestAiAutoMapMock).toHaveBeenCalledWith(
+    expect(requestAiAutoMapMock).toHaveBeenNthCalledWith(
+      1,
       '42',
       'hubspot',
       expect.any(Array),
@@ -424,6 +431,10 @@ describe('CrmMappingModal', () => {
     );
 
     await waitFor(() => expect(screen.getByTestId('ai-badge-id:f1-hubspot')).toBeInTheDocument());
+    await waitFor(() => expect(requestAiAutoMapMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('Please verify the suggested mappings before saving, as AI can make mistakes.');
+    });
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
 
@@ -473,6 +484,11 @@ describe('CrmMappingModal', () => {
       unmapped_count: 2,
       error: null,
     });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 1,
+      error: null,
+    });
 
     render(CrmMappingModal, {
       props: {
@@ -486,6 +502,9 @@ describe('CrmMappingModal', () => {
     await waitFor(() => {
       expect(screen.getByTestId('custom-property-id:f1-hubspot')).toHaveTextContent('legal_name');
     });
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('1 field still needs manual mapping');
+    });
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
 
@@ -498,6 +517,212 @@ describe('CrmMappingModal', () => {
       }),
     );
     expect(savedFields[0].metadata.export_key).toBe('legal_name');
+  });
+
+  it('continues AI auto-map across additional rounds from a single click and finishes with a review notice', async () => {
+    const user = userEvent.setup();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f1: {
+          object_type: 'contact',
+          property_name: 'company',
+          confidence: 'high',
+          reason: 'Company label strongly matches the CRM company field',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f2: {
+          object_type: 'company',
+          property_name: null,
+          confidence: 'medium',
+          reason: 'No safe native property matched this field',
+          suggest_custom: true,
+          suggested_custom_name: 'active_status',
+        },
+      },
+      unmapped_count: 0,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => expect(requestAiAutoMapMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId('ai-badge-id:f1-hubspot')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('custom-property-id:f2-hubspot')).toHaveTextContent('active_status'));
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('AI auto-map finished. Please verify the suggested mappings before saving, as AI can make mistakes.');
+    });
+  });
+
+  it('keeps retrying beyond three rounds while each round still makes progress', async () => {
+    const user = userEvent.setup();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f1: {
+          object_type: 'contact',
+          property_name: 'company',
+          confidence: 'high',
+        },
+      },
+      unmapped_count: 3,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f2: {
+          object_type: 'contact',
+          property_name: 'secondary_company',
+          confidence: 'high',
+        },
+      },
+      unmapped_count: 2,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f3: {
+          object_type: 'contact',
+          property_name: 'tertiary_company',
+          confidence: 'high',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f4: {
+          object_type: 'contact',
+          property_name: 'quaternary_company',
+          confidence: 'high',
+        },
+      },
+      unmapped_count: 0,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+        fields: [
+          { id: 'f1', label: 'Field 1', field_type: 'text', required: false, position: 0, metadata: {} },
+          { id: 'f2', label: 'Field 2', field_type: 'text', required: false, position: 1, metadata: {} },
+          { id: 'f3', label: 'Field 3', field_type: 'text', required: false, position: 2, metadata: {} },
+          { id: 'f4', label: 'Field 4', field_type: 'text', required: false, position: 3, metadata: {} },
+        ],
+        crmProperties: {
+          hubspot: {
+            contact: [
+              { name: 'company', label: 'Company', type: 'string' },
+              { name: 'secondary_company', label: 'Secondary Company', type: 'string' },
+              { name: 'tertiary_company', label: 'Tertiary Company', type: 'string' },
+              { name: 'quaternary_company', label: 'Quaternary Company', type: 'string' },
+            ],
+            company: [],
+          },
+        },
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => expect(requestAiAutoMapMock).toHaveBeenCalledTimes(4));
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('AI auto-map finished. Please verify the suggested mappings before saving, as AI can make mistakes.');
+    });
+  });
+
+  it('stops after the first round when AI makes no progress', async () => {
+    const user = userEvent.setup();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 2,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => expect(requestAiAutoMapMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('2 fields still need manual mapping');
+    });
+  });
+
+  it('recomputes the AI review notice after later mapping changes', async () => {
+    const user = userEvent.setup();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f2: {
+          object_type: 'company',
+          property_name: 'name',
+          confidence: 'high',
+          reason: 'Company name matched the company object.',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 1,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+        fields: [
+          { id: 'f1', label: 'Email', field_type: 'text', required: false, position: 0, metadata: {} },
+          { id: 'f2', label: 'Company Name', field_type: 'text', required: false, position: 1, metadata: {} },
+        ],
+        crmProperties: {
+          hubspot: {
+            contact: [
+              { name: 'email', label: 'Email', type: 'string' },
+            ],
+            company: [
+              { name: 'name', label: 'Company Name', type: 'string' },
+            ],
+          },
+        },
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('1 field still needs manual mapping');
+    });
+
+    await user.click(screen.getByTestId('auto-map-fields'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('AI auto-map finished. Please verify the suggested mappings before saving, as AI can make mistakes.');
+    });
   });
 
   it('ignores stale AI responses after the modal closes and reopens', async () => {

@@ -401,13 +401,6 @@ describe('crm-mapping-modal helpers', () => {
     expect(request.pendingFieldKeys).toEqual(['id:field-2']);
     expect(request.draftFields).toEqual([
       {
-        id: 'field-1',
-        label: 'Email',
-        field_type: 'text',
-        required: false,
-        position: 1,
-      },
-      {
         id: 'field-2',
         label: 'Company Name',
         field_type: 'text',
@@ -426,6 +419,8 @@ describe('crm-mapping-modal helpers', () => {
         position: 3,
       },
     ]);
+    expect(request.totalUnmappedCount).toBe(1);
+    expect(request.allUnmappedFieldIds).toEqual(['field-2']);
   });
 
   it('excludes custom mappings from the already-mapped AI request payload', () => {
@@ -455,6 +450,148 @@ describe('crm-mapping-modal helpers', () => {
     );
 
     expect(request.alreadyMapped).toEqual([]);
+    expect(request.totalUnmappedCount).toBe(0);
+    expect(request.allUnmappedFieldIds).toEqual([]);
+  });
+
+  it('limits AI requests to a smaller batch while preserving layout context in original order', () => {
+    const request = buildAiAutoMapRequest(
+      [
+        {
+          field: {
+            id: 'section-1',
+            field_type: 'section',
+            label: 'Business Details',
+            metadata: {},
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'text',
+            label: 'Legal Name',
+            metadata: {},
+          },
+          index: 1,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'text',
+            label: 'Registration Number',
+            metadata: {},
+          },
+          index: 2,
+        },
+        {
+          field: {
+            id: 'field-3',
+            field_type: 'text',
+            label: 'Website',
+            metadata: {},
+          },
+          index: 3,
+        },
+      ],
+      hydrateCrmMappingDraft([
+        {
+          field: {
+            id: 'section-1',
+            field_type: 'section',
+            label: 'Business Details',
+            metadata: {},
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'text',
+            label: 'Legal Name',
+            metadata: {},
+          },
+          index: 1,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'text',
+            label: 'Registration Number',
+            metadata: {},
+          },
+          index: 2,
+        },
+        {
+          field: {
+            id: 'field-3',
+            field_type: 'text',
+            label: 'Website',
+            metadata: {},
+          },
+          index: 3,
+        },
+      ]),
+      'hubspot',
+      {
+        'field-1': 'id:field-1',
+        'field-2': 'id:field-2',
+        'field-3': 'id:field-3',
+      },
+      { batchSize: 2 },
+    );
+
+    expect(request.unmappedFields.map((field) => field.id)).toEqual(['field-1', 'field-2']);
+    expect(request.draftFields.map((field) => field.id)).toEqual(['section-1', 'field-1', 'field-2']);
+    expect(request.totalUnmappedCount).toBe(3);
+    expect(request.allUnmappedFieldIds).toEqual(['field-1', 'field-2', 'field-3']);
+  });
+
+  it('builds a targeted AI batch for specific remaining field ids', () => {
+    const request = buildAiAutoMapRequest(
+      [
+        {
+          field: {
+            id: 'section-1',
+            field_type: 'section',
+            label: 'Business Details',
+            metadata: {},
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'text',
+            label: 'Legal Name',
+            metadata: {},
+          },
+          index: 1,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'text',
+            label: 'Registration Number',
+            metadata: {},
+          },
+          index: 2,
+        },
+      ],
+      {},
+      'hubspot',
+      {
+        'field-1': 'id:field-1',
+        'field-2': 'id:field-2',
+      },
+      { fieldIds: ['field-2'] },
+    );
+
+    expect(request.unmappedFields.map((field) => field.id)).toEqual(['field-2']);
+    expect(request.pendingFieldKeys).toEqual(['id:field-2']);
+    expect(request.draftFields.map((field) => field.id)).toEqual(['section-1', 'field-2']);
+    expect(request.totalUnmappedCount).toBe(2);
+    expect(request.allUnmappedFieldIds).toEqual(['field-1', 'field-2']);
   });
 
   it('builds provider unmapped counts and AI loading key sets', () => {
