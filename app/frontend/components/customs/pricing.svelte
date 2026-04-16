@@ -16,6 +16,7 @@
   let pricingList = {
     basic: [
       "Personalized KYC/KYB form builder",
+      "PDF conversion to interactive forms",
       "Unique registration link for leads",
       "Required vs validated field flags",
       "Partial updates allowed",
@@ -26,7 +27,7 @@
       "Everything in Basic",
       "CRM exports: HubSpot, Salesforce",
       "Automatic data export",
-      "Auto-map your form fields to CRM fields",
+      "Automatic CRM field mapping suggestions",
       "Export files directly to your CRM",
       ],
     premium: [
