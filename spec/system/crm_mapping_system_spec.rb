@@ -331,6 +331,11 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     # Ensure modal closed
     expect(page).not_to have_css('[data-testid="crm-mapping-modal"]')
 
+    save_changes_button = find('button', text: /Save Changes/, wait: 5)
+    save_changes_button.scroll_to(:center)
+    execute_script('arguments[0].click()', save_changes_button.native)
+    expect(page).to have_content('Form edited', wait: 10)
+
     # Verify field metadata updated
     field.reload
     expect(field.metadata['crm_mapping']['hubspot']).to eq({

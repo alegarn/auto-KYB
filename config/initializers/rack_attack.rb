@@ -40,23 +40,6 @@ form_imports_discriminator = lambda do |req|
   "#{req.ip}:#{session_token}"
 end
 
-signed_session_token = lambda do |req|
-  ActionDispatch::Request.new(req.env).cookie_jar.signed[:session_token].presence
-rescue StandardError
-  nil
-end
-
-ai_field_suggestions_discriminator = lambda do |req|
-  session_token = signed_session_token.call(req) || req.cookies["session_token"].presence
-  session_user_id = begin
-    Session.find_by(id: session_token)&.user_id
-  rescue StandardError
-    nil
-  end
-
-  session_user_id.presence || "#{req.ip}:#{session_token || 'anonymous'}"
-end
-
 Rack::Attack.throttle("form_imports/preview", limit: 5, period: 60.seconds) do |req|
   next unless req.post?
   next unless req.path.match?(%r{\A/form_imports(?:\.[^/]+)?\z})
@@ -71,23 +54,13 @@ Rack::Attack.throttle("form_imports/confirm", limit: 5, period: 60.seconds) do |
   form_imports_discriminator.call(req)
 end
 
-Rack::Attack.throttle("forms/ai_field_suggestions", limit: 10, period: 1.day) do |req|
-  next unless req.post?
-  next unless req.path.match?(%r{\A/forms/[^/]+/ai_field_suggestions(?:\.[^/]+)?\z})
-
-  ai_field_suggestions_discriminator.call(req)
-end
-
 Rack::Attack.throttled_responder = lambda do |request|
-  error_payload = if request.env["rack.attack.matched"] == "forms/ai_field_suggestions"
-    { error: "rate_limited" }
-  else
-    { error: "Too many requests. Please try again later." }
-  end
+  json_request = request.get_header("HTTP_ACCEPT").to_s.include?("application/json")
+  error_payload = { error: "Too many requests. Please try again later." }
 
   [
     429,
-    { "Content-Type" => "application/json" },
-    [ error_payload.to_json ]
+    { "Content-Type" => json_request ? "application/json" : "text/plain" },
+    [ json_request ? error_payload.to_json : error_payload.fetch(:error) ]
   ]
 end

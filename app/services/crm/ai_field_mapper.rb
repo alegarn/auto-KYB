@@ -5,6 +5,8 @@ require "set"
 module Crm
   class AiFieldMapper
 
+    class PropertyFetchError < StandardError; end
+
     Result = Data.define(:suggestions, :unmapped_count, :error)
 
     CRM_OBJECT_LABELS = {
@@ -27,20 +29,21 @@ module Crm
     }.freeze
     MAX_OPTION_COUNT = 20
 
-    def initialize(form:, connection:, unmapped_fields:, already_mapped:, provider:)
+    def initialize(form:, connection:, unmapped_fields:, already_mapped:, draft_fields: nil, provider:)
       @form = form
       @connection = connection
       @provider = provider.to_s.presence || connection.provider.to_s
       @unmapped_fields = normalize_unmapped_fields(unmapped_fields)
       @already_mapped = Array(already_mapped)
+      @draft_fields = normalize_draft_fields(draft_fields)
       @form_fields_by_id = form.form_fields.index_by { |field| field.id.to_s }
+      @draft_fields_by_id = @draft_fields.index_by { |field| field["id"] }
     end
 
     def call
       return empty_result if unmapped_fields.empty?
 
       filtered_properties = fetch_available_properties
-      return no_suggestions_result if filtered_properties.values.all?(&:empty?)
 
       raw_response = GeminiClient.generate_text(
         system_prompt: system_prompt,
@@ -54,21 +57,17 @@ module Crm
         unmapped_count: unmapped_fields.size - validated.size,
         error: nil
       )
-    rescue GeminiClient::ApiError, FormJsonExtractor::ExtractionError => e
+    rescue GeminiClient::ApiError, FormJsonExtractor::ExtractionError, PropertyFetchError => e
       Rails.logger.error("[AiFieldMapper] #{e.class}: #{e.message}")
       Result.new(suggestions: {}, unmapped_count: unmapped_fields.size, error: :ai_unavailable)
     end
 
     private
 
-    attr_reader :form, :connection, :provider, :unmapped_fields, :already_mapped, :form_fields_by_id
+    attr_reader :form, :connection, :provider, :unmapped_fields, :already_mapped, :draft_fields, :form_fields_by_id, :draft_fields_by_id
 
     def empty_result
       Result.new(suggestions: {}, unmapped_count: 0, error: nil)
-    end
-
-    def no_suggestions_result
-      Result.new(suggestions: {}, unmapped_count: unmapped_fields.size, error: nil)
     end
 
     def fetch_available_properties
@@ -77,6 +76,8 @@ module Crm
       return cached_properties unless cached_properties.values.all?(&:empty?)
 
       filter_available_properties(service.fetch_properties(force: true))
+    rescue StandardError => e
+      raise PropertyFetchError, e.message
     end
 
     def filter_available_properties(properties)
@@ -244,7 +245,6 @@ module Crm
 
           if Crm::KeyParser.compound?(key)
             compound << key
-            raw << Crm::KeyParser.property_name(key)
             next
           end
 
@@ -252,7 +252,6 @@ module Crm
             object_type, property_name = key.split(":", 2)
             if %w[contact company].include?(object_type) && property_name.present?
               compound << Crm::KeyParser.build(object_type, property_name)
-              raw << property_name
               next
             end
           end
@@ -305,6 +304,8 @@ module Crm
     end
 
     def build_form_sections
+      return build_draft_form_sections if draft_fields.any?
+
       sections = []
       current_section = { title: "Ungrouped Fields", context: [], fields: [] }
       seen_ids = Set.new
@@ -344,6 +345,46 @@ module Crm
       sections
     end
 
+    def build_draft_form_sections
+      sections = []
+      current_section = { title: "Ungrouped Fields", context: [], fields: [] }
+      seen_ids = Set.new
+
+      draft_fields.each do |field|
+        case field["field_type"]
+        when "section"
+          sections << current_section if current_section[:context].any? || current_section[:fields].any?
+          current_section = {
+            title: sanitize_label(field["label"]).presence || "Untitled Section",
+            context: [],
+            fields: []
+          }
+        when *LAYOUT_FIELD_TYPES
+          text = sanitize_label(field["label"])
+          next if text.blank?
+
+          current_section[:context] << { type: field["field_type"], text: text }
+        else
+          field_context = field_context_for_draft_field(field)
+          current_section[:fields] << field_context
+          seen_ids << field_context[:id]
+        end
+      end
+
+      sections << current_section if current_section[:context].any? || current_section[:fields].any?
+
+      extra_fields = unmapped_fields.reject { |field| seen_ids.include?(field["id"]) }
+      if extra_fields.any?
+        sections << {
+          title: "Ungrouped Fields",
+          context: [],
+          fields: extra_fields.map { |field| field_context_for_unmapped_field(field) }
+        }
+      end
+
+      sections
+    end
+
     def field_context_from_form_field(form_field)
       metadata = normalize_metadata(form_field.metadata)
 
@@ -358,17 +399,32 @@ module Crm
       }
     end
 
-    def field_context_for_unmapped_field(field)
-      persisted_form_field = form_fields_by_id[field["id"]]
-      metadata = normalize_metadata(persisted_form_field&.metadata)
+    def field_context_for_draft_field(field)
+      metadata = normalize_metadata(field["metadata"])
 
       {
         id: field["id"],
-        label: field["label"],
+        label: sanitize_label(field["label"]),
         field_type: field["field_type"],
         export_key: metadata["export_key"].to_s.presence,
         options: normalize_options(metadata["options"]),
-        required: persisted_form_field&.required,
+        required: ActiveModel::Type::Boolean.new.cast(field["required"]),
+        metadata: metadata
+      }
+    end
+
+    def field_context_for_unmapped_field(field)
+      draft_field = draft_fields_by_id[field["id"]]
+      persisted_form_field = form_fields_by_id[field["id"]]
+      metadata = normalize_metadata(draft_field ? draft_field["metadata"] : persisted_form_field&.metadata)
+
+      {
+        id: field["id"],
+        label: draft_field ? sanitize_label(draft_field["label"]) : field["label"],
+        field_type: draft_field ? draft_field["field_type"] : field["field_type"],
+        export_key: metadata["export_key"].to_s.presence,
+        options: normalize_options(metadata["options"]),
+        required: draft_field ? ActiveModel::Type::Boolean.new.cast(draft_field["required"]) : persisted_form_field&.required,
         metadata: metadata
       }
     end
@@ -441,8 +497,36 @@ module Crm
     end
 
     def field_metadata(field)
+      draft_field = draft_fields_by_id[field["id"]]
+      return normalize_metadata(draft_field["metadata"]) if draft_field
+
       persisted_form_field = form_fields_by_id[field["id"]]
       normalize_metadata(persisted_form_field&.metadata)
+    end
+
+    def normalize_draft_fields(raw_fields)
+      Array(raw_fields).filter_map do |field|
+        hash = if field.respond_to?(:to_unsafe_h)
+          field.to_unsafe_h
+        elsif field.respond_to?(:to_h)
+          field.to_h
+        else
+          field
+        end
+        next unless hash.is_a?(Hash)
+
+        id = hash["id"] || hash[:id]
+        next if id.blank?
+
+        {
+          "id" => id.to_s,
+          "label" => sanitize_label(hash["label"] || hash[:label]),
+          "field_type" => (hash["field_type"] || hash[:field_type]).to_s,
+          "required" => ActiveModel::Type::Boolean.new.cast(hash["required"] || hash[:required]),
+          "position" => hash["position"] || hash[:position],
+          "metadata" => normalize_metadata(hash["metadata"] || hash[:metadata])
+        }
+      end
     end
 
     def normalize_metadata(metadata)

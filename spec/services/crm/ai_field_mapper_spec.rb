@@ -46,6 +46,14 @@ RSpec.describe Crm::AiFieldMapper do
     ).call
   end
 
+  def build_result(attributes = {})
+    Crm::AiFieldMapper::Result.new(
+      suggestions: {},
+      unmapped_count: 0,
+      error: nil
+    ).with(**attributes)
+  end
+
   before do
     allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(provider_service)
     allow(provider_service).to receive(:fetch_properties).with(force: false).and_return(properties)
@@ -141,6 +149,41 @@ RSpec.describe Crm::AiFieldMapper do
 
     expect(provider_service).to have_received(:fetch_properties).with(force: false)
     expect(provider_service).to have_received(:fetch_properties).with(force: true)
+  end
+
+  it "still calls Gemini when no writable CRM properties remain so it can classify custom properties" do
+    allow(provider_service).to receive(:fetch_properties).with(force: false).and_return({ contact: [], company: [] })
+    allow(provider_service).to receive(:fetch_properties).with(force: true).and_return({ contact: [], company: [] })
+    allow(GeminiClient).to receive(:generate_text).and_return(
+      {
+        company_name_field.id.to_s => {
+          object_type: "company",
+          property_name: nil,
+          confidence: "medium",
+          suggest_custom: true,
+          suggested_custom_name: "legal_name"
+        }
+      }.to_json
+    )
+
+    custom_only_result = described_class.new(
+      form: form,
+      connection: connection,
+      unmapped_fields: [ { "id" => company_name_field.id.to_s, "label" => company_name_field.label, "field_type" => company_name_field.field_type } ],
+      already_mapped: [],
+      provider: provider
+    ).call
+
+    expect(GeminiClient).to have_received(:generate_text)
+    expect(custom_only_result.suggestions).to eq(
+      company_name_field.id.to_s => {
+        object_type: "company",
+        property_name: nil,
+        confidence: "medium",
+        suggest_custom: true,
+        suggested_custom_name: "legal_name"
+      }
+    )
   end
 
   it "rejects suggestions that point to unknown CRM properties" do
@@ -265,6 +308,15 @@ RSpec.describe Crm::AiFieldMapper do
   it "returns a graceful error when the AI response cannot be parsed" do
     allow(GeminiClient).to receive(:generate_text).and_return("not-json")
     allow(FormJsonExtractor).to receive(:call).and_raise(FormJsonExtractor::ExtractionError, "bad json")
+    allow(Rails.logger).to receive(:error)
+
+    expect(result.suggestions).to eq({})
+    expect(result.unmapped_count).to eq(2)
+    expect(result.error).to eq(:ai_unavailable)
+  end
+
+  it "returns a graceful error when CRM properties cannot be loaded" do
+    allow(provider_service).to receive(:fetch_properties).with(force: false).and_raise(StandardError, "token expired")
     allow(Rails.logger).to receive(:error)
 
     expect(result.suggestions).to eq({})

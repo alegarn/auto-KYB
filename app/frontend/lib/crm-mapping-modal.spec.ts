@@ -19,6 +19,7 @@ import {
   mergeAiSuggestionsDraft,
   mergeCrmAutoMappedDraft,
   normalizeAiSuggestions,
+  resolveDuplicateCrmExportKeys,
   serializeCrmMappingFields,
   type CrmMappings,
 } from './crm-mapping-modal';
@@ -157,6 +158,31 @@ describe('crm-mapping-modal helpers', () => {
     expect(merged.exportKeyOverrides['id:42']).toBe('name');
   });
 
+  it('merges custom-only AI suggestions into custom CRM mappings', () => {
+    const merged = mergeAiSuggestionsDraft(
+      {},
+      {},
+      {
+        '42': {
+          object_type: 'company',
+          property_name: null,
+          confidence: 'medium',
+          suggest_custom: true,
+          suggested_custom_name: 'legal_name',
+        },
+      },
+      'hubspot',
+      { '42': 'id:42' },
+    );
+
+    expect(merged.mappings['id:42'].hubspot).toEqual({
+      type: 'custom',
+      object_type: 'company',
+      property_name: 'company::legal_name',
+    });
+    expect(merged.exportKeyOverrides['id:42']).toBe('legal_name');
+  });
+
   it('does not overwrite an existing manual mapping with an AI suggestion', () => {
     const mappings: CrmMappings = {
       'id:42': {
@@ -290,9 +316,23 @@ describe('crm-mapping-modal helpers', () => {
             id: 'field-2',
             field_type: 'text',
             label: 'Company Name',
-            metadata: {},
+            required: true,
+            position: 2,
+            metadata: {
+              options: ['Acme'],
+              allow_multiple: false,
+            },
           },
           index: 1,
+        },
+        {
+          field: {
+            id: 'section-1',
+            field_type: 'section',
+            label: 'Business Details',
+            metadata: {},
+          },
+          index: 2,
         },
       ],
       hydrateCrmMappingDraft([
@@ -318,9 +358,23 @@ describe('crm-mapping-modal helpers', () => {
             id: 'field-2',
             field_type: 'text',
             label: 'Company Name',
-            metadata: {},
+            required: true,
+            position: 2,
+            metadata: {
+              options: ['Acme'],
+              allow_multiple: false,
+            },
           },
           index: 1,
+        },
+        {
+          field: {
+            id: 'section-1',
+            field_type: 'section',
+            label: 'Business Details',
+            metadata: {},
+          },
+          index: 2,
         },
       ]),
       'hubspot',
@@ -335,10 +389,209 @@ describe('crm-mapping-modal helpers', () => {
         id: 'field-2',
         label: 'Company Name',
         field_type: 'text',
+        required: true,
+        position: 2,
+        metadata: {
+          options: ['Acme'],
+          allow_multiple: false,
+        },
       },
     ]);
-    expect(request.alreadyMapped).toEqual(['email']);
+    expect(request.alreadyMapped).toEqual(['contact::email']);
     expect(request.pendingFieldKeys).toEqual(['id:field-2']);
+    expect(request.draftFields).toEqual([
+      {
+        id: 'field-2',
+        label: 'Company Name',
+        field_type: 'text',
+        required: true,
+        position: 2,
+        metadata: {
+          options: ['Acme'],
+          allow_multiple: false,
+        },
+      },
+      {
+        id: 'section-1',
+        label: 'Business Details',
+        field_type: 'section',
+        required: false,
+        position: 3,
+      },
+    ]);
+    expect(request.totalUnmappedCount).toBe(1);
+    expect(request.allUnmappedFieldIds).toEqual(['field-2']);
+  });
+
+  it('excludes custom mappings from the already-mapped AI request payload', () => {
+    const request = buildAiAutoMapRequest(
+      [
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'text',
+            label: 'Legal Name',
+            metadata: {},
+          },
+          index: 0,
+        },
+      ],
+      {
+        'id:field-1': {
+          hubspot: {
+            type: 'custom',
+            object_type: 'company',
+            property_name: 'company::legal_name',
+          },
+        },
+      },
+      'hubspot',
+      { 'field-1': 'id:field-1' },
+    );
+
+    expect(request.alreadyMapped).toEqual([]);
+    expect(request.totalUnmappedCount).toBe(0);
+    expect(request.allUnmappedFieldIds).toEqual([]);
+  });
+
+  it('limits AI requests to a smaller batch while preserving layout context in original order', () => {
+    const request = buildAiAutoMapRequest(
+      [
+        {
+          field: {
+            id: 'section-1',
+            field_type: 'section',
+            label: 'Business Details',
+            metadata: {},
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'text',
+            label: 'Legal Name',
+            metadata: {},
+          },
+          index: 1,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'text',
+            label: 'Registration Number',
+            metadata: {},
+          },
+          index: 2,
+        },
+        {
+          field: {
+            id: 'field-3',
+            field_type: 'text',
+            label: 'Website',
+            metadata: {},
+          },
+          index: 3,
+        },
+      ],
+      hydrateCrmMappingDraft([
+        {
+          field: {
+            id: 'section-1',
+            field_type: 'section',
+            label: 'Business Details',
+            metadata: {},
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'text',
+            label: 'Legal Name',
+            metadata: {},
+          },
+          index: 1,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'text',
+            label: 'Registration Number',
+            metadata: {},
+          },
+          index: 2,
+        },
+        {
+          field: {
+            id: 'field-3',
+            field_type: 'text',
+            label: 'Website',
+            metadata: {},
+          },
+          index: 3,
+        },
+      ]),
+      'hubspot',
+      {
+        'field-1': 'id:field-1',
+        'field-2': 'id:field-2',
+        'field-3': 'id:field-3',
+      },
+      { batchSize: 2 },
+    );
+
+    expect(request.unmappedFields.map((field) => field.id)).toEqual(['field-1', 'field-2']);
+    expect(request.draftFields.map((field) => field.id)).toEqual(['section-1', 'field-1', 'field-2']);
+    expect(request.totalUnmappedCount).toBe(3);
+    expect(request.allUnmappedFieldIds).toEqual(['field-1', 'field-2', 'field-3']);
+  });
+
+  it('builds a targeted AI batch for specific remaining field ids', () => {
+    const request = buildAiAutoMapRequest(
+      [
+        {
+          field: {
+            id: 'section-1',
+            field_type: 'section',
+            label: 'Business Details',
+            metadata: {},
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'text',
+            label: 'Legal Name',
+            metadata: {},
+          },
+          index: 1,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'text',
+            label: 'Registration Number',
+            metadata: {},
+          },
+          index: 2,
+        },
+      ],
+      {},
+      'hubspot',
+      {
+        'field-1': 'id:field-1',
+        'field-2': 'id:field-2',
+      },
+      { fieldIds: ['field-2'] },
+    );
+
+    expect(request.unmappedFields.map((field) => field.id)).toEqual(['field-2']);
+    expect(request.pendingFieldKeys).toEqual(['id:field-2']);
+    expect(request.draftFields.map((field) => field.id)).toEqual(['section-1', 'field-2']);
+    expect(request.totalUnmappedCount).toBe(2);
+    expect(request.allUnmappedFieldIds).toEqual(['field-1', 'field-2']);
   });
 
   it('builds provider unmapped counts and AI loading key sets', () => {
@@ -397,7 +650,20 @@ describe('crm-mapping-modal helpers', () => {
       },
       normalized['id:42'],
     )).toBe(true);
-    expect(getAiAutoMapErrorMessage('rate_limited')).toBe('AI auto-map limit reached for today. Please try again tomorrow.');
+    expect(aiSuggestionMatchesCrmMapping(
+      {
+        type: 'custom',
+        object_type: 'company',
+        property_name: 'company::legal_name',
+      },
+      {
+        object_type: 'company',
+        property_name: null,
+        confidence: 'medium',
+        suggest_custom: true,
+        suggested_custom_name: 'legal_name',
+      },
+    )).toBe(true);
     expect(getAiAutoMapErrorMessage('unknown_error')).toBe('AI auto-map failed. Please try again.');
   });
 
@@ -413,6 +679,156 @@ describe('crm-mapping-modal helpers', () => {
   });
 
   it('skips custom-only AI suggestions that do not target an existing property', () => {
+    const resolved = resolveDuplicateCrmExportKeys([
+      {
+        id: 'section-1',
+        label: 'KYC',
+        field_type: 'section',
+        required: false,
+        position: 1,
+        metadata: {},
+      },
+      {
+        id: 'field-1',
+        label: 'Phone Number',
+        field_type: 'text',
+        required: false,
+        position: 2,
+        metadata: {
+          export_key: 'phone_number',
+          crm_mapping: {
+            hubspot: {
+              type: 'existing',
+              object_type: 'contact',
+              property_name: 'contact::phone',
+            },
+          },
+        },
+      },
+      {
+        id: 'section-2',
+        label: 'KYB',
+        field_type: 'section',
+        required: false,
+        position: 3,
+        metadata: {},
+      },
+      {
+        id: 'field-2',
+        label: 'Phone Number',
+        field_type: 'text',
+        required: false,
+        position: 4,
+        metadata: {
+          export_key: 'phone_number',
+          crm_mapping: {
+            hubspot: {
+              type: 'existing',
+              object_type: 'contact',
+              property_name: 'contact::mobilephone',
+            },
+          },
+        },
+      },
+    ]);
+
+    expect(resolved[1].metadata!.export_key).toBe('phone_number_kyc');
+    expect(resolved[3].metadata!.export_key).toBe('phone_number_kyb');
+  });
+
+  it('falls back to numeric suffixes when duplicate CRM export keys stay in the same section scope', () => {
+    const resolved = resolveDuplicateCrmExportKeys([
+      {
+        id: 'section-1',
+        label: 'KYC',
+        field_type: 'section',
+        required: false,
+        position: 1,
+        metadata: {},
+      },
+      {
+        id: 'field-1',
+        label: 'Phone Number',
+        field_type: 'text',
+        required: false,
+        position: 2,
+        metadata: {
+          export_key: 'phone_number',
+          crm_mapping: {
+            hubspot: {
+              type: 'custom',
+              object_type: 'contact',
+              property_name: 'contact::phone_number',
+            },
+          },
+        },
+      },
+      {
+        id: 'field-2',
+        label: 'Phone Number',
+        field_type: 'text',
+        required: false,
+        position: 3,
+        metadata: {
+          export_key: 'phone_number',
+          crm_mapping: {
+            hubspot: {
+              type: 'custom',
+              object_type: 'contact',
+              property_name: 'contact::phone_number_secondary',
+            },
+          },
+        },
+      },
+    ]);
+
+    expect(resolved[1].metadata!.export_key).toBe('phone_number_kyc');
+    expect(resolved[2].metadata!.export_key).toBe('phone_number_kyc_2');
+  });
+
+  it('keeps same export keys across different CRM object scopes', () => {
+    const resolved = resolveDuplicateCrmExportKeys([
+      {
+        id: 'field-1',
+        label: 'Name',
+        field_type: 'text',
+        required: false,
+        position: 1,
+        metadata: {
+          export_key: 'name',
+          crm_mapping: {
+            hubspot: {
+              type: 'existing',
+              object_type: 'contact',
+              property_name: 'contact::firstname',
+            },
+          },
+        },
+      },
+      {
+        id: 'field-2',
+        label: 'Name',
+        field_type: 'text',
+        required: false,
+        position: 2,
+        metadata: {
+          export_key: 'name',
+          crm_mapping: {
+            hubspot: {
+              type: 'existing',
+              object_type: 'company',
+              property_name: 'company::name',
+            },
+          },
+        },
+      },
+    ]);
+
+    expect(resolved[0].metadata!.export_key).toBe('name');
+    expect(resolved[1].metadata!.export_key).toBe('name');
+  });
+
+  it('serializes custom-only AI suggestions into a stable custom export key', () => {
     const merged = mergeAiSuggestionsDraft(
       {},
       {},
@@ -429,8 +845,41 @@ describe('crm-mapping-modal helpers', () => {
       { '42': 'id:42' },
     );
 
-    expect(merged.mappings['id:42']).toBeUndefined();
-    expect(merged.exportKeyOverrides['id:42']).toBeUndefined();
+    expect(merged.mappings['id:42'].hubspot).toEqual({
+      type: 'custom',
+      object_type: 'company',
+      property_name: 'company::registration_number',
+    });
+    expect(merged.exportKeyOverrides['id:42']).toBe('registration_number');
+  });
+
+  it('deduplicates custom AI property names within the same provider scope', () => {
+    const merged = mergeAiSuggestionsDraft(
+      {
+        'id:41': {
+          hubspot: {
+            type: 'custom',
+            object_type: 'company',
+            property_name: 'company::registration_number',
+          },
+        },
+      },
+      {},
+      {
+        '42': {
+          object_type: 'company',
+          property_name: null,
+          confidence: 'medium',
+          suggest_custom: true,
+          suggested_custom_name: 'registration_number',
+        },
+      },
+      'hubspot',
+      { '42': 'id:42' },
+    );
+
+    expect(merged.mappings['id:42'].hubspot.property_name).toBe('company::registration_number_2');
+    expect(merged.exportKeyOverrides['id:42']).toBe('registration_number_2');
   });
 
   it('serializes the draft back onto field metadata', () => {
@@ -470,5 +919,28 @@ describe('crm-mapping-modal helpers', () => {
     expect(updated[0].metadata!.export_key).toBe('email');
     expect(updated[0].metadata!.options).toEqual(['One', 'Two']);
     expect(selection['id:42'].hubspot.read_only).toBe(true);
+  });
+
+  it('assigns a usable default property name when a manual custom mapping is selected', () => {
+    const selection = applyCrmMappingSelection(
+      {},
+      'id:42',
+      'hubspot',
+      '__custom_company__',
+      {},
+      {
+        id: 42,
+        field_type: 'text',
+        label: 'Registration Number',
+        metadata: {},
+      },
+      0,
+    );
+
+    expect(selection['id:42'].hubspot).toEqual({
+      type: 'custom',
+      object_type: 'company',
+      property_name: 'company::registration_number',
+    });
   });
 });

@@ -1,6 +1,9 @@
 class FormsController < ApplicationController
 
+  CRM_PROPERTY_SUPPORTED_PROVIDERS = %w[hubspot].freeze
+
   before_action :authorize_subscription
+  before_action :authorize_crm_access!, only: :test_crm_mapping
 
   def index
     forms = current_user ? FormSerializer.collection(current_user.forms.order(created_at: :desc)) : []
@@ -25,7 +28,13 @@ class FormsController < ApplicationController
   end
 
   def create
-    FormService.create_form(current_user, form_params.to_h)
+    current_params = form_params.to_h.deep_stringify_keys
+    custom_mappings = normalize_custom_crm_mappings!(current_params)
+    authorize_crm_access! if custom_mappings.any?
+
+    FormService.create_form(current_user, current_params)
+    CrmPropertyCreationJob.perform_later(current_user.id, custom_mappings) if custom_mappings.any?
+
     redirect_to forms_path, status: :see_other
   rescue FormService::DuplicateExportKeysError => e
     error_messages = [ "Export mapping keys must be unique. Duplicate keys: #{e.duplicate_keys.join(', ')}" ]
@@ -132,34 +141,9 @@ def duplicate
     form = current_user.forms.find(params[:id])
 
     # Store the parameters locally so we can mutate them
-    current_params = form_params.to_h
-
-    # Check for requested custom CRM properties
-    custom_mappings = []
-    (current_params.dig(:structure, :fields) || current_params.dig("structure", "fields") || []).each do |f|
-      crm_mapping = (f[:metadata] || f["metadata"])&.dig("crm_mapping") || {}
-      crm_mapping.each do |provider, mapping|
-        if mapping["type"] == "custom"
-          # Generate a safe property name if blank
-          raw_prop_name = mapping["property_name"].presence
-          # Strip compound key prefix if present, then fall back to label
-          raw_prop_name = Crm::KeyParser.property_name(raw_prop_name) if raw_prop_name.present? && Crm::KeyParser.compound?(raw_prop_name)
-          prop_name = raw_prop_name.presence || (f["label"] || f[:label]).to_s.downcase.gsub(/[^a-z0-9_]/, "_")
-          obj_type = mapping["object_type"] || "contact"
-          # Store compound key as property_name for disambiguation
-          mapping["property_name"] = Crm::KeyParser.build(obj_type, prop_name)
-          custom_mappings << {
-            provider: provider,
-            label: (f["label"] || f[:label]),
-            property_name: prop_name,
-            object_type: obj_type,
-            field_type: (f["field_type"] || f[:field_type]).to_s,
-            options: f["options"] || f[:options] || [],
-            allow_multiple: f["allow_multiple"] || f[:allow_multiple]
-          }
-        end
-      end
-    end
+    current_params = form_params.to_h.deep_stringify_keys
+    custom_mappings = normalize_custom_crm_mappings!(current_params)
+    authorize_crm_access! if custom_mappings.any?
 
     # Call update_form exactly once with the potentially mutated parameters
     FormService.update_form(current_user, form, current_params)
@@ -245,8 +229,8 @@ def duplicate
       begin
         service = Crm::Hubspot::PropertiesService.new(current_user)
         properties[:hubspot] = {
-          contact: service.list_properties(object_type: 'contact'),
-          company: service.list_properties(object_type: 'company')
+          contact: service.list_properties(object_type: "contact"),
+          company: service.list_properties(object_type: "company")
         }
       rescue StandardError => e
         Rails.logger.error("[FormsController#crm_properties] #{e.message}")
@@ -260,7 +244,9 @@ def duplicate
   def active_crm_providers
     return [] unless Crm::Entitlement.new(current_user).allowed?
 
-    current_user.crm_connections.active.distinct.pluck(:provider)
+    current_user.crm_connections.active.distinct.pluck(:provider).select do |provider|
+      CRM_PROPERTY_SUPPORTED_PROVIDERS.include?(provider)
+    end
   end
 
   def form_editor_props(extra_props = {})
@@ -279,6 +265,41 @@ def duplicate
         fields: [ :id, :label, :field_type, :required, :position, :allow_multiple, { options: [] }, { metadata: {} } ]
       }
     )
+  end
+
+  def normalize_custom_crm_mappings!(form_attributes)
+    fields = form_attributes.dig("structure", "fields") || []
+
+    fields.each_with_index.with_object([]) do |(field, index), custom_mappings|
+      metadata = field["metadata"] ||= {}
+      crm_mapping = metadata["crm_mapping"]
+      next unless crm_mapping.is_a?(Hash)
+
+      crm_mapping.each do |provider, mapping|
+        next unless mapping.is_a?(Hash)
+        next unless mapping["type"] == "custom"
+
+        object_type = mapping["object_type"].to_s.presence || "contact"
+        raw_property_name = mapping["property_name"].to_s.presence
+        raw_property_name = Crm::KeyParser.property_name(raw_property_name) if raw_property_name.present? && Crm::KeyParser.compound?(raw_property_name)
+
+        fallback_label = field["label"].to_s.presence || "field_#{index + 1}"
+        property_name = raw_property_name.presence || fallback_label.parameterize(separator: "_")
+
+        mapping["object_type"] = object_type
+        mapping["property_name"] = Crm::KeyParser.build(object_type, property_name)
+
+        custom_mappings << {
+          provider: provider.to_s,
+          label: fallback_label,
+          property_name: property_name,
+          object_type: object_type,
+          field_type: field["field_type"].to_s,
+          options: Array(metadata["options"]),
+          allow_multiple: ActiveModel::Type::Boolean.new.cast(metadata["allow_multiple"])
+        }
+      end
+    end.uniq { |mapping| [ mapping[:provider], mapping[:object_type], mapping[:property_name] ] }
   end
 
 end

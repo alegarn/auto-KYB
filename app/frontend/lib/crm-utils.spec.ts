@@ -191,6 +191,24 @@ describe('autoMapFields', () => {
     expect(result['draft:0'].hubspot.object_type).toBe('company');
   });
 
+  it('maps persisted numeric ids using the shared state key format', () => {
+    const fields = [{ id: 42, label: 'First Name', field_type: 'text', metadata: {} }];
+    const result = autoMapFields(fields, mockProperties);
+
+    expect(result['42'].hubspot.property_name).toBe('contact::firstname');
+  });
+
+  it('ignores layout fields during legacy auto-map', () => {
+    const fields = [
+      { id: 'section-1', label: 'Identity', field_type: 'section', metadata: {} },
+      { id: 'field-1', label: 'Email', field_type: 'text', metadata: {} },
+    ];
+    const result = autoMapFields(fields, mockProperties);
+
+    expect(result['section-1']).toBeUndefined();
+    expect(result['field-1'].hubspot.property_name).toBe('contact::email');
+  });
+
   it('maps company name fields to the company name property even when the CRM label is generic', () => {
     const fields = [{ id: '1', label: 'Company name', field_type: 'text', metadata: {} }];
     const genericCompanyProps = {
