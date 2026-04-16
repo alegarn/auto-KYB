@@ -1,5 +1,7 @@
 export type DataType = 'string' | 'number' | 'boolean' | 'date' | 'file' | 'json' | 'single_choice' | 'multi_choice' | 'unknown';
 
+const LAYOUT_FIELD_TYPES = new Set(['section', 'subtitle', 'static_text', 'separator', 'logo']);
+
 // ── Compound Key Helpers ────────────────────────────────────────────
 // A compound key encodes both CRM object type and raw property name
 // into a single string: "company::address", "contact::email", etc.
@@ -343,8 +345,9 @@ export function autoMapFields(
   const newMappings: Record<string, Record<string, any>> = {};
 
   fields.forEach((field, index) => {
-    const rawFieldId = field?.id;
-    const fieldId = (rawFieldId && typeof rawFieldId === 'string') ? rawFieldId : `draft:${index}`;
+    if (LAYOUT_FIELD_TYPES.has(String(field?.field_type || ''))) return;
+
+    const fieldId = getFieldIdentityKey(field || {}, index);
 
     const fieldLabel = String(field.label || fieldId || '').toLowerCase();
     const fieldLabelNorm = normalizeForMatch(field.label || fieldId || '');

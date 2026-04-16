@@ -19,6 +19,13 @@ export interface AiAutoMapFieldInput {
   id: string | number;
   label: string;
   field_type: string;
+  required?: boolean;
+  position?: number;
+  metadata?: {
+    export_key?: string;
+    allow_multiple?: boolean;
+    options?: string[];
+  };
 }
 
 export async function requestAiAutoMap(
@@ -26,6 +33,7 @@ export async function requestAiAutoMap(
   provider: string,
   unmappedFields: AiAutoMapFieldInput[],
   alreadyMapped: string[],
+  draftFields: AiAutoMapFieldInput[] = unmappedFields,
   signal?: AbortSignal,
 ): Promise<AiAutoMapResult> {
   const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content || '';
@@ -41,6 +49,7 @@ export async function requestAiAutoMap(
       provider,
       unmapped_fields: unmappedFields,
       already_mapped: alreadyMapped,
+      draft_fields: draftFields,
     }),
     signal,
   });

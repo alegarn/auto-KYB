@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select/index.js";
   import { ChevronsUpDown, Loader2, Search } from "@lucide/svelte";
   import { cn } from "../../lib/utils";
@@ -13,7 +14,6 @@
     buildAiLoadingFieldKeySets,
     buildCrmMappingFieldLookup,
     buildCrmUnmappedCounts,
-    countAvailableWritableCrmProperties,
     filterCrmProperties,
     getAiAutoMapErrorMessage,
     getCrmMappingFieldStateKey,
@@ -52,19 +52,18 @@
   let aiErrors = $state<Record<string, string | null>>({});
   let hasHydratedForOpen = $state(false);
   const aiRequestControllers = new Map<string, AbortController>();
-  const dataFields = $derived(fields.map((field, index) => ({ field, index })).filter(({ field }) => !isLayoutField(field.field_type)));
+  const indexedFields = $derived(fields.map((field, index) => ({ field, index })));
+  const dataFields = $derived(indexedFields.filter(({ field }) => !isLayoutField(field.field_type)));
   const fieldIdToStateKey = $derived(buildCrmMappingFieldLookup(dataFields));
   let unmappedCounts = $derived.by(() => buildCrmUnmappedCounts(Object.keys(crmProperties), dataFields, mappings));
-  let aiAvailablePropertyCounts = $derived.by(() => {
-    const result: Record<string, number> = {};
-
-    for (const [provider, providerProperties] of Object.entries(crmProperties)) {
-      result[provider] = countAvailableWritableCrmProperties(providerProperties, mappings, provider);
-    }
-
-    return result;
-  });
   let aiLoadingFieldKeys = $derived.by(() => buildAiLoadingFieldKeySets(aiPendingFieldKeys));
+
+  onDestroy(() => {
+    for (const controller of aiRequestControllers.values()) {
+      controller.abort();
+    }
+    aiRequestControllers.clear();
+  });
 
   $effect(() => {
     if (!open) {
@@ -120,10 +119,9 @@
 
   async function handleAiAutoMap(provider: string) {
     if (!form?.id || aiLoading[provider]) return;
-    if ((aiAvailablePropertyCounts[provider] || 0) === 0) return;
 
-    const { unmappedFields, alreadyMapped, pendingFieldKeys } = buildAiAutoMapRequest(
-      dataFields,
+    const { unmappedFields, alreadyMapped, pendingFieldKeys, draftFields } = buildAiAutoMapRequest(
+      indexedFields,
       mappings,
       provider,
       fieldIdToStateKey,
@@ -143,7 +141,7 @@
     aiRequestControllers.set(provider, controller);
 
     try {
-      const result = await requestAiAutoMap(form.id, provider, unmappedFields, alreadyMapped, controller.signal);
+      const result = await requestAiAutoMap(form.id, provider, unmappedFields, alreadyMapped, draftFields, controller.signal);
       if (!open || aiRequestControllers.get(provider) !== controller) return;
 
       const merged = mergeAiSuggestionsDraft(
@@ -203,8 +201,8 @@
     optionsOverrides = applyCrmOptionsSync(optionsOverrides, fieldKey, crmOptions);
   }
 
-  function updateMapping(fieldKey: string, provider: string, value: string, providerProperties: any) {
-    mappings = applyCrmMappingSelection(mappings, fieldKey, provider, value, providerProperties);
+  function updateMapping(fieldKey: string, provider: string, value: string, providerProperties: any, field: any, index: number) {
+    mappings = applyCrmMappingSelection(mappings, fieldKey, provider, value, providerProperties, field, index);
   }
 
   let summaries = $derived.by(() => {
@@ -255,7 +253,7 @@
             <div class="mb-8" data-provider={provider}>
               <div class="mb-4 flex items-center justify-between gap-3">
                 <h3 class="text-lg font-medium capitalize">{provider} Integration</h3>
-                {#if unmappedCounts[provider] > 0 && (aiAvailablePropertyCounts[provider] || 0) > 0}
+                {#if form?.id && unmappedCounts[provider] > 0}
                   <button
                     type="button"
                     data-testid={`ai-auto-map-${provider}`}
@@ -359,6 +357,7 @@
                         {@const suggestion = getAiSuggestion(provider, fieldKey)}
                         {@const showAiBadge = aiSuggestionMatchesCrmMapping(mapping, suggestion)}
                         {@const showCustomSuggestion = !mapping && suggestion?.suggest_custom && !suggestion?.property_name}
+                        {@const customPropertyName = mapping?.type === 'custom' ? rawPropName : ''}
                         {@const isAiLoadingField = aiLoadingFieldKeys[provider]?.has(fieldKey)}
                         {@const selectedProp = mapping?.type === 'existing' 
                           ? (properties[mapping.object_type] || []).find((p: any) => p.name === rawPropName) 
@@ -396,7 +395,7 @@
                               <Select
                                 type="single"
                                 value={currentValue || undefined}
-                                onValueChange={(value) => updateMapping(fieldKey, provider, value, properties)}
+                                onValueChange={(value) => updateMapping(fieldKey, provider, value, properties, field, index)}
                                 onOpenChange={(isOpen: boolean) => { if (!isOpen) fieldSearch[`${fieldKey}-${provider}`] = ''; }}
                               >
                                 <SelectTrigger
@@ -406,8 +405,8 @@
                                   )}
                                   data-testid={`crm-mapping-select-${fieldKey}-${provider}`}
                                 >
-                                  {#if currentValue === "__custom_contact__"}
-                                    + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
+                                  {#if currentValue === "__custom_contact__" || currentValue === "__custom_company__"}
+                                    + Create as Custom {getCrmObjectLabel(provider, mapping?.object_type || (currentValue === '__custom_company__' ? 'company' : 'contact'))} Property
                                   {:else if selectedFileAction}
                                     {selectedFileAction.label}
                                   {:else}
@@ -445,6 +444,13 @@
                                       data-slot="select-item"
                                     >
                                       + Create as Custom {getCrmObjectLabel(provider, 'contact')} Property
+                                    </SelectItem>
+                                    <SelectItem
+                                      value="__custom_company__"
+                                      class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm font-semibold text-blue-600 outline-none focus:bg-blue-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                      data-slot="select-item"
+                                    >
+                                      + Create as Custom {getCrmObjectLabel(provider, 'company')} Property
                                     </SelectItem>
                                     
                                     {#if getFieldDataType(field) === 'file' && providerFileActions.length > 0}
@@ -500,6 +506,15 @@
                                   data-testid={`ai-loading-${fieldKey}-${provider}`}
                                   class="h-8 rounded-md border border-sky-100 bg-sky-50 animate-pulse"
                                 ></div>
+                              {/if}
+
+                              {#if customPropertyName}
+                                <p
+                                  data-testid={`custom-property-${fieldKey}-${provider}`}
+                                  class="text-xs text-amber-600 font-medium"
+                                >
+                                  Custom property: <span class="font-mono">{customPropertyName}</span>
+                                </p>
                               {/if}
 
                               {#if showCustomSuggestion}

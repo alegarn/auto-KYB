@@ -283,7 +283,7 @@ describe('CrmMappingModal', () => {
     expect(screen.getByTestId('ai-auto-map-hubspot')).toBeInTheDocument();
   });
 
-  it('hides the AI auto-map button when the provider only has read-only properties', () => {
+  it('keeps the AI auto-map button available when the provider only has read-only properties so custom suggestions can still be applied', () => {
     render(CrmMappingModal, {
       props: {
         ...defaultProps,
@@ -299,10 +299,10 @@ describe('CrmMappingModal', () => {
       }
     });
 
-    expect(screen.queryByTestId('ai-auto-map-hubspot')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ai-auto-map-hubspot')).toBeInTheDocument();
   });
 
-  it('hides the AI auto-map button when all writable provider properties are already mapped', () => {
+  it('keeps the AI auto-map button available when all writable provider properties are already mapped so AI can fall back to custom properties', () => {
     render(CrmMappingModal, {
       props: {
         ...defaultProps,
@@ -341,6 +341,18 @@ describe('CrmMappingModal', () => {
             metadata: {},
           },
         ],
+      }
+    });
+
+    expect(screen.getByTestId('ai-auto-map-hubspot')).toBeInTheDocument();
+  });
+
+  it('hides the AI auto-map button until the form has been saved', () => {
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        form: {},
+        onsave: vi.fn(),
       }
     });
 
@@ -399,6 +411,18 @@ describe('CrmMappingModal', () => {
 
     await user.click(screen.getByTestId('ai-auto-map-hubspot'));
 
+    expect(requestAiAutoMapMock).toHaveBeenCalledWith(
+      '42',
+      'hubspot',
+      expect.any(Array),
+      [],
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'f1', label: 'Company Name', field_type: 'text' }),
+        expect.objectContaining({ id: 'f2', label: 'Is Active', field_type: 'checkbox' }),
+      ]),
+      expect.any(AbortSignal),
+    );
+
     await waitFor(() => expect(screen.getByTestId('ai-badge-id:f1-hubspot')).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
@@ -416,7 +440,7 @@ describe('CrmMappingModal', () => {
 
   it('shows an inline error message when AI auto-map fails', async () => {
     const user = userEvent.setup();
-    requestAiAutoMapMock.mockRejectedValueOnce(new Error('rate_limited'));
+    requestAiAutoMapMock.mockRejectedValueOnce(new Error('ai_auto_map_failed'));
 
     render(CrmMappingModal, {
       props: {
@@ -428,12 +452,13 @@ describe('CrmMappingModal', () => {
     await user.click(screen.getByTestId('ai-auto-map-hubspot'));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('AI auto-map limit reached for today. Please try again tomorrow.');
+      expect(screen.getByRole('alert')).toHaveTextContent('AI auto-map failed. Please try again.');
     });
   });
 
-  it('shows custom-property guidance for custom-only AI suggestions', async () => {
+  it('applies custom-only AI suggestions as real CRM mappings and saves them', async () => {
     const user = userEvent.setup();
+    const onsave = vi.fn();
     requestAiAutoMapMock.mockResolvedValueOnce({
       suggestions: {
         f1: {
@@ -452,15 +477,27 @@ describe('CrmMappingModal', () => {
     render(CrmMappingModal, {
       props: {
         ...defaultProps,
-        onsave: vi.fn(),
+        onsave,
       }
     });
 
     await user.click(screen.getByTestId('ai-auto-map-hubspot'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('ai-custom-suggestion-id:f1-hubspot')).toHaveTextContent('legal_name');
+      expect(screen.getByTestId('custom-property-id:f1-hubspot')).toHaveTextContent('legal_name');
     });
+
+    await user.click(screen.getByRole('button', { name: /save mapping/i }));
+
+    const savedFields = onsave.mock.calls[0][0].fields;
+    expect(savedFields[0].metadata.crm_mapping.hubspot).toEqual(
+      expect.objectContaining({
+        type: 'custom',
+        object_type: 'company',
+        property_name: 'company::legal_name',
+      }),
+    );
+    expect(savedFields[0].metadata.export_key).toBe('legal_name');
   });
 
   it('ignores stale AI responses after the modal closes and reopens', async () => {

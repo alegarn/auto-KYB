@@ -40,9 +40,15 @@
   const canUseCrm = $derived(crmAllowed(sharedAuth))
   const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
   const hasUnmappedCrmFields = $derived(unmappedFields.length > 0)
+  const hasServerValidationErrors = $derived(
+    !!serverError
+      || (Array.isArray(serverErrors) ? serverErrors.length > 0 : !!(serverErrors && Object.keys(serverErrors).length > 0))
+  )
 
   // Sync state with props
   $effect(() => {
+    if (hasServerValidationErrors) return
+
     name = initial?.name || "";
     fields = (initial?.form_fields || []).map((f: any, i: number) => ({
       id: f.id,
@@ -292,7 +298,7 @@
         Preview
       </button>
     </div>
-    {#if canUseCrm}
+    {#if activeCrmProviders.length > 0 && canUseCrm}
       <Button type="button" variant="outline" size="sm" onclick={openCrmMapping}> 🔌 CRM Sync Settings</Button>
     {/if}
   </div>
@@ -394,7 +400,6 @@
     onsave={({ fields: updatedFields }: { fields: FormField[] }) => {
       fields = updatedFields;
       closeCrmMapping();
-      handleSubmit();
     }}
     ontestcrm={sendTestCrmData}
     {testingCrm}

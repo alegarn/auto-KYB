@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe 'Forms Requests (CRM Mapping)', type: :request do
   include ActiveJob::TestHelper
 
-  let(:user) { sign_in_user }
+  let(:user) { sign_in_user(create(:user, :subscribed, plan: :pro)) }
   let(:session_id) { user.sessions.last.id }
   let(:headers) { { 'Cookie' => "session_token=#{session_id}" } }
   let(:form) do
@@ -76,6 +76,23 @@ RSpec.describe 'Forms Requests (CRM Mapping)', type: :request do
       json = JSON.parse(response.body)
       expect(json['success']).to be true
       expect(service_mock).to have_received(:export_data)
+    end
+
+    it 'returns 403 when the user is not CRM-plan eligible' do
+      basic_user = sign_in_user(create(:user, :subscribed, plan: :basic))
+      basic_form = FormService.create_form(basic_user, {
+        name: 'Basic CRM Mapping Test Form',
+        structure: {
+          fields: [
+            { label: 'Company Name', field_type: 'text' }
+          ]
+        }
+      })
+
+      post "/forms/#{basic_form.id}/test_crm_mapping", params: { fields: [] }, headers: { 'Cookie' => "session_token=#{basic_user.sessions.last.id}" }, as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(JSON.parse(response.body)).to include('error' => 'plan_insufficient')
     end
   end
 end

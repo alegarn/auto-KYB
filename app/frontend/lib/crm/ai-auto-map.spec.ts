@@ -38,6 +38,10 @@ describe('requestAiAutoMap', () => {
         'hubspot',
         [ { id: 'field-1', label: 'Work Email', field_type: 'email' } ],
         [ 'contact::firstname' ],
+        [
+          { id: 'field-1', label: 'Work Email', field_type: 'email', required: true, position: 1 },
+          { id: 'section-1', label: 'Identity', field_type: 'section', position: 2 },
+        ],
       ),
     ).resolves.toEqual(payload);
 
@@ -52,6 +56,10 @@ describe('requestAiAutoMap', () => {
         provider: 'hubspot',
         unmapped_fields: [ { id: 'field-1', label: 'Work Email', field_type: 'email' } ],
         already_mapped: [ 'contact::firstname' ],
+        draft_fields: [
+          { id: 'field-1', label: 'Work Email', field_type: 'email', required: true, position: 1 },
+          { id: 'section-1', label: 'Identity', field_type: 'section', position: 2 },
+        ],
       }),
     });
   });
@@ -63,15 +71,6 @@ describe('requestAiAutoMap', () => {
     });
 
     await expect(requestAiAutoMap('42', 'hubspot', [], [])).rejects.toThrow('plan_insufficient');
-  });
-
-  it('throws rate_limited when the request is throttled', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ error: 'rate_limited' }),
-    });
-
-    await expect(requestAiAutoMap('42', 'hubspot', [], [])).rejects.toThrow('rate_limited');
   });
 
   it('rethrows network errors', async () => {

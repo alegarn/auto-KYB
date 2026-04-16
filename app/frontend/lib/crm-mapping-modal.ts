@@ -3,6 +3,8 @@ import { isHubSpotCompatible } from './crm/hubspot-compat';
 
 import { areTypesCompatible, fromCrmKey, getFieldIdentityKey, toCrmKey } from './crm-utils';
 
+const LAYOUT_FIELD_TYPES = new Set(['section', 'subtitle', 'static_text', 'separator', 'logo']);
+
 export type CrmMappingValue = {
   type: 'custom' | 'existing';
   object_type: string;
@@ -43,18 +45,33 @@ export interface CrmAiAutoMapField {
   id: string;
   label: string;
   field_type: string;
+  required?: boolean;
+  position?: number;
+  metadata?: {
+    export_key?: string;
+    allow_multiple?: boolean;
+    options?: string[];
+  };
 }
 
 export interface CrmAiAutoMapRequest {
   unmappedFields: CrmAiAutoMapField[];
   alreadyMapped: string[];
   pendingFieldKeys: string[];
+  draftFields: CrmAiAutoMapField[];
 }
 
 export interface CrmMappingDraftState {
   mappings: CrmMappings;
   exportKeyOverrides: CrmExportKeyOverrides;
   optionsOverrides: CrmOptionsOverrides;
+}
+
+interface DuplicateExportKeyEntry {
+  field: CrmMappingField;
+  index: number;
+  baseKey: string;
+  scope: string;
 }
 
 export function countAvailableWritableCrmProperties(
@@ -211,22 +228,23 @@ export function buildAiAutoMapRequest(
   provider: string,
   fieldIdToStateKey: Record<string, string>,
 ): CrmAiAutoMapRequest {
+  const draftFields = fields.map(({ field, index }) => buildAiAutoMapField(field, index));
   const unmappedFields = fields
+    .filter(({ field }) => !isLayoutFieldType(field.field_type))
     .filter(({ field, index }) => !mappings[getCrmMappingFieldStateKey(field, index)]?.[provider])
-    .map(({ field, index }) => ({
-      id: getFieldIdentityKey(field, index),
-      label: field.label || String(field.id ?? `Field ${index + 1}`),
-      field_type: field.field_type,
-    }));
+    .map(({ field, index }) => buildAiAutoMapField(field, index));
 
   const alreadyMapped = Object.values(mappings)
-    .map((providerMap) => getCrmMappingPropertyName(providerMap?.[provider]))
+    .map((providerMap) => providerMap?.[provider])
+    .filter((mapping): mapping is CrmMappingValue => mapping?.type === 'existing' && !!mapping.property_name)
+    .map((mapping) => mapping.property_name)
     .filter((propertyName): propertyName is string => propertyName.length > 0);
 
   return {
     unmappedFields,
     alreadyMapped,
     pendingFieldKeys: unmappedFields.map(({ id }) => fieldIdToStateKey[String(id)] || String(id)),
+    draftFields,
   };
 }
 
@@ -236,6 +254,8 @@ export function applyCrmMappingSelection(
   provider: string,
   value: string,
   providerProperties: Record<string, Array<{ name?: string; read_only?: boolean }>> = {},
+  field?: CrmMappingField,
+  index = 0,
 ): CrmMappings {
   const nextMappings: CrmMappings = Object.fromEntries(
     Object.entries(mappings).map(([existingFieldKey, providerMap]) => [existingFieldKey, { ...providerMap }]),
@@ -246,16 +266,28 @@ export function applyCrmMappingSelection(
   }
 
   if (value === '__custom_contact__') {
+    const propertyName = nextCustomPropertyName(
+      nextMappings,
+      provider,
+      'contact',
+      defaultCustomPropertyName(field, index),
+    );
     nextMappings[fieldKey][provider] = {
       type: 'custom',
       object_type: 'contact',
-      property_name: '',
+      property_name: toCrmKey('contact', propertyName),
     };
   } else if (value === '__custom_company__') {
+    const propertyName = nextCustomPropertyName(
+      nextMappings,
+      provider,
+      'company',
+      defaultCustomPropertyName(field, index),
+    );
     nextMappings[fieldKey][provider] = {
       type: 'custom',
       object_type: 'company',
-      property_name: '',
+      property_name: toCrmKey('company', propertyName),
     };
   } else if (value === '') {
     delete nextMappings[fieldKey][provider];
@@ -343,8 +375,6 @@ export function mergeAiSuggestionsDraft(
   const nextExportKeyOverrides: CrmExportKeyOverrides = { ...exportKeyOverrides };
 
   for (const [rawFieldId, suggestion] of Object.entries(suggestions)) {
-    if (!suggestion.property_name) continue;
-
     const stateKey = fieldIdToStateKey[rawFieldId] || rawFieldId;
 
     if (!nextMappings[stateKey]) {
@@ -352,6 +382,19 @@ export function mergeAiSuggestionsDraft(
     }
 
     if (nextMappings[stateKey][provider]) continue;
+
+    if (suggestion.suggest_custom && !suggestion.property_name && suggestion.suggested_custom_name) {
+      const propertyName = nextCustomPropertyName(nextMappings, provider, suggestion.object_type, suggestion.suggested_custom_name);
+      nextMappings[stateKey][provider] = {
+        type: 'custom',
+        object_type: suggestion.object_type,
+        property_name: toCrmKey(suggestion.object_type, propertyName),
+      };
+      nextExportKeyOverrides[stateKey] = propertyName;
+      continue;
+    }
+
+    if (!suggestion.property_name) continue;
 
     nextMappings[stateKey][provider] = {
       type: 'existing',
@@ -379,8 +422,6 @@ export function normalizeAiSuggestions(
 
 export function getAiAutoMapErrorMessage(error: string): string {
   switch (error) {
-    case 'rate_limited':
-      return 'AI auto-map limit reached for today. Please try again tomorrow.';
     case 'ai_unavailable':
       return 'AI auto-map is temporarily unavailable. You can still use Auto-Map Fields or map fields manually.';
     case 'plan_insufficient':
@@ -396,11 +437,57 @@ export function aiSuggestionMatchesCrmMapping(
   mapping?: CrmMappingValue | null,
   suggestion?: AiSuggestion,
 ): boolean {
-  if (!mapping || !suggestion?.property_name) return false;
+  if (!mapping || !suggestion) return false;
+
+  if (mapping.type === 'custom') {
+    return !!suggestion.suggest_custom
+      && !suggestion.property_name
+      && mapping.object_type === suggestion.object_type
+      && getCrmMappingPropertyName(mapping) === suggestion.suggested_custom_name;
+  }
+
+  if (!suggestion.property_name) return false;
 
   return mapping.type === 'existing'
     && mapping.object_type === suggestion.object_type
     && getCrmMappingPropertyName(mapping) === suggestion.property_name;
+}
+
+export function resolveDuplicateCrmExportKeys(fields: CrmMappingField[]): CrmMappingField[] {
+  const nextFields = fields.map((field) => ({
+    ...field,
+    metadata: { ...(field.metadata || {}) },
+  }));
+  const duplicateGroups = duplicateGroupsFor(nextFields);
+
+  if (duplicateGroups.size === 0) return nextFields;
+
+  const contextCandidatesByIndex = contextCandidatesFor(nextFields);
+  const reservedKeysByScope = reservedKeysFor(nextFields, duplicateGroups);
+
+  duplicateGroups.forEach((entries) => {
+    const reservedKeys = reservedKeysByScope.get(entries[0]?.scope || 'contact') || new Set<string>();
+
+    entries.forEach((entry) => {
+      const contextualRoots = contextCandidatesByIndex[entry.index].map((suffix) => `${entry.baseKey}_${suffix}`);
+      const preferredRoot = contextualRoots[0] || entry.baseKey;
+
+      let selectedKey = preferredRoot;
+      if (reservedKeys.has(normalizeScopedExportKey(selectedKey))) {
+        selectedKey = nextNumericKey(preferredRoot, reservedKeys);
+      }
+
+      reservedKeys.add(normalizeScopedExportKey(selectedKey));
+      nextFields[entry.index].metadata = {
+        ...(nextFields[entry.index].metadata || {}),
+        export_key: selectedKey,
+      };
+    });
+
+    reservedKeysByScope.set(entries[0]?.scope || 'contact', reservedKeys);
+  });
+
+  return nextFields;
 }
 
 export function serializeCrmMappingFields(
@@ -409,7 +496,7 @@ export function serializeCrmMappingFields(
   exportKeyOverrides: CrmExportKeyOverrides,
   optionsOverrides: CrmOptionsOverrides,
 ): CrmMappingField[] {
-  return fields.map((field, index) => {
+  const serializedFields = fields.map((field, index) => {
     const fieldKey = getCrmMappingFieldStateKey(field, index);
     const fieldMapping = mappings[fieldKey];
     const metadata = { ...(field.metadata || {}) };
@@ -433,4 +520,203 @@ export function serializeCrmMappingFields(
       metadata,
     };
   });
+
+  return resolveDuplicateCrmExportKeys(serializedFields);
+}
+
+function duplicateGroupsFor(fields: CrmMappingField[]): Map<string, DuplicateExportKeyEntry[]> {
+  const groupedEntries = new Map<string, DuplicateExportKeyEntry[]>();
+
+  fields.forEach((field, index) => {
+    if (isLayoutFieldType(field.field_type)) return;
+
+    const scope = crmScopeForField(field);
+    const effectiveKey = effectiveExportKeyForField(field, index);
+    const normalizedKey = normalizeScopedExportKey(effectiveKey);
+    if (!normalizedKey) return;
+
+    const groupKey = `${scope}:${normalizedKey}`;
+    const entries = groupedEntries.get(groupKey) || [];
+    entries.push({
+      field,
+      index,
+      baseKey: exportKeyBaseForField(field, index),
+      scope,
+    });
+    groupedEntries.set(groupKey, entries);
+  });
+
+  return new Map(Array.from(groupedEntries.entries()).filter(([, entries]) => entries.length > 1));
+}
+
+function contextCandidatesFor(fields: CrmMappingField[]): Record<number, string[]> {
+  let sectionKey: string | null = null;
+  let subtitleKey: string | null = null;
+
+  return fields.reduce<Record<number, string[]>>((memo, field, index) => {
+    const label = field.label?.toString().trim() || '';
+    switch (field.field_type) {
+      case 'section':
+        sectionKey = slugifyExportKey(label) || null;
+        subtitleKey = null;
+        break;
+      case 'subtitle':
+        subtitleKey = slugifyExportKey(label) || null;
+        break;
+      default:
+        memo[index] = [
+          [sectionKey, subtitleKey].filter(Boolean).join('_'),
+          subtitleKey,
+          sectionKey,
+        ].filter((value, position, array): value is string => !!value && array.indexOf(value) === position);
+        break;
+    }
+
+    return memo;
+  }, {});
+}
+
+function reservedKeysFor(
+  fields: CrmMappingField[],
+  duplicateGroups: Map<string, DuplicateExportKeyEntry[]>,
+): Map<string, Set<string>> {
+  const duplicateKeys = new Set(duplicateGroups.keys());
+  const reservedByScope = new Map<string, Set<string>>();
+
+  fields.forEach((field, index) => {
+    if (isLayoutFieldType(field.field_type)) return;
+
+    const scope = crmScopeForField(field);
+    const normalizedKey = normalizeScopedExportKey(effectiveExportKeyForField(field, index));
+    if (!normalizedKey) return;
+
+    if (duplicateKeys.has(`${scope}:${normalizedKey}`)) return;
+
+    const reservedKeys = reservedByScope.get(scope) || new Set<string>();
+    reservedKeys.add(normalizedKey);
+    reservedByScope.set(scope, reservedKeys);
+  });
+
+  return reservedByScope;
+}
+
+function nextNumericKey(rootKey: string, reservedKeys: Set<string>): string {
+  let suffix = 2;
+
+  while (reservedKeys.has(normalizeScopedExportKey(`${rootKey}_${suffix}`))) {
+    suffix += 1;
+  }
+
+  return `${rootKey}_${suffix}`;
+}
+
+function exportKeyBaseForField(field: CrmMappingField, index: number): string {
+  return slugifyExportKey(effectiveExportKeyForField(field, index)) || `field_${index + 1}`;
+}
+
+function buildAiAutoMapField(field: CrmMappingField, index: number): CrmAiAutoMapField {
+  const metadata = buildAiAutoMapMetadata(field.metadata);
+
+  return {
+    id: getFieldIdentityKey(field, index),
+    label: field.label || String(field.id ?? `Field ${index + 1}`),
+    field_type: field.field_type,
+    required: !!field.required,
+    position: field.position ?? index + 1,
+    ...(metadata ? { metadata } : {}),
+  };
+}
+
+function effectiveExportKeyForField(field: CrmMappingField, index: number): string {
+  const explicit = field.metadata?.export_key?.toString().trim();
+  if (explicit) return explicit;
+
+  const label = field.label?.toString().trim();
+  if (label) return label;
+
+  return `field_${field.id ?? field.position ?? index + 1}`;
+}
+
+function crmScopeForField(field: CrmMappingField): string {
+  const crmMapping = field.metadata?.crm_mapping;
+  if (!crmMapping || typeof crmMapping !== 'object') return 'contact';
+
+  const objectType = Object.values(crmMapping)
+    .map((mapping: any) => mapping?.object_type?.toString().trim())
+    .find((value) => !!value);
+
+  return objectType || 'contact';
+}
+
+function normalizeScopedExportKey(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const normalized = trimmed
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return normalized || trimmed.toLowerCase();
+}
+
+function slugifyExportKey(value: string): string {
+  return normalizeScopedExportKey(value);
+}
+
+function buildAiAutoMapMetadata(metadata?: Record<string, any>): CrmAiAutoMapField['metadata'] | undefined {
+  if (!metadata || typeof metadata !== 'object') return undefined;
+
+  const nextMetadata: NonNullable<CrmAiAutoMapField['metadata']> = {};
+  const exportKey = metadata.export_key?.toString().trim();
+  if (exportKey) {
+    nextMetadata.export_key = exportKey;
+  }
+
+  if (Array.isArray(metadata.options)) {
+    nextMetadata.options = metadata.options.map((option) => String(option));
+  }
+
+  if (metadata.allow_multiple !== undefined) {
+    nextMetadata.allow_multiple = Boolean(metadata.allow_multiple);
+  }
+
+  return Object.keys(nextMetadata).length > 0 ? nextMetadata : undefined;
+}
+
+function nextCustomPropertyName(
+  mappings: CrmMappings,
+  provider: string,
+  objectType: string,
+  suggestedName: string,
+): string {
+  const baseName = slugifyExportKey(suggestedName) || 'custom_field';
+  const usedNames = new Set(
+    Object.values(mappings)
+      .map((providerMap) => providerMap?.[provider])
+      .filter((mapping): mapping is CrmMappingValue => !!mapping && mapping.object_type === objectType)
+      .map((mapping) => getCrmMappingPropertyName(mapping))
+      .filter((name): name is string => name.length > 0),
+  );
+
+  if (!usedNames.has(baseName)) return baseName;
+
+  let suffix = 2;
+  while (usedNames.has(`${baseName}_${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${baseName}_${suffix}`;
+}
+
+function defaultCustomPropertyName(field?: CrmMappingField, index = 0): string {
+  if (!field) return `custom_field_${index + 1}`;
+
+  return slugifyExportKey(effectiveExportKeyForField(field, index)) || `custom_field_${index + 1}`;
+}
+
+function isLayoutFieldType(fieldType?: string | null): boolean {
+  return LAYOUT_FIELD_TYPES.has(String(fieldType || ''));
 }
