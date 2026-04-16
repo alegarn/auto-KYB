@@ -40,8 +40,14 @@ form_imports_discriminator = lambda do |req|
   "#{req.ip}:#{session_token}"
 end
 
+signed_session_token = lambda do |req|
+  ActionDispatch::Request.new(req.env).cookie_jar.signed[:session_token].presence
+rescue StandardError
+  nil
+end
+
 ai_field_suggestions_discriminator = lambda do |req|
-  session_token = req.cookies["session_token"].presence
+  session_token = signed_session_token.call(req) || req.cookies["session_token"].presence
   session_user_id = begin
     Session.find_by(id: session_token)&.user_id
   rescue StandardError

@@ -48,7 +48,7 @@ RSpec.describe Crm::AiFieldMapper do
 
   before do
     allow(Crm::ConnectionManager).to receive(:service_for).with(connection).and_return(provider_service)
-    allow(provider_service).to receive(:fetch_properties).with(force: true).and_return(properties)
+    allow(provider_service).to receive(:fetch_properties).with(force: false).and_return(properties)
   end
 
   it "returns an empty result when there are no unmapped fields" do
@@ -100,7 +100,7 @@ RSpec.describe Crm::AiFieldMapper do
         reason: "Email fields typically belong to contacts"
       }
     )
-    expect(provider_service).to have_received(:fetch_properties).with(force: true)
+    expect(provider_service).to have_received(:fetch_properties).with(force: false)
     expect(GeminiClient).to have_received(:generate_text) do |args|
       expect(args[:system_prompt]).to include("CRM field mapping assistant")
       expect(args[:user_prompt]).to include('### Section: "Company Information"')
@@ -111,9 +111,10 @@ RSpec.describe Crm::AiFieldMapper do
 
   it "uses provider-specific object labels in the prompt" do
     salesforce_connection = create(:crm_connection, user: user, provider: "salesforce")
-    salesforce_service = instance_double(Crm::BaseService, fetch_properties: properties)
+    salesforce_service = instance_double(Crm::BaseService)
 
     allow(Crm::ConnectionManager).to receive(:service_for).with(salesforce_connection).and_return(salesforce_service)
+    allow(salesforce_service).to receive(:fetch_properties).with(force: false).and_return(properties)
     allow(GeminiClient).to receive(:generate_text).and_return({}.to_json)
 
     described_class.new(
@@ -124,10 +125,22 @@ RSpec.describe Crm::AiFieldMapper do
       provider: "salesforce"
     ).call
 
+    expect(salesforce_service).to have_received(:fetch_properties).with(force: false)
     expect(GeminiClient).to have_received(:generate_text) do |args|
       expect(args[:system_prompt]).to include("Account")
       expect(args[:user_prompt]).to include("### Account Properties")
     end
+  end
+
+  it "force refreshes properties when the cached property set is unusable" do
+    allow(provider_service).to receive(:fetch_properties).with(force: false).and_return({ contact: [], company: [] })
+    allow(provider_service).to receive(:fetch_properties).with(force: true).and_return(properties)
+    allow(GeminiClient).to receive(:generate_text).and_return({}.to_json)
+
+    result
+
+    expect(provider_service).to have_received(:fetch_properties).with(force: false)
+    expect(provider_service).to have_received(:fetch_properties).with(force: true)
   end
 
   it "rejects suggestions that point to unknown CRM properties" do

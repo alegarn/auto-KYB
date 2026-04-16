@@ -108,6 +108,34 @@ RSpec.describe GeminiClient do
     expect(a_request(:post, endpoint_for('gemini-3-flash-preview'))).to have_been_made.once
   end
 
+  it 'falls back from flash-lite to flash-preview for text-only requests when the first model is overloaded' do
+    stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))
+      .to_return(status: 503, body: overload_body, headers: { 'Content-Type' => 'application/json' })
+
+    stub_request(:post, endpoint_for('gemini-3-flash-preview'))
+      .to_return(
+        status: 200,
+        body: {
+          candidates: [
+            {
+              content: {
+                parts: [
+                  { text: '{"field":"email"}' }
+                ]
+              }
+            }
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    result = described_class.generate_text(system_prompt: 'system', user_prompt: 'user')
+
+    expect(result).to eq('{"field":"email"}')
+    expect(a_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))).to have_been_made.once
+    expect(a_request(:post, endpoint_for('gemini-3-flash-preview'))).to have_been_made.once
+  end
+
   it 'falls back to pro when both flash models are overloaded' do
     stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))
       .to_return(status: 503, body: overload_body, headers: { 'Content-Type' => 'application/json' })

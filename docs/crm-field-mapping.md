@@ -84,7 +84,14 @@ When the standard "Auto-Map Fields" leaves fields unmapped because labels differ
 
 ### CRM Agnostic
 
-Advanced Auto-Mapping works across supported CRM providers. Quick KYB refreshes the writable property list from the selected provider before asking the AI for suggestions, so the semantic matcher works against your current CRM schema.
+Advanced Auto-Mapping works across supported CRM providers. Quick KYB uses the selected provider's writable property list when building AI suggestions, preferring cached schema data for speed and forcing a refresh only when no usable properties are available.
+
+### Future Improvements
+
+Follow-up iteration:
+
+- Add telemetry logging for AI suggestion sessions so Quick KYB can compare the AI suggestions with the mappings the user ultimately saves.
+- Store the user, form, provider, AI suggestions, and final mappings for analytics first, then reuse that data later for prompt-quality review or few-shot improvements.
 
 ---
 

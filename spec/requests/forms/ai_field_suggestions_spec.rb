@@ -8,6 +8,13 @@ RSpec.describe "Forms::AiFieldSuggestions", type: :request do
     cookies.to_hash.each_key { |name| cookies.delete(name) }
   end
 
+  def signed_session_cookie_header(session_id)
+    request = ActionDispatch::TestRequest.create
+    jar = request.cookie_jar
+    jar.signed[:session_token] = session_id
+    jar.to_hash.map { |name, value| "#{name}=#{value}" }.join("; ")
+  end
+
   let(:mapper_result) do
     Crm::AiFieldMapper::Result.new(
       suggestions: { "field-1" => { object_type: "contact", property_name: "email", confidence: "high" } },
@@ -151,6 +158,34 @@ RSpec.describe "Forms::AiFieldSuggestions", type: :request do
         end
 
         post "/forms/#{form.id}/ai_field_suggestions", params: request_params, headers: headers, as: :json
+
+        expect(response).to have_http_status(:too_many_requests)
+        expect(JSON.parse(response.body)).to include("error" => "rate_limited")
+      end
+
+      it "shares the limit across signed sessions for the same user" do
+        second_session = user.sessions.create!
+        signed_headers = [
+          { "Cookie" => signed_session_cookie_header(session_id) },
+          { "Cookie" => signed_session_cookie_header(second_session.id) }
+        ]
+
+        Current.session = nil
+        reset_request_cookies!
+
+        10.times do |index|
+          post "/forms/#{form.id}/ai_field_suggestions",
+            params: request_params,
+            headers: signed_headers[index % signed_headers.length],
+            as: :json
+
+          expect(response).to have_http_status(:ok)
+        end
+
+        post "/forms/#{form.id}/ai_field_suggestions",
+          params: request_params,
+          headers: signed_headers.last,
+          as: :json
 
         expect(response).to have_http_status(:too_many_requests)
         expect(JSON.parse(response.body)).to include("error" => "rate_limited")

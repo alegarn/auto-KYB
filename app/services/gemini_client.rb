@@ -26,48 +26,22 @@ class GeminiClient
   READ_TIMEOUT = 30
 
   def self.generate(system_prompt:, user_prompt:, pdf_file:)
-    MODEL_CHAIN.each_with_index do |model, index|
-      begin
-        return generate_with_model(
-          model: model,
-          system_prompt: system_prompt,
-          user_prompt: user_prompt,
-          pdf_file: pdf_file
-        )
-      rescue ApiError => e
-        enhanced_error = ApiError.new(e.message, retry_count: index)
-
-        raise enhanced_error unless retryable_model_error?(e)
-
-        fallback_model = MODEL_CHAIN[index + 1]
-        raise enhanced_error unless fallback_model
-
-        Rails.logger.warn("[GeminiClient] #{model} failed with #{e.message}; retrying with #{fallback_model}")
-      end
+    generate_with_fallback_chain(models: MODEL_CHAIN) do |model|
+      generate_with_model(
+        model: model,
+        system_prompt: system_prompt,
+        user_prompt: user_prompt,
+        pdf_file: pdf_file
+      )
     end
-
-    raise ApiError.new("Gemini API request failed")
   end
 
   def self.generate_text(system_prompt:, user_prompt:, model: MODEL_CHAIN.first)
-    request_body = {
-      system_instruction: {
-        parts: [ { text: system_prompt } ]
-      },
-      contents: [
-        {
-          parts: [
-            { text: user_prompt }
-          ]
-        }
-      ],
-      generation_config: {
-        temperature: 0.1,
-        max_output_tokens: 8192
-      }
-    }
+    request_body = text_request_body(system_prompt: system_prompt, user_prompt: user_prompt)
 
-    perform_request(model: model, request_body: request_body)
+    generate_with_fallback_chain(models: model_chain_for(model)) do |current_model|
+      perform_request(model: current_model, request_body: request_body)
+    end
   end
 
   def self.generate_with_model(model:, system_prompt:, user_prompt:, pdf_file:)
@@ -93,6 +67,56 @@ class GeminiClient
   rescue GeminiPdfInput::InvalidFileError => e
     raise ApiError, e.message
   end
+
+  def self.generate_with_fallback_chain(models:)
+    models.each_with_index do |model, index|
+      begin
+        return yield(model)
+      rescue ApiError => e
+        enhanced_error = ApiError.new(e.message, retry_count: index)
+
+        raise enhanced_error unless retryable_model_error?(e)
+
+        fallback_model = models[index + 1]
+        raise enhanced_error unless fallback_model
+
+        Rails.logger.warn("[GeminiClient] #{model} failed with #{e.message}; retrying with #{fallback_model}")
+      end
+    end
+
+    raise ApiError.new("Gemini API request failed")
+  end
+  private_class_method :generate_with_fallback_chain
+
+  def self.model_chain_for(model)
+    selected_model = model.to_s.presence || MODEL_CHAIN.first
+    model_index = MODEL_CHAIN.index(selected_model)
+
+    return MODEL_CHAIN.drop(model_index) if model_index
+
+    [ selected_model ]
+  end
+  private_class_method :model_chain_for
+
+  def self.text_request_body(system_prompt:, user_prompt:)
+    {
+      system_instruction: {
+        parts: [ { text: system_prompt } ]
+      },
+      contents: [
+        {
+          parts: [
+            { text: user_prompt }
+          ]
+        }
+      ],
+      generation_config: {
+        temperature: 0.1,
+        max_output_tokens: 8192
+      }
+    }
+  end
+  private_class_method :text_request_body
 
   def self.perform_request(model:, request_body:)
     api_key = Rails.application.config.gemini.api_key

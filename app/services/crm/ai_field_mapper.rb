@@ -39,8 +39,7 @@ module Crm
     def call
       return empty_result if unmapped_fields.empty?
 
-      properties = fetch_fresh_properties
-      filtered_properties = filter_available_properties(properties)
+      filtered_properties = fetch_available_properties
       return no_suggestions_result if filtered_properties.values.all?(&:empty?)
 
       raw_response = GeminiClient.generate_text(
@@ -72,8 +71,12 @@ module Crm
       Result.new(suggestions: {}, unmapped_count: unmapped_fields.size, error: nil)
     end
 
-    def fetch_fresh_properties
-      Crm::ConnectionManager.service_for(connection).fetch_properties(force: true)
+    def fetch_available_properties
+      service = Crm::ConnectionManager.service_for(connection)
+      cached_properties = filter_available_properties(service.fetch_properties(force: false))
+      return cached_properties unless cached_properties.values.all?(&:empty?)
+
+      filter_available_properties(service.fetch_properties(force: true))
     end
 
     def filter_available_properties(properties)
