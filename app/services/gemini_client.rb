@@ -6,12 +6,14 @@ require "uri"
 class GeminiClient
 
   class ApiError < StandardError
+
     attr_reader :retry_count
 
     def initialize(message = nil, retry_count: 0)
       super(message)
       @retry_count = retry_count
     end
+
   end
 
   API_BASE = "https://generativelanguage.googleapis.com/v1beta/models".freeze
@@ -47,11 +49,28 @@ class GeminiClient
     raise ApiError.new("Gemini API request failed")
   end
 
-  def self.generate_with_model(model:, system_prompt:, user_prompt:, pdf_file:)
-    api_key = Rails.application.config.gemini.api_key
-    raise ApiError, "Gemini API key not configured" if api_key.blank?
+  def self.generate_text(system_prompt:, user_prompt:, model: MODEL_CHAIN.first)
+    request_body = {
+      system_instruction: {
+        parts: [ { text: system_prompt } ]
+      },
+      contents: [
+        {
+          parts: [
+            { text: user_prompt }
+          ]
+        }
+      ],
+      generation_config: {
+        temperature: 0.1,
+        max_output_tokens: 8192
+      }
+    }
 
-    uri = URI("#{API_BASE}/#{model}:generateContent")
+    perform_request(model: model, request_body: request_body)
+  end
+
+  def self.generate_with_model(model:, system_prompt:, user_prompt:, pdf_file:)
     request_body = {
       system_instruction: {
         parts: [ { text: system_prompt } ]
@@ -70,22 +89,37 @@ class GeminiClient
       }
     }
 
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-    http.open_timeout = OPEN_TIMEOUT
-    http.read_timeout = READ_TIMEOUT
-
-    request = Net::HTTP::Post.new(uri)
-    request["Content-Type"] = "application/json"
-    request["x-goog-api-key"] = api_key
-    request.body = JSON.generate(camelize_keys(request_body))
-
-    response = http.request(request)
-    raise ApiError, "Gemini API error (#{response.code}): #{response.body.to_s.truncate(200)}" unless response.is_a?(Net::HTTPSuccess)
-
-    extract_text(JSON.parse(response.body.to_s))
+    perform_request(model: model, request_body: request_body)
   rescue GeminiPdfInput::InvalidFileError => e
     raise ApiError, e.message
+  end
+
+  def self.perform_request(model:, request_body:)
+    api_key = Rails.application.config.gemini.api_key
+    raise ApiError, "Gemini API key not configured" if api_key.blank?
+
+    uri = URI("#{API_BASE}/#{model}:generateContent")
+
+    with_network_rescue do
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      http.open_timeout = OPEN_TIMEOUT
+      http.read_timeout = READ_TIMEOUT
+
+      request = Net::HTTP::Post.new(uri)
+      request["Content-Type"] = "application/json"
+      request["x-goog-api-key"] = api_key
+      request.body = JSON.generate(camelize_keys(request_body))
+
+      response = http.request(request)
+      raise ApiError, "Gemini API error (#{response.code}): #{response.body.to_s.truncate(200)}" unless response.is_a?(Net::HTTPSuccess)
+
+      extract_text(JSON.parse(response.body.to_s))
+    end
+  end
+
+  def self.with_network_rescue
+    yield
   rescue JSON::ParserError => e
     raise ApiError, "Malformed response from Gemini: #{e.message}"
   rescue Timeout::Error => e

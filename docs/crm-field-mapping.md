@@ -57,31 +57,34 @@ In the Form Builder's Mapping sidebar, the **"Sync with CRM"** button will updat
 
 > **Note**: If a field is mapped to multiple CRMs (e.g., both HubSpot and Salesforce) with different property names, the sync tool prioritizes the first active connection found.
 
-## Advanced Auto-Mapping (Pro or higher)
+## Advanced Auto-Mapping
 
-When the standard "Auto-Map Fields" leaves fields unmapped — because field labels differ semantically from CRM property names — users can activate **AI Auto-Map** for semantic matching.
+When the standard "Auto-Map Fields" leaves fields unmapped because labels differ semantically from CRM property names, you can run **AI Auto-Map Remaining** for a second-pass semantic match.
 
 ### How It Works
 
-1. Click **"Auto-Map Fields"** to run the programmatic matcher.
-2. If unmapped fields remain, click **"✨ AI Auto-Map Remaining"**.
+1. Click **"Auto-Map Fields"** to run the fast client-side matcher.
+2. If fields still remain unmapped for a provider, click **"AI Auto-Map Remaining (N)"** in that provider's section.
 3. The AI analyzes:
    - Each unmapped field's label, type, export key, and options.
    - The form's section structure and descriptive text for object-type inference (e.g., a field under "Company Details" likely maps to Company).
    - All available (non-read-only, non-already-mapped) CRM properties from your connected CRM.
-4. Suggestions appear in the mapping table with an **"AI" badge** and confidence indicator (tooltip with reasoning).
-5. Review and save — AI suggestions behave like any other mapping after save.
+4. Valid suggestions are merged into the draft mapping without overwriting existing manual selections.
+5. Accepted suggestions appear in the table with an **"AI"** badge and a confidence indicator. Hovering the badge shows the AI reasoning.
+6. If the AI cannot find a safe native CRM property, it can suggest a **custom property name** instead of forcing a bad match.
+7. Review and save. Once saved, AI-generated mappings behave exactly like any other CRM mapping.
 
 ### Limitations
 
-- Maximum **10 AI auto-map requests per day** per account.
-- If no match exists, the AI **creates custom properties** in the right object ("Lead"/"Contact" or "Company").
-- **Type compatibility is enforced server-side** (same rules as manual mapping). Invalid AI suggestions are silently discarded.
-- If the AI cannot confidently match a field, nor create a custom property on the right object, it leaves it unmapped rather than guessing.
+- Maximum **10 AI auto-map requests per day**.
+- The AI only suggests mappings to writable CRM properties that are not already used elsewhere in the same provider mapping.
+- **Type compatibility is enforced server-side** using the same compatibility rules as manual mapping. Invalid AI suggestions are discarded.
+- When no safe native property exists, the UI can suggest a **custom property name**, but it does not silently create that property for you.
+- If the AI service is temporarily unavailable, Quick KYB shows an inline warning and you can continue using manual mapping or the standard auto-map.
 
 ### CRM Agnostic
 
-Advanced Auto-Mapping works identically across all supported CRM providers. The AI receives the property list from your specific CRM connection, regardless of provider.
+Advanced Auto-Mapping works across supported CRM providers. Quick KYB refreshes the writable property list from the selected provider before asking the AI for suggestions, so the semantic matcher works against your current CRM schema.
 
 ---
 

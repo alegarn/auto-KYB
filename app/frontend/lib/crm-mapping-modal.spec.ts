@@ -8,6 +8,7 @@ import {
   getCrmMappingPropertyName,
   getCrmMappingSelectionValue,
   hydrateCrmMappingDraft,
+  mergeAiSuggestionsDraft,
   mergeCrmAutoMappedDraft,
   serializeCrmMappingFields,
   type CrmMappings,
@@ -92,6 +93,108 @@ describe('crm-mapping-modal helpers', () => {
     );
 
     expect(merged.mappings['id:42'].hubspot.property_name).toBe('contact::email');
+    expect(merged.exportKeyOverrides['id:42']).toBeUndefined();
+  });
+
+  it('returns an immutable no-op when there are no AI suggestions', () => {
+    const mappings: CrmMappings = {
+      'id:42': {
+        hubspot: {
+          type: 'existing',
+          object_type: 'contact',
+          property_name: 'contact::email',
+        },
+      },
+    };
+    const exportKeyOverrides = { 'id:42': 'email' };
+
+    const merged = mergeAiSuggestionsDraft(mappings, exportKeyOverrides, {}, 'hubspot', { '42': 'id:42' });
+
+    expect(merged).toEqual({
+      mappings,
+      exportKeyOverrides,
+      optionsOverrides: {},
+    });
+    expect(merged.mappings).not.toBe(mappings);
+    expect(merged.exportKeyOverrides).not.toBe(exportKeyOverrides);
+  });
+
+  it('merges AI suggestions immutably and aligns export keys', () => {
+    const mappings: CrmMappings = {};
+    const exportKeyOverrides = {};
+
+    const merged = mergeAiSuggestionsDraft(
+      mappings,
+      exportKeyOverrides,
+      {
+        '42': {
+          object_type: 'company',
+          property_name: 'name',
+          confidence: 'high',
+          reason: 'Company label strongly matches name',
+        },
+      },
+      'hubspot',
+      { '42': 'id:42' },
+    );
+
+    expect(merged.mappings).not.toBe(mappings);
+    expect(merged.exportKeyOverrides).not.toBe(exportKeyOverrides);
+    expect(merged.mappings['id:42'].hubspot).toEqual({
+      type: 'existing',
+      object_type: 'company',
+      property_name: 'company::name',
+    });
+    expect(merged.exportKeyOverrides['id:42']).toBe('name');
+  });
+
+  it('does not overwrite an existing manual mapping with an AI suggestion', () => {
+    const mappings: CrmMappings = {
+      'id:42': {
+        hubspot: {
+          type: 'existing',
+          object_type: 'contact',
+          property_name: 'contact::email',
+        },
+      },
+    };
+
+    const merged = mergeAiSuggestionsDraft(
+      mappings,
+      {},
+      {
+        '42': {
+          object_type: 'company',
+          property_name: 'name',
+          confidence: 'medium',
+        },
+      },
+      'hubspot',
+      { '42': 'id:42' },
+    );
+
+    expect(merged.mappings['id:42'].hubspot.property_name).toBe('contact::email');
+    expect(merged.exportKeyOverrides['id:42']).toBeUndefined();
+  });
+
+  it('skips custom-only AI suggestions that do not target an existing property', () => {
+    const merged = mergeAiSuggestionsDraft(
+      {},
+      {},
+      {
+        '42': {
+          object_type: 'company',
+          property_name: null,
+          confidence: 'medium',
+          suggest_custom: true,
+          suggested_custom_name: 'registration_number',
+        },
+      },
+      'hubspot',
+      { '42': 'id:42' },
+    );
+
+    expect(merged.mappings['id:42']).toBeUndefined();
     expect(merged.exportKeyOverrides['id:42']).toBeUndefined();
   });
 

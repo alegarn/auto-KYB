@@ -1,3 +1,5 @@
+import type { AiSuggestion } from './crm/ai-auto-map';
+
 import { fromCrmKey, getFieldIdentityKey, toCrmKey } from './crm-utils';
 
 export type CrmMappingValue = {
@@ -168,6 +170,44 @@ export function mergeCrmAutoMappedDraft(
         }
       }
     }
+  }
+
+  return {
+    mappings: nextMappings,
+    exportKeyOverrides: nextExportKeyOverrides,
+    optionsOverrides: {},
+  };
+}
+
+export function mergeAiSuggestionsDraft(
+  mappings: CrmMappings,
+  exportKeyOverrides: CrmExportKeyOverrides,
+  suggestions: Record<string, AiSuggestion>,
+  provider: string,
+  fieldIdToStateKey: Record<string, string>,
+): CrmMappingDraftState {
+  const nextMappings: CrmMappings = Object.fromEntries(
+    Object.entries(mappings).map(([fieldKey, providerMap]) => [fieldKey, { ...providerMap }]),
+  );
+  const nextExportKeyOverrides: CrmExportKeyOverrides = { ...exportKeyOverrides };
+
+  for (const [rawFieldId, suggestion] of Object.entries(suggestions)) {
+    if (!suggestion.property_name) continue;
+
+    const stateKey = fieldIdToStateKey[rawFieldId] || rawFieldId;
+
+    if (!nextMappings[stateKey]) {
+      nextMappings[stateKey] = {};
+    }
+
+    if (nextMappings[stateKey][provider]) continue;
+
+    nextMappings[stateKey][provider] = {
+      type: 'existing',
+      object_type: suggestion.object_type,
+      property_name: toCrmKey(suggestion.object_type, suggestion.property_name),
+    };
+    nextExportKeyOverrides[stateKey] = suggestion.property_name;
   }
 
   return {

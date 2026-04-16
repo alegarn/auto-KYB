@@ -2,8 +2,9 @@
   import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select/index.js";
   import { ChevronsUpDown, Loader2, Search } from "@lucide/svelte";
   import { cn } from "../../lib/utils";
+  import { requestAiAutoMap, type AiSuggestion } from '@/lib/crm/ai-auto-map';
   import { isHubSpotCompatible } from '../../lib/crm/hubspot-compat';
-  import { areTypesCompatible, analyzeMappings, autoMapFields, getCrmObjectLabel, getFieldDataType, getProviderFileActions, type CrmExportSummary } from '../../lib/crm-utils';
+  import { areTypesCompatible, analyzeMappings, autoMapFields, getCrmObjectLabel, getFieldDataType, getFieldIdentityKey, getProviderFileActions, type CrmExportSummary } from '../../lib/crm-utils';
   import {
     applyCrmExportKeyAlignment,
     applyCrmMappingSelection,
@@ -13,6 +14,7 @@
     getCrmMappingPropertyName,
     getCrmMappingSelectionValue,
     hydrateCrmMappingDraft,
+    mergeAiSuggestionsDraft,
     mergeCrmAutoMappedDraft,
     serializeCrmMappingFields,
   } from '../../lib/crm-mapping-modal';
@@ -35,12 +37,46 @@
   let exportKeyOverrides = $state<Record<string, string>>({});
   let optionsOverrides = $state<Record<string, string[]>>({});
   let fieldSearch = $state<Record<string, string>>({});
+  let aiSuggestions = $state<Record<string, Record<string, AiSuggestion>>>({});
+  let aiLoading = $state<Record<string, boolean>>({});
+  let aiPendingFieldKeys = $state<Record<string, string[]>>({});
+  let aiErrors = $state<Record<string, string | null>>({});
   let hasHydratedForOpen = $state(false);
+  const aiRequestControllers = new Map<string, AbortController>();
   const dataFields = $derived(fields.map((field, index) => ({ field, index })).filter(({ field }) => !isLayoutField(field.field_type)));
   const fieldIdToStateKey = $derived(buildCrmMappingFieldLookup(dataFields));
+  let unmappedCounts = $derived.by(() => {
+    const result: Record<string, number> = {};
+
+    for (const provider of Object.keys(crmProperties)) {
+      result[provider] = dataFields.reduce((count, { field, index }) => {
+        const fieldKey = getCrmMappingFieldStateKey(field, index);
+        return count + (mappings[fieldKey]?.[provider] ? 0 : 1);
+      }, 0);
+    }
+
+    return result;
+  });
+  let aiLoadingFieldKeys = $derived.by(() => {
+    const result: Record<string, Set<string>> = {};
+
+    for (const [provider, fieldKeys] of Object.entries(aiPendingFieldKeys)) {
+      result[provider] = new Set(fieldKeys);
+    }
+
+    return result;
+  });
 
   $effect(() => {
     if (!open) {
+      for (const controller of aiRequestControllers.values()) {
+        controller.abort();
+      }
+      aiRequestControllers.clear();
+      aiSuggestions = {};
+      aiLoading = {};
+      aiPendingFieldKeys = {};
+      aiErrors = {};
       hasHydratedForOpen = false;
       return;
     }
@@ -51,6 +87,10 @@
     exportKeyOverrides = {};
     optionsOverrides = {};
     fieldSearch = {};
+    aiSuggestions = {};
+    aiLoading = {};
+    aiPendingFieldKeys = {};
+    aiErrors = {};
     hasHydratedForOpen = true;
   });
 
@@ -110,6 +150,113 @@
     const merged = mergeCrmAutoMappedDraft(mappings, exportKeyOverrides, autoMapped, fieldIdToStateKey);
     mappings = merged.mappings;
     exportKeyOverrides = merged.exportKeyOverrides;
+  }
+
+  function normalizeAiSuggestions(suggestions: Record<string, AiSuggestion>): Record<string, AiSuggestion> {
+    return Object.fromEntries(
+      Object.entries(suggestions).map(([rawFieldId, suggestion]) => [fieldIdToStateKey[rawFieldId] || rawFieldId, suggestion]),
+    );
+  }
+
+  function buildAiErrorMessage(error: string): string {
+    switch (error) {
+      case 'rate_limited':
+        return 'AI auto-map limit reached for today. Please try again tomorrow.';
+      case 'ai_unavailable':
+        return 'AI auto-map is temporarily unavailable. You can still use Auto-Map Fields or map fields manually.';
+      case 'plan_insufficient':
+        return 'Your current plan does not include AI auto-map.';
+      case 'subscription_inactive':
+        return 'An active subscription is required to use AI auto-map.';
+      default:
+        return 'AI auto-map failed. Please try again.';
+    }
+  }
+
+  function getAiSuggestion(provider: string, fieldKey: string): AiSuggestion | undefined {
+    return aiSuggestions[provider]?.[fieldKey];
+  }
+
+  function aiSuggestionMatchesMapping(mapping: any, suggestion?: AiSuggestion): boolean {
+    if (!mapping || !suggestion?.property_name) return false;
+
+    return mapping.type === 'existing'
+      && mapping.object_type === suggestion.object_type
+      && getCrmMappingPropertyName(mapping) === suggestion.property_name;
+  }
+
+  function hasProviderProperties(providerProperties: any): boolean {
+    return (providerProperties?.contact?.length || 0) > 0 || (providerProperties?.company?.length || 0) > 0;
+  }
+
+  async function handleAiAutoMap(provider: string) {
+    if (!form?.id || aiLoading[provider]) return;
+
+    const providerProperties = crmProperties[provider];
+    if (!hasProviderProperties(providerProperties)) return;
+
+    const unmappedFields = dataFields
+      .filter(({ field, index }) => !mappings[getCrmMappingFieldStateKey(field, index)]?.[provider])
+      .map(({ field, index }) => ({
+        id: getFieldIdentityKey(field, index),
+        label: field.label || String(field.id ?? `Field ${index + 1}`),
+        field_type: field.field_type,
+      }));
+
+    if (unmappedFields.length === 0) return;
+
+    const alreadyMapped = Object.values(mappings)
+      .map((providerMap) => providerMap[provider]?.property_name)
+      .filter((propertyName): propertyName is string => typeof propertyName === 'string' && propertyName.length > 0);
+
+    aiLoading = { ...aiLoading, [provider]: true };
+    aiPendingFieldKeys = {
+      ...aiPendingFieldKeys,
+      [provider]: unmappedFields.map(({ id }) => fieldIdToStateKey[String(id)] || String(id)),
+    };
+    aiErrors = { ...aiErrors, [provider]: null };
+    aiRequestControllers.get(provider)?.abort();
+
+    const controller = new AbortController();
+    aiRequestControllers.set(provider, controller);
+
+    try {
+      const result = await requestAiAutoMap(form.id, provider, unmappedFields, alreadyMapped, controller.signal);
+      if (!open || aiRequestControllers.get(provider) !== controller) return;
+
+      const merged = mergeAiSuggestionsDraft(
+        mappings,
+        exportKeyOverrides,
+        result.suggestions,
+        provider,
+        fieldIdToStateKey,
+      );
+
+      mappings = merged.mappings;
+      exportKeyOverrides = merged.exportKeyOverrides;
+      aiSuggestions = {
+        ...aiSuggestions,
+        [provider]: {
+          ...(aiSuggestions[provider] || {}),
+          ...normalizeAiSuggestions(result.suggestions),
+        },
+      };
+
+      if (result.error) {
+        aiErrors = { ...aiErrors, [provider]: buildAiErrorMessage(result.error) };
+      }
+    } catch (error: unknown) {
+      if (controller.signal.aborted) return;
+
+      const message = error instanceof Error ? error.message : 'ai_auto_map_failed';
+      aiErrors = { ...aiErrors, [provider]: buildAiErrorMessage(message) };
+    } finally {
+      if (aiRequestControllers.get(provider) === controller) {
+        aiRequestControllers.delete(provider);
+        aiLoading = { ...aiLoading, [provider]: false };
+        aiPendingFieldKeys = { ...aiPendingFieldKeys, [provider]: [] };
+      }
+    }
   }
 
   function handleSave() {
@@ -184,7 +331,31 @@
         {:else}
           {#each Object.entries(crmProperties) as [provider, properties]}
             <div class="mb-8" data-provider={provider}>
-              <h3 class="text-lg font-medium mb-4 capitalize">{provider} Integration</h3>
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <h3 class="text-lg font-medium capitalize">{provider} Integration</h3>
+                {#if unmappedCounts[provider] > 0 && hasProviderProperties(properties)}
+                  <button
+                    type="button"
+                    data-testid={`ai-auto-map-${provider}`}
+                    class="inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    onclick={() => handleAiAutoMap(provider)}
+                    disabled={!!aiLoading[provider]}
+                  >
+                    {#if aiLoading[provider]}
+                      <Loader2 class="h-4 w-4 animate-spin" />
+                      Analyzing remaining fields...
+                    {:else}
+                      AI Auto-Map Remaining ({unmappedCounts[provider]})
+                    {/if}
+                  </button>
+                {/if}
+              </div>
+
+              {#if aiErrors[provider]}
+                <div role="alert" class="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  {aiErrors[provider]}
+                </div>
+              {/if}
               
               <!-- CRM Export Summary Banner -->
               {#if summaries[provider]}
@@ -263,6 +434,10 @@
                         {@const mapping = mappings[fieldKey]?.[provider]}
                         {@const currentValue = getCrmMappingSelectionValue(mapping)}
                         {@const rawPropName = getCrmMappingPropertyName(mapping)}
+                        {@const suggestion = getAiSuggestion(provider, fieldKey)}
+                        {@const showAiBadge = aiSuggestionMatchesMapping(mapping, suggestion)}
+                        {@const showCustomSuggestion = !mapping && suggestion?.suggest_custom && !suggestion?.property_name}
+                        {@const isAiLoadingField = aiLoadingFieldKeys[provider]?.has(fieldKey)}
                         {@const selectedProp = mapping?.type === 'existing' 
                           ? (properties[mapping.object_type] || []).find((p: any) => p.name === rawPropName) 
                           : null}
@@ -273,7 +448,19 @@
                         <tr class="hover:bg-gray-50">
                           <td class="px-4 py-3 font-medium text-gray-900">
                             <div class="flex flex-col">
-                              <span>{field.label || field.id || 'Unnamed Field'}</span>
+                              <div class="flex items-center gap-2">
+                                <span>{field.label || field.id || 'Unnamed Field'}</span>
+                                {#if showAiBadge}
+                                  <span
+                                    data-testid={`ai-badge-${fieldKey}-${provider}`}
+                                    class="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"
+                                    title={suggestion?.reason}
+                                  >
+                                    AI
+                                    <span class={suggestion?.confidence === 'high' ? 'text-emerald-500' : 'text-amber-500'}>●</span>
+                                  </span>
+                                {/if}
+                              </div>
                               <div class="flex items-center gap-1.5 mt-0.5">
                                 <span class="text-[10px] text-gray-500 uppercase font-semibold">Type: {getFieldDataType(field)}</span>
                                 {#if getExportKey(field, index)}
@@ -385,6 +572,23 @@
                                   </div>
                                 </SelectContent>
                               </Select>
+
+                              {#if isAiLoadingField}
+                                <div
+                                  data-testid={`ai-loading-${fieldKey}-${provider}`}
+                                  class="h-8 rounded-md border border-sky-100 bg-sky-50 animate-pulse"
+                                ></div>
+                              {/if}
+
+                              {#if showCustomSuggestion}
+                                <p
+                                  data-testid={`ai-custom-suggestion-${fieldKey}-${provider}`}
+                                  class="text-xs text-amber-600 font-medium"
+                                  title={suggestion?.reason}
+                                >
+                                  Create as: <span class="font-mono">{suggestion?.suggested_custom_name}</span>
+                                </p>
+                              {/if}
                               
                               {#if !isCompatible}
                                 <p data-testid={`type-mismatch-${field.id}-${provider}`} class="text-[10px] text-red-600 font-medium">

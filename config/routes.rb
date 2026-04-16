@@ -26,6 +26,7 @@ Rails.application.routes.draw do
       post :duplicate
       post :test_crm_mapping
     end
+    resource :ai_field_suggestions, only: [ :create ], controller: "forms/ai_field_suggestions"
   end
 
   resources :form_imports, only: [ :create ] do
