@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aiSuggestionMatchesCrmMapping,
   applyCrmExportKeyAlignment,
   applyCrmMappingSelection,
   applyCrmOptionsSync,
+  buildAiAutoMapRequest,
+  buildAiLoadingFieldKeySets,
   buildCrmMappingFieldLookup,
+  buildCrmUnmappedCounts,
   countAvailableWritableCrmProperties,
+  filterCrmProperties,
+  getAiAutoMapErrorMessage,
   getCrmMappingFieldStateKey,
   getCrmMappingPropertyName,
   getCrmMappingSelectionValue,
+  hasCrmOptionsMismatch,
   hydrateCrmMappingDraft,
   mergeAiSuggestionsDraft,
   mergeCrmAutoMappedDraft,
+  normalizeAiSuggestions,
   serializeCrmMappingFields,
   type CrmMappings,
 } from './crm-mapping-modal';
@@ -240,6 +248,168 @@ describe('crm-mapping-modal helpers', () => {
     );
 
     expect(count).toBe(0);
+  });
+
+  it('filters CRM properties by search and sorts compatible properties first', () => {
+    const properties = filterCrmProperties(
+      [
+        { name: 'age', label: 'Age', type: 'number' },
+        { name: 'account_age', label: 'Account Age', type: 'string' },
+        { name: 'city', label: 'City', type: 'string' },
+      ],
+      'age',
+      { field_type: 'number', metadata: {} },
+      'salesforce',
+    );
+
+    expect(properties.map((property) => property.name)).toEqual(['age', 'account_age']);
+  });
+
+  it('builds the AI auto-map request payload from unmapped fields and existing mappings', () => {
+    const request = buildAiAutoMapRequest(
+      [
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'text',
+            label: 'Email',
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'contact',
+                  property_name: 'email',
+                },
+              },
+            },
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'text',
+            label: 'Company Name',
+            metadata: {},
+          },
+          index: 1,
+        },
+      ],
+      hydrateCrmMappingDraft([
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'text',
+            label: 'Email',
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'contact',
+                  property_name: 'email',
+                },
+              },
+            },
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'text',
+            label: 'Company Name',
+            metadata: {},
+          },
+          index: 1,
+        },
+      ]),
+      'hubspot',
+      {
+        'field-1': 'id:field-1',
+        'field-2': 'id:field-2',
+      },
+    );
+
+    expect(request.unmappedFields).toEqual([
+      {
+        id: 'field-2',
+        label: 'Company Name',
+        field_type: 'text',
+      },
+    ]);
+    expect(request.alreadyMapped).toEqual(['email']);
+    expect(request.pendingFieldKeys).toEqual(['id:field-2']);
+  });
+
+  it('builds provider unmapped counts and AI loading key sets', () => {
+    const mappings: CrmMappings = {
+      'id:42': {
+        hubspot: {
+          type: 'existing',
+          object_type: 'contact',
+          property_name: 'contact::email',
+        },
+      },
+      'id:43': {},
+    };
+
+    const counts = buildCrmUnmappedCounts(
+      ['hubspot'],
+      [
+        {
+          field: { id: 42, field_type: 'text', metadata: {} },
+          index: 0,
+        },
+        {
+          field: { id: 43, field_type: 'text', metadata: {} },
+          index: 1,
+        },
+      ],
+      mappings,
+    );
+
+    expect(counts).toEqual({ hubspot: 1 });
+    expect(buildAiLoadingFieldKeySets({ hubspot: ['id:43'] }).hubspot.has('id:43')).toBe(true);
+  });
+
+  it('normalizes AI suggestions, matches mappings, and maps AI errors to UI messages', () => {
+    const normalized = normalizeAiSuggestions(
+      {
+        '42': {
+          object_type: 'contact',
+          property_name: 'email',
+          confidence: 'high',
+        },
+      },
+      { '42': 'id:42' },
+    );
+
+    expect(normalized['id:42']).toEqual({
+      object_type: 'contact',
+      property_name: 'email',
+      confidence: 'high',
+    });
+    expect(aiSuggestionMatchesCrmMapping(
+      {
+        type: 'existing',
+        object_type: 'contact',
+        property_name: 'contact::email',
+      },
+      normalized['id:42'],
+    )).toBe(true);
+    expect(getAiAutoMapErrorMessage('rate_limited')).toBe('AI auto-map limit reached for today. Please try again tomorrow.');
+    expect(getAiAutoMapErrorMessage('unknown_error')).toBe('AI auto-map failed. Please try again.');
+  });
+
+  it('detects CRM option mismatches case-insensitively', () => {
+    expect(hasCrmOptionsMismatch(['Approved', ' Pending '], [
+      { label: 'approved', value: 'approved' },
+      { label: 'pending', value: 'pending' },
+    ])).toBe(false);
+
+    expect(hasCrmOptionsMismatch(['Approved', 'Rejected'], [
+      { label: 'approved', value: 'approved' },
+    ])).toBe(true);
   });
 
   it('skips custom-only AI suggestions that do not target an existing property', () => {

@@ -1,6 +1,7 @@
 import type { AiSuggestion } from './crm/ai-auto-map';
+import { isHubSpotCompatible } from './crm/hubspot-compat';
 
-import { fromCrmKey, getFieldIdentityKey, toCrmKey } from './crm-utils';
+import { areTypesCompatible, fromCrmKey, getFieldIdentityKey, toCrmKey } from './crm-utils';
 
 export type CrmMappingValue = {
   type: 'custom' | 'existing';
@@ -29,10 +30,26 @@ export interface CrmMappingIndexedField {
 
 export interface CrmInventoryProperty {
   name?: string | null;
+  label?: string | null;
+  type?: string | null;
+  field_type?: string | null;
   read_only?: boolean;
+  options?: Array<{ label?: string | null; value?: string | null }>;
 }
 
 export type CrmProviderProperties = Record<string, CrmInventoryProperty[]>;
+
+export interface CrmAiAutoMapField {
+  id: string;
+  label: string;
+  field_type: string;
+}
+
+export interface CrmAiAutoMapRequest {
+  unmappedFields: CrmAiAutoMapField[];
+  alreadyMapped: string[];
+  pendingFieldKeys: string[];
+}
 
 export interface CrmMappingDraftState {
   mappings: CrmMappings;
@@ -64,6 +81,82 @@ export function countAvailableWritableCrmProperties(
       return !mappedPropertyKeys.has(toCrmKey(objectType, propertyName));
     }).length;
   }, 0);
+}
+
+export function isCrmPropertyCompatible(
+  field: CrmMappingField,
+  prop: CrmInventoryProperty,
+  provider: string,
+): boolean {
+  if (provider === 'hubspot') return isHubSpotCompatible(field, prop as any);
+  return areTypesCompatible(field, String(prop.type || ''));
+}
+
+export function filterCrmProperties(
+  providerProperties: CrmInventoryProperty[] = [],
+  search: string,
+  field?: CrmMappingField,
+  provider = '',
+): CrmInventoryProperty[] {
+  const normalizedSearch = String(search || '').trim().toLowerCase();
+  const filtered = normalizedSearch
+    ? providerProperties.filter((property) => {
+        return (property.label || '').toLowerCase().includes(normalizedSearch)
+          || (property.name || '').toLowerCase().includes(normalizedSearch);
+      })
+    : providerProperties;
+
+  if (!field) return filtered;
+
+  return filtered.slice().sort((left, right) => {
+    const leftCompatible = isCrmPropertyCompatible(field, left, provider) ? 1 : 0;
+    const rightCompatible = isCrmPropertyCompatible(field, right, provider) ? 1 : 0;
+
+    if (leftCompatible !== rightCompatible) return rightCompatible - leftCompatible;
+
+    return (left.label || left.name || '').localeCompare(right.label || right.name || '');
+  });
+}
+
+export function hasCrmOptionsMismatch(
+  formOptions: string[] = [],
+  crmOptions: Array<{ label?: string | null; value?: string | null }> = [],
+): boolean {
+  if (formOptions.length === 0 || crmOptions.length === 0) return false;
+
+  return formOptions.some((option) => {
+    const normalized = String(option).trim().toLowerCase();
+
+    return !crmOptions.some((crmOption) => {
+      return (crmOption.label || '').toLowerCase() === normalized
+        || (crmOption.value || '').toLowerCase() === normalized;
+    });
+  });
+}
+
+export function buildCrmUnmappedCounts(
+  providers: string[],
+  fields: CrmMappingIndexedField[],
+  mappings: CrmMappings,
+): Record<string, number> {
+  return Object.fromEntries(
+    providers.map((provider) => {
+      const count = fields.reduce((total, { field, index }) => {
+        const fieldKey = getCrmMappingFieldStateKey(field, index);
+        return total + (mappings[fieldKey]?.[provider] ? 0 : 1);
+      }, 0);
+
+      return [provider, count];
+    }),
+  );
+}
+
+export function buildAiLoadingFieldKeySets(
+  aiPendingFieldKeys: Record<string, string[]>,
+): Record<string, Set<string>> {
+  return Object.fromEntries(
+    Object.entries(aiPendingFieldKeys).map(([provider, fieldKeys]) => [provider, new Set(fieldKeys)]),
+  );
 }
 
 export function getCrmMappingFieldStateKey(field: CrmMappingField, index: number): string {
@@ -110,6 +203,31 @@ export function buildCrmMappingFieldLookup(fields: CrmMappingIndexedField[]): Re
     lookup[getFieldIdentityKey(field, index)] = getCrmMappingFieldStateKey(field, index);
     return lookup;
   }, {});
+}
+
+export function buildAiAutoMapRequest(
+  fields: CrmMappingIndexedField[],
+  mappings: CrmMappings,
+  provider: string,
+  fieldIdToStateKey: Record<string, string>,
+): CrmAiAutoMapRequest {
+  const unmappedFields = fields
+    .filter(({ field, index }) => !mappings[getCrmMappingFieldStateKey(field, index)]?.[provider])
+    .map(({ field, index }) => ({
+      id: getFieldIdentityKey(field, index),
+      label: field.label || String(field.id ?? `Field ${index + 1}`),
+      field_type: field.field_type,
+    }));
+
+  const alreadyMapped = Object.values(mappings)
+    .map((providerMap) => getCrmMappingPropertyName(providerMap?.[provider]))
+    .filter((propertyName): propertyName is string => propertyName.length > 0);
+
+  return {
+    unmappedFields,
+    alreadyMapped,
+    pendingFieldKeys: unmappedFields.map(({ id }) => fieldIdToStateKey[String(id)] || String(id)),
+  };
 }
 
 export function applyCrmMappingSelection(
@@ -248,6 +366,41 @@ export function mergeAiSuggestionsDraft(
     exportKeyOverrides: nextExportKeyOverrides,
     optionsOverrides: {},
   };
+}
+
+export function normalizeAiSuggestions(
+  suggestions: Record<string, AiSuggestion>,
+  fieldIdToStateKey: Record<string, string>,
+): Record<string, AiSuggestion> {
+  return Object.fromEntries(
+    Object.entries(suggestions).map(([rawFieldId, suggestion]) => [fieldIdToStateKey[rawFieldId] || rawFieldId, suggestion]),
+  );
+}
+
+export function getAiAutoMapErrorMessage(error: string): string {
+  switch (error) {
+    case 'rate_limited':
+      return 'AI auto-map limit reached for today. Please try again tomorrow.';
+    case 'ai_unavailable':
+      return 'AI auto-map is temporarily unavailable. You can still use Auto-Map Fields or map fields manually.';
+    case 'plan_insufficient':
+      return 'Your current plan does not include AI auto-map.';
+    case 'subscription_inactive':
+      return 'An active subscription is required to use AI auto-map.';
+    default:
+      return 'AI auto-map failed. Please try again.';
+  }
+}
+
+export function aiSuggestionMatchesCrmMapping(
+  mapping?: CrmMappingValue | null,
+  suggestion?: AiSuggestion,
+): boolean {
+  if (!mapping || !suggestion?.property_name) return false;
+
+  return mapping.type === 'existing'
+    && mapping.object_type === suggestion.object_type
+    && getCrmMappingPropertyName(mapping) === suggestion.property_name;
 }
 
 export function serializeCrmMappingFields(
