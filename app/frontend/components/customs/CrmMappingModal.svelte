@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import { validate_crm_mapping_form_path } from '@/routes';
   import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select/index.js";
   import { ChevronsUpDown, Loader2, Search } from "@lucide/svelte";
   import { cn } from "../../lib/utils";
@@ -14,12 +15,14 @@
     buildAiLoadingFieldKeySets,
     buildCrmMappingFieldLookup,
     buildCrmUnmappedCounts,
+    countCrmValidationIssuesForProvider,
     DEFAULT_CRM_AI_AUTO_MAP_BATCH_SIZE,
     filterCrmProperties,
     getAiAutoMapErrorMessage,
     getCrmMappingFieldStateKey,
     getCrmMappingPropertyName,
     getCrmMappingSelectionValue,
+    groupCrmValidationIssues,
     hasCrmOptionsMismatch,
     hydrateCrmMappingDraft,
     isCrmPropertyCompatible,
@@ -27,6 +30,7 @@
     mergeCrmAutoMappedDraft,
     normalizeAiSuggestions,
     serializeCrmMappingFields,
+    type CrmMappingValidationIssue,
   } from '../../lib/crm-mapping-modal';
   import { isLayoutField } from './form-builder/types';
 
@@ -66,20 +70,28 @@
   let aiErrors = $state<Record<string, string | null>>({});
   let aiProgress = $state<Record<string, AiAutoMapProgress | null>>({});
   let aiReviewNoticeVisible = $state<Record<string, boolean>>({});
+  let crmValidationIssues = $state<Record<string, Record<string, CrmMappingValidationIssue[]>>>({});
+  let crmValidationError = $state<string | null>(null);
+  let validatingMappings = $state(false);
   let hasHydratedForOpen = $state(false);
+  let crmValidationSessionToken = 0;
   const aiRequestControllers = new Map<string, AbortController>();
+  let crmValidationController: AbortController | null = null;
   const indexedFields = $derived(fields.map((field, index) => ({ field, index })));
   const dataFields = $derived(indexedFields.filter(({ field }) => !isLayoutField(field.field_type)));
   const fieldIdToStateKey = $derived(buildCrmMappingFieldLookup(dataFields));
   let unmappedCounts = $derived.by(() => buildCrmUnmappedCounts(Object.keys(crmProperties), dataFields, mappings));
   let aiLoadingFieldKeys = $derived.by(() => buildAiLoadingFieldKeySets(aiPendingFieldKeys));
   const hasActiveAiRun = $derived.by(() => Object.values(aiLoading).some(Boolean));
+  const hasBlockingCrmValidationIssues = $derived.by(() => Object.values(crmValidationIssues).some((providerIssues) => Object.values(providerIssues).some((issues) => issues.length > 0)));
 
   onDestroy(() => {
     for (const controller of aiRequestControllers.values()) {
       controller.abort();
     }
     aiRequestControllers.clear();
+    crmValidationController?.abort();
+    crmValidationController = null;
   });
 
   $effect(() => {
@@ -88,12 +100,18 @@
         controller.abort();
       }
       aiRequestControllers.clear();
+      crmValidationController?.abort();
+      crmValidationController = null;
       aiSuggestions = {};
       aiLoading = {};
       aiPendingFieldKeys = {};
       aiErrors = {};
       aiProgress = {};
       aiReviewNoticeVisible = {};
+      crmValidationIssues = {};
+      crmValidationError = null;
+      validatingMappings = false;
+      crmValidationSessionToken += 1;
       hasHydratedForOpen = false;
       return;
     }
@@ -110,6 +128,9 @@
     aiErrors = {};
     aiProgress = {};
     aiReviewNoticeVisible = {};
+    crmValidationIssues = {};
+    crmValidationError = null;
+    validatingMappings = false;
     hasHydratedForOpen = true;
   });
 
@@ -127,11 +148,79 @@
     return optionsOverrides[getCrmMappingFieldStateKey(field, index)] ?? field.metadata?.options ?? [];
   }
 
+  function resetCrmValidationState() {
+    crmValidationIssues = {};
+    crmValidationError = null;
+  }
+
+  function getCrmValidationIssues(provider: string, fieldKey: string) {
+    return crmValidationIssues[provider]?.[fieldKey] || [];
+  }
+
+  async function verifyMappingsWithCrm(serializedFields = serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides)) {
+    if (!form?.id || Object.keys(crmProperties).length === 0) {
+      resetCrmValidationState();
+      return true;
+    }
+
+    const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content || '';
+    const sessionToken = crmValidationSessionToken;
+
+    crmValidationController?.abort();
+    const controller = new AbortController();
+    crmValidationController = controller;
+
+    validatingMappings = true;
+    crmValidationError = null;
+
+    try {
+      const response = await fetch(validate_crm_mapping_form_path(form.id), {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({ fields: serializedFields }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (controller.signal.aborted || !open || crmValidationController !== controller || sessionToken !== crmValidationSessionToken) {
+        return false;
+      }
+
+      crmValidationIssues = groupCrmValidationIssues(Array.isArray(payload.issues) ? payload.issues : []);
+
+      if (response.ok && payload.valid !== false) {
+        crmValidationError = null;
+        return true;
+      }
+
+      crmValidationError = typeof payload.error === 'string' ? payload.error : null;
+      return false;
+    } catch (_error: unknown) {
+      if (controller.signal.aborted || !open || crmValidationController !== controller || sessionToken !== crmValidationSessionToken) {
+        return false;
+      }
+
+      crmValidationIssues = {};
+      crmValidationError = 'Live CRM verification failed. Please try again.';
+      return false;
+    } finally {
+      if (crmValidationController === controller) {
+        crmValidationController = null;
+        validatingMappings = false;
+      }
+    }
+  }
+
   function handleAutoMap() {
     const autoMapped = autoMapFields(fields, crmProperties, (field, prop, provider) => isCrmPropertyCompatible(field, prop, provider));
     const merged = mergeCrmAutoMappedDraft(mappings, exportKeyOverrides, autoMapped, fieldIdToStateKey);
     mappings = merged.mappings;
     exportKeyOverrides = merged.exportKeyOverrides;
+    resetCrmValidationState();
   }
 
   function getAiSuggestion(provider: string, fieldKey: string): AiSuggestion | undefined {
@@ -163,6 +252,8 @@
 
   async function handleAiAutoMap(provider: string) {
     if (!form?.id || hasActiveAiRun) return;
+
+    resetCrmValidationState();
 
     const initialRequest = buildAiAutoMapRequest(
       indexedFields,
@@ -301,6 +392,7 @@
 
       if (!encounteredError) {
         aiReviewNoticeVisible = { ...aiReviewNoticeVisible, [provider]: true };
+        await verifyMappingsWithCrm();
       }
     } catch (error: unknown) {
       if (controller.signal.aborted) return;
@@ -317,13 +409,21 @@
     }
   }
 
-  function handleSave() {
-    onsave?.({ fields: serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides) });
+  async function handleSave() {
+    const serializedFields = serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides);
+    const isValid = await verifyMappingsWithCrm(serializedFields);
+    if (!isValid) return;
+
+    onsave?.({ fields: serializedFields });
     open = false;
   }
 
-  function handleTest() {
-    ontestcrm?.(serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides));
+  async function handleTest() {
+    const serializedFields = serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides);
+    const isValid = await verifyMappingsWithCrm(serializedFields);
+    if (!isValid) return;
+
+    ontestcrm?.(serializedFields);
   }
 
   function close() {
@@ -333,14 +433,17 @@
   function syncExportKey(fieldKey: string, provider: string) {
     const mapping = mappings[fieldKey]?.[provider];
     exportKeyOverrides = applyCrmExportKeyAlignment(exportKeyOverrides, fieldKey, mapping);
+    resetCrmValidationState();
   }
 
   function syncOptions(fieldKey: string, crmOptions: {label: string, value: string}[]) {
     optionsOverrides = applyCrmOptionsSync(optionsOverrides, fieldKey, crmOptions);
+    resetCrmValidationState();
   }
 
   function updateMapping(fieldKey: string, provider: string, value: string, providerProperties: any, field: any, index: number) {
     mappings = applyCrmMappingSelection(mappings, fieldKey, provider, value, providerProperties, field, index);
+    resetCrmValidationState();
   }
 
   let summaries = $derived.by(() => {
@@ -354,17 +457,22 @@
 
 {#if open}
   <div data-testid="crm-mapping-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl flex flex-col max-h-[90vh]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="crm-mapping-modal-title"
+      class="bg-white rounded-lg shadow-xl w-full max-w-4xl flex flex-col max-h-[90vh]"
+    >
       <!-- Header -->
       <div class="px-6 py-4 border-b flex justify-between items-center">
-        <h2 class="text-xl font-semibold text-gray-800">CRM Field Mapping</h2>
+        <h2 id="crm-mapping-modal-title" class="text-xl font-semibold text-gray-800">CRM Field Mapping</h2>
         <div class="flex gap-4 items-center">
           <button 
             type="button" 
             data-testid="auto-map-fields"
             class="text-sm px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded border border-indigo-200 disabled:cursor-not-allowed disabled:opacity-60" 
             onclick={handleAutoMap}
-            disabled={hasActiveAiRun}
+            disabled={hasActiveAiRun || validatingMappings}
           >
             Auto-Map Fields
           </button>
@@ -388,8 +496,24 @@
             No active CRM connection found. Please connect your HubSpot or Salesforce account in settings.
           </div>
         {:else}
+          {#if validatingMappings}
+            <div
+              data-testid="crm-live-validation-progress"
+              class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"
+            >
+              Quick KYB is verifying the current mappings against your live CRM properties.
+            </div>
+          {/if}
+
+          {#if crmValidationError}
+            <div role="alert" class="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {crmValidationError}
+            </div>
+          {/if}
+
           {#each Object.entries(crmProperties) as [provider, properties]}
             {@const reviewNotice = getAiReviewNotice(provider)}
+            {@const providerValidationIssueCount = countCrmValidationIssuesForProvider(crmValidationIssues, provider)}
             <div class="mb-8" data-provider={provider}>
               <div class="mb-4 flex items-center justify-between gap-3">
                 <h3 class="text-lg font-medium capitalize">{provider} Integration</h3>
@@ -399,7 +523,7 @@
                     data-testid={`ai-auto-map-${provider}`}
                     class="inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
                     onclick={() => handleAiAutoMap(provider)}
-                    disabled={hasActiveAiRun}
+                    disabled={hasActiveAiRun || validatingMappings}
                   >
                     {#if aiLoading[provider]}
                       <Loader2 class="h-4 w-4 animate-spin" />
@@ -414,6 +538,16 @@
                   </button>
                 {/if}
               </div>
+
+              {#if providerValidationIssueCount > 0}
+                <div
+                  data-testid={`crm-validation-${provider}`}
+                  role="alert"
+                  class="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900"
+                >
+                  Live CRM verification found {providerValidationIssueCount} blocking issue{providerValidationIssueCount > 1 ? 's' : ''}. Fix {providerValidationIssueCount > 1 ? 'them' : 'it'} before saving or sending test data.
+                </div>
+              {/if}
 
               {#if aiErrors[provider]}
                 <div role="alert" class="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -528,6 +662,8 @@
                         {@const isCompatible = !selectedProp || isCrmPropertyCompatible(field, selectedProp, provider)}
                         {@const providerFileActions = getProviderFileActions(provider)}
                         {@const selectedFileAction = providerFileActions.find(a => a.value === currentValue)}
+                        {@const validationIssues = getCrmValidationIssues(provider, fieldKey)}
+                        {@const validationIssueId = `crm-validation-feedback-${provider}-${fieldKey}`}
 
                         <tr class="hover:bg-gray-50">
                           <td class="px-4 py-3 font-medium text-gray-900">
@@ -560,13 +696,15 @@
                                 value={currentValue || undefined}
                                 onValueChange={(value) => updateMapping(fieldKey, provider, value, properties, field, index)}
                                 onOpenChange={(isOpen: boolean) => { if (!isOpen) fieldSearch[`${fieldKey}-${provider}`] = ''; }}
-                                disabled={hasActiveAiRun}
+                                disabled={hasActiveAiRun || validatingMappings}
                               >
                                 <SelectTrigger
                                   class={cn(
                                     "flex h-9 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500",
                                     !isCompatible && "border-red-300 ring-1 ring-red-300"
                                   )}
+                                  aria-invalid={validationIssues.length > 0}
+                                  aria-describedby={validationIssues.length > 0 ? validationIssueId : undefined}
                                   data-testid={`crm-mapping-select-${fieldKey}-${provider}`}
                                 >
                                   {#if currentValue === "__custom_contact__" || currentValue === "__custom_company__"}
@@ -690,6 +828,19 @@
                                   Create as: <span class="font-mono">{suggestion?.suggested_custom_name}</span>
                                 </p>
                               {/if}
+
+                              {#if validationIssues.length > 0}
+                                <div id={validationIssueId} role="alert" class="space-y-1">
+                                  {#each validationIssues as issue}
+                                    <p
+                                      data-testid={`crm-validation-issue-${fieldKey}-${provider}-${issue.code}`}
+                                      class="text-[10px] text-red-600 font-medium"
+                                    >
+                                      {issue.message}
+                                    </p>
+                                  {/each}
+                                </div>
+                              {/if}
                               
                               {#if !isCompatible}
                                 <p data-testid={`type-mismatch-${field.id}-${provider}`} class="text-[10px] text-red-600 font-medium">
@@ -707,7 +858,7 @@
                                     onclick={() => syncExportKey(fieldKey, provider)}
                                     class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                                     title="Update Data Export Key to match CRM property name"
-                                    disabled={hasActiveAiRun}
+                                    disabled={hasActiveAiRun || validatingMappings}
                                   >
                                     Align Key
                                   </button>
@@ -726,7 +877,7 @@
                                       onclick={() => syncOptions(fieldKey, selectedProp.options)}
                                       class="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 hover:bg-amber-100 transition-colors shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
                                       title="Overwrite form options with CRM options"
-                                      disabled={hasActiveAiRun}
+                                      disabled={hasActiveAiRun || validatingMappings}
                                     >
                                       Sync Options
                                     </button>
@@ -758,7 +909,7 @@
           <button 
             onclick={handleTest}
             class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
-            disabled={testingCrm || Object.keys(crmProperties).length === 0 || hasActiveAiRun}
+            disabled={testingCrm || validatingMappings || hasBlockingCrmValidationIssues || Object.keys(crmProperties).length === 0 || hasActiveAiRun}
           >
             {testingCrm ? 'Sending Test...' : 'Send Test Data'}
           </button>
@@ -773,7 +924,7 @@
         <button 
           onclick={handleSave}
           class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
-          disabled={hasActiveAiRun || Object.keys(crmProperties).length === 0}
+          disabled={hasActiveAiRun || validatingMappings || hasBlockingCrmValidationIssues || Object.keys(crmProperties).length === 0}
         >
           Save Mapping
         </button>

@@ -8,12 +8,14 @@ import {
   buildAiLoadingFieldKeySets,
   buildCrmMappingFieldLookup,
   buildCrmUnmappedCounts,
+  countCrmValidationIssuesForProvider,
   countAvailableWritableCrmProperties,
   filterCrmProperties,
   getAiAutoMapErrorMessage,
   getCrmMappingFieldStateKey,
   getCrmMappingPropertyName,
   getCrmMappingSelectionValue,
+  groupCrmValidationIssues,
   hasCrmOptionsMismatch,
   hydrateCrmMappingDraft,
   mergeAiSuggestionsDraft,
@@ -676,6 +678,49 @@ describe('crm-mapping-modal helpers', () => {
     expect(hasCrmOptionsMismatch(['Approved', 'Rejected'], [
       { label: 'approved', value: 'approved' },
     ])).toBe(true);
+  });
+
+  it('groups live CRM validation issues by provider and field key', () => {
+    const grouped = groupCrmValidationIssues([
+      {
+        provider: 'hubspot',
+        field_key: 'id:42',
+        field_id: '42',
+        index: 0,
+        field_label: 'Phone Number',
+        object_type: 'contact',
+        property_name: 'phone_number',
+        code: 'missing_property',
+        message: 'Missing property',
+      },
+      {
+        provider: 'hubspot',
+        field_key: 'id:42',
+        field_id: '42',
+        index: 0,
+        field_label: 'Phone Number',
+        object_type: 'contact',
+        property_name: 'phone_number',
+        code: 'option_mismatch',
+        message: 'Invalid option',
+        invalid_options: ['Online'],
+        allowed_options: ['storefront'],
+      },
+      {
+        provider: 'salesforce',
+        field_key: 'draft:1',
+        index: 1,
+        field_label: 'Industry',
+        object_type: 'company',
+        property_name: 'Industry',
+        code: 'missing_property',
+        message: 'Missing property',
+      },
+    ]);
+
+    expect(grouped.hubspot['id:42']).toHaveLength(2);
+    expect(grouped.salesforce['draft:1']).toHaveLength(1);
+    expect(countCrmValidationIssuesForProvider(grouped, 'hubspot')).toBe(2);
   });
 
   it('skips custom-only AI suggestions that do not target an existing property', () => {

@@ -75,8 +75,13 @@ When the standard "Auto-Map Fields" leaves fields unmapped because labels differ
 6. Accepted suggestions appear in the table with an **"AI"** badge and a confidence indicator. Hovering the badge shows the AI reasoning.
 7. If the AI cannot find a safe native CRM property, it can suggest a **custom property name** instead of forcing a bad match.
 8. When the AI falls back to a custom property suggestion, Quick KYB now applies that suggestion directly to the draft as a **custom CRM mapping** on the inferred object (`Contact` or `Company` / `Account`, depending on the provider).
-9. When the AI run completes, Quick KYB shows an inline reminder to verify the suggested mappings before saving, because AI can make mistakes.
-10. Review and save. Once saved, AI-generated mappings behave exactly like any other CRM mapping.
+9. When the AI run completes, Quick KYB performs a **live CRM verification** pass against the current provider schema before you can save or send test data from the modal.
+10. If the live verification finds a problem, Quick KYB shows blocking inline issues for cases such as:
+   - the selected existing CRM property no longer exists
+   - the selected property is read-only
+   - the form choice values no longer match the CRM's allowed enumeration values
+11. When the AI run completes, Quick KYB also shows an inline reminder to verify the suggested mappings before saving, because AI can make mistakes.
+12. Review and save. Once saved, AI-generated mappings behave exactly like any other CRM mapping.
 
 ### Limitations
 
@@ -87,6 +92,7 @@ When the standard "Auto-Map Fields" leaves fields unmapped because labels differ
 - The AI only suggests mappings to writable CRM properties that are not already used elsewhere in the same provider mapping.
 - Large forms are processed in smaller sequential AI batches to keep the run focused and avoid requiring repeated manual clicks for the same provider.
 - **Type compatibility is enforced server-side** using the same compatibility rules as manual mapping. Invalid AI suggestions are discarded.
+- Existing-property mappings are now re-checked against the **live CRM schema** after AI auto-map and before modal save/test, so stale deleted properties or invalid enum values are surfaced before the next export job.
 - When no safe native property exists, the AI can place the field into a **custom Contact/Company property mapping** with a generated technical property key. Saving the form keeps that custom mapping and triggers provider-specific property creation where supported.
 - If the AI service is temporarily unavailable, Quick KYB shows an inline warning and you can continue using manual mapping or the standard auto-map.
 

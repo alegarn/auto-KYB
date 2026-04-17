@@ -25,6 +25,7 @@ Rails.application.routes.draw do
       get :confirm_delete
       post :duplicate
       post :test_crm_mapping
+      post :validate_crm_mapping
     end
     resource :ai_field_suggestions, only: [ :create ], controller: "forms/ai_field_suggestions"
   end
