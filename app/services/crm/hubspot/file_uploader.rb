@@ -42,7 +42,7 @@ module Crm
           if target_id.present?
             create_note_with_attachment(result["id"], blob.filename.to_s, target_type, target_id)
           end
-          { file_id: result["id"], name: result["name"] }
+          { file_id: result["id"], name: result["name"], url: result["url"] }
         end
       rescue => e
         Rails.logger.error("[HubSpot FileUploader] #{e.message}")

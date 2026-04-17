@@ -490,6 +490,16 @@ export function autoMapFields(
   return newMappings;
 }
 
+const PSEUDO_FILE_ACTIONS = new Set([
+  '__note_attachment__',
+  '__content_version__',
+  '__attachment__',
+]);
+
+export function isPseudoFileAction(propertyName?: string | null): boolean {
+  return PSEUDO_FILE_ACTIONS.has(String(propertyName || ''));
+}
+
 export type FileMappingAction = {
   value: string;
   label: string;
