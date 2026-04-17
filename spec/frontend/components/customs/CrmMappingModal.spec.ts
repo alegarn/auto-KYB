@@ -65,6 +65,39 @@ describe('CrmMappingModal', () => {
     expect(screen.getByText(/Type: string/i)).toBeInTheDocument();
   });
 
+  it('lets keyboard users scroll the mapping table horizontally with arrow keys', async () => {
+    const user = userEvent.setup();
+
+    render(CrmMappingModal, { props: { ...defaultProps, onsave: vi.fn() } });
+
+    const tableScrollRegion = screen.getByTestId('crm-mapping-table-scroll');
+
+    Object.defineProperty(tableScrollRegion, 'scrollLeft', {
+      configurable: true,
+      writable: true,
+      value: 0,
+    });
+    Object.defineProperty(tableScrollRegion, 'scrollWidth', {
+      configurable: true,
+      value: 1000,
+    });
+    Object.defineProperty(tableScrollRegion, 'clientWidth', {
+      configurable: true,
+      value: 400,
+    });
+
+    expect(tableScrollRegion).toHaveAttribute('tabindex', '0');
+
+    tableScrollRegion.focus();
+    expect(document.activeElement).toBe(tableScrollRegion);
+
+    await user.keyboard('{ArrowRight}');
+    expect(tableScrollRegion.scrollLeft).toBeGreaterThan(0);
+
+    await user.keyboard('{ArrowLeft}');
+    expect(tableScrollRegion.scrollLeft).toBe(0);
+  });
+
   it('filters out layout fields (section, subtitle, static_text, separator, logo)', () => {
     const fields = [
       { id: 'f1', label: 'Company Name', field_type: 'text', required: false, position: 0, metadata: {} },

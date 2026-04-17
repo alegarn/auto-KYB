@@ -157,6 +157,25 @@
     return crmValidationIssues[provider]?.[fieldKey] || [];
   }
 
+  const horizontalScrollStep = 160;
+
+  function handleMappingTableKeydown(event: KeyboardEvent) {
+    if (event.target !== event.currentTarget) return;
+
+    const container = event.currentTarget as HTMLDivElement | null;
+    if (!container) return;
+
+    const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      container.scrollLeft = Math.min(maxScrollLeft, container.scrollLeft + horizontalScrollStep);
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      container.scrollLeft = Math.max(0, container.scrollLeft - horizontalScrollStep);
+    }
+  }
+
   async function verifyMappingsWithCrm(serializedFields = serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides)) {
     if (!form?.id || Object.keys(crmProperties).length === 0) {
       resetCrmValidationState();
@@ -637,7 +656,20 @@
               {/if}
               
               {#if properties && ((properties.contact && properties.contact.length > 0) || (properties.company && properties.company.length > 0))}
-                <div class="overflow-x-auto border rounded-lg">
+                <p id="crm-mapping-table-help" class="sr-only">
+                  Focus this area and use the left and right arrow keys to scroll horizontally through the CRM field mapping table.
+                </p>
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <div
+                  data-testid="crm-mapping-table-scroll"
+                  role="region"
+                  aria-label="CRM field mapping table"
+                  aria-describedby="crm-mapping-table-help"
+                  tabindex="0"
+                  onkeydown={handleMappingTableKeydown}
+                  class="overflow-x-auto border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                >
                   <table class="w-full text-left text-sm text-gray-600">
                     <thead class="bg-gray-50 border-b">
                       <tr>
