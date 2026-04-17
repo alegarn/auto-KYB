@@ -225,7 +225,7 @@ describe('CrmMappingModal', () => {
       }
     });
 
-    expect(screen.getByText(/Key mismatch: export key \(company_name\) != company/i)).toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch .*\(company_name\) != company/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /align key/i }));
 
@@ -304,14 +304,14 @@ describe('CrmMappingModal', () => {
       }
     });
 
-    expect(screen.getByText(/Key mismatch: export key \(company_name\) != company/i)).toBeInTheDocument();
-    expect(screen.getByText(/Key mismatch: export key \(years_old\) != age/i)).toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch .*\(company_name\) != company/i)).toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch .*\(years_old\) != age/i)).toBeInTheDocument();
 
     const alignButtons = screen.getAllByRole('button', { name: /align key/i });
     await user.click(alignButtons[0]);
 
-    expect(screen.queryByText(/Key mismatch: export key \(company_name\) != company/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Key mismatch: export key \(years_old\) != age/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Key mismatch .*\(company_name\) != company/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch .*\(years_old\) != age/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
   await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
