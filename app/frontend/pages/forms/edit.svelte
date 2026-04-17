@@ -15,7 +15,7 @@
   } from "@/components/customs/form-builder/types"
   import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
   import type { FormField } from "/components/customs/form-builder/types"
-  import { form_path } from '@/routes';
+  import { form_path, test_crm_mapping_form_path } from '@/routes';
   import Toast from "/components/customs/Toast.svelte"
   import Modal from '@/components/ui/modal.svelte';
   import CrmMappingModal from '@/components/customs/CrmMappingModal.svelte';
@@ -40,9 +40,19 @@
   const canUseCrm = $derived(crmAllowed(sharedAuth))
   const unmappedFields = $derived(singleCrmProvider && canUseCrm ? getUnmappedCrmFields(fields, singleCrmProvider) : [])
   const hasUnmappedCrmFields = $derived(unmappedFields.length > 0)
+  const hasServerValidationErrors = $derived(
+    !!serverError
+      || (Array.isArray(serverErrors) ? serverErrors.length > 0 : !!(serverErrors && Object.keys(serverErrors).length > 0))
+  )
+  let pendingLocalSave = $state(false)
 
-  // Sync state with props
+  // Sync state with props — skip when a local save is in flight to avoid
+  // deferred-prop resolution overwriting unsaved changes (e.g. export_key
+  // updates from the CRM mapping modal).
   $effect(() => {
+    if (hasServerValidationErrors) return
+    if (pendingLocalSave) return
+
     name = initial?.name || "";
     fields = (initial?.form_fields || []).map((f: any, i: number) => ({
       id: f.id,
@@ -173,7 +183,7 @@
       },
     } as any, {
       preserveState: true,
-      onFinish: () => { submitting = false },
+      onFinish: () => { submitting = false; pendingLocalSave = false },
     })
   }
 
@@ -209,10 +219,11 @@
         }))
       };
       
-      const response = await fetch(`/forms/${initial?.id}/test_crm_mapping`, {
+      const response = await fetch(test_crm_mapping_form_path(initial?.id), {
         method: 'POST',
         headers: { 
           'X-CSRF-Token': csrf,
+          'Accept': 'application/json',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
@@ -292,7 +303,7 @@
         Preview
       </button>
     </div>
-    {#if canUseCrm}
+    {#if activeCrmProviders.length > 0 && canUseCrm}
       <Button type="button" variant="outline" size="sm" onclick={openCrmMapping}> 🔌 CRM Sync Settings</Button>
     {/if}
   </div>
@@ -389,12 +400,12 @@
     bind:open={showCrmMappingModal}
     form={initial}
     {crmProperties}
-    {loadingProperties}
     {fields}
     onsave={({ fields: updatedFields }: { fields: FormField[] }) => {
+      pendingLocalSave = true;
       fields = updatedFields;
       closeCrmMapping();
-      handleSubmit();
+      submitForm({ skipUnmappedCrmWarning: true });
     }}
     ontestcrm={sendTestCrmData}
     {testingCrm}

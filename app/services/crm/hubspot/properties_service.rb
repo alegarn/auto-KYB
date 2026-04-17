@@ -5,17 +5,17 @@ module Crm
     class PropertiesService
 
       def initialize(user)
-        @connection = Crm::ConnectionManager.active_connections_for(user).find { |c| c.provider == 'hubspot' }
+        @connection = Crm::ConnectionManager.active_connections_for(user).find { |c| c.provider == "hubspot" }
         @client = Crm::Hubspot::Client.new(@connection) if @connection
       end
 
       # List properties for a given object type ('contact' or 'company')
-      def list_properties(object_type: 'contact')
+      def list_properties(object_type: "contact", force: false)
         return [] unless @client
 
         cache_key = "hubspot_properties_v2_#{object_type}_#{@connection.id}"
         cached = Rails.cache.read(cache_key)
-        return cached if cached
+        return cached if cached && !force
 
         begin
           response = @client.sdk.crm.properties.core_api.get_all(object_type: object_type)

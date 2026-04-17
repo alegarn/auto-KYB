@@ -54,10 +54,13 @@ Rack::Attack.throttle("form_imports/confirm", limit: 5, period: 60.seconds) do |
   form_imports_discriminator.call(req)
 end
 
-Rack::Attack.throttled_responder = lambda do |_request|
+Rack::Attack.throttled_responder = lambda do |request|
+  json_request = request.get_header("HTTP_ACCEPT").to_s.include?("application/json")
+  error_payload = { error: "Too many requests. Please try again later." }
+
   [
     429,
-    { "Content-Type" => "application/json" },
-    [ { error: "Too many requests. Please try again later." }.to_json ]
+    { "Content-Type" => json_request ? "application/json" : "text/plain" },
+    [ json_request ? error_payload.to_json : error_payload.fetch(:error) ]
   ]
 end

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { areTypesCompatible, getCrmObjectLabel, getFieldDataType, analyzeMappings, autoMapFields, toCrmKey, fromCrmKey, isCompoundKey } from './crm-utils';
+import { areTypesCompatible, getCrmObjectLabel, getFieldDataType, analyzeMappings, autoMapFields, toCrmKey, fromCrmKey, isCompoundKey, getFieldIdentityKey } from './crm-utils';
 
 describe('getFieldDataType', () => {
   it('identifies string types', () => {
@@ -22,6 +22,14 @@ describe('getFieldDataType', () => {
 
   it('identifies date types', () => {
     expect(getFieldDataType('date')).toBe('date');
+  });
+});
+
+describe('getFieldIdentityKey', () => {
+  it('returns the raw id when one exists and a draft key otherwise', () => {
+    expect(getFieldIdentityKey({ id: 42 }, 0)).toBe('42');
+    expect(getFieldIdentityKey({ id: 'abc' }, 1)).toBe('abc');
+    expect(getFieldIdentityKey({}, 2)).toBe('draft:2');
   });
 });
 
@@ -181,6 +189,24 @@ describe('autoMapFields', () => {
     expect(result['draft:0'].hubspot).toBeDefined();
     expect(result['draft:0'].hubspot.property_name).toBe('company::name');
     expect(result['draft:0'].hubspot.object_type).toBe('company');
+  });
+
+  it('maps persisted numeric ids using the shared state key format', () => {
+    const fields = [{ id: 42, label: 'First Name', field_type: 'text', metadata: {} }];
+    const result = autoMapFields(fields, mockProperties);
+
+    expect(result['42'].hubspot.property_name).toBe('contact::firstname');
+  });
+
+  it('ignores layout fields during legacy auto-map', () => {
+    const fields = [
+      { id: 'section-1', label: 'Identity', field_type: 'section', metadata: {} },
+      { id: 'field-1', label: 'Email', field_type: 'text', metadata: {} },
+    ];
+    const result = autoMapFields(fields, mockProperties);
+
+    expect(result['section-1']).toBeUndefined();
+    expect(result['field-1'].hubspot.property_name).toBe('contact::email');
   });
 
   it('maps company name fields to the company name property even when the CRM label is generic', () => {

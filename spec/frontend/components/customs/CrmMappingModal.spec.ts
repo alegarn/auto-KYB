@@ -1,73 +1,45 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+
+const { requestAiAutoMapMock, fetchMock } = vi.hoisted(() => ({
+  requestAiAutoMapMock: vi.fn(),
+  fetchMock: vi.fn(),
+}));
+
+vi.mock('@/lib/crm/ai-auto-map', () => ({
+  requestAiAutoMap: requestAiAutoMapMock,
+}));
+
 import CrmMappingModal from "../../../../app/frontend/components/customs/CrmMappingModal.svelte";
 
-// Simple functional mocks for bits-ui Select components
-// We'll mock them as the simplest possible Svelte 5 components.
-vi.mock('bits-ui', () => {
-  const mockComponent = (target: any, props: any) => {
-    const actualTarget = (target && target.nodeType === 8) ? target.parentNode : target;
-    const div = document.createElement('div');
-    if (props && props['data-testid']) div.setAttribute('data-testid', props['data-testid']);
-    
-    // If it's an Item, we want it to be a button so it's clickable and has text
-    if (props && props.value !== undefined) {
-      const btn = document.createElement('button');
-      btn.className = 'mock-item';
-      btn.setAttribute('data-value', props.value);
-      btn.innerHTML = 'Mock Item'; 
-      div.appendChild(btn);
-      btn.onclick = (e) => {
-        // Find closest Root and notify using a unique ID to avoid cross-talk
-        let parent = div.parentElement;
-        while (parent && !parent.hasAttribute('data-mock-root-id')) {
-          parent = parent.parentElement;
-        }
-        if (parent) {
-          const rootId = parent.getAttribute('data-mock-root-id');
-          const event = new CustomEvent('update-' + rootId, { 
-            detail: props.value,
-            bubbles: true 
-          });
-          parent.dispatchEvent(event);
-          e.stopPropagation();
-        }
-      };
-    }
-
-    if (actualTarget) actualTarget.appendChild(div);
-    return { 
-      $destroy: () => div.remove(),
-      $set: () => {}
-    };
-  };
-
-  return {
-    Select: {
-      Root: (target: any, props: any) => {
-        const actualTarget = (target && target.nodeType === 8) ? target.parentNode : target;
-        const div = document.createElement('div');
-        const rootId = Math.random().toString(36).substring(7);
-        div.setAttribute('data-mock-root', 'true');
-        div.setAttribute('data-mock-root-id', rootId);
-        div.addEventListener('update-' + rootId, (e: any) => {
-          if (props.onValueChange) props.onValueChange(e.detail);
-        });
-        if (actualTarget) actualTarget.appendChild(div);
-        return { $destroy: () => div.remove(), $set: () => {} };
-      },
-      Trigger: mockComponent,
-      Content: mockComponent,
-      Item: mockComponent
-    },
-    cn: (...args: any[]) => args.filter(Boolean).join(' ')
-  };
-});
-
 describe('CrmMappingModal', () => {
+  beforeEach(() => {
+    requestAiAutoMapMock.mockReset();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ valid: true, issues: [], messages: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  function mockValidationResponse(payload: Record<string, unknown>, ok = true) {
+    fetchMock.mockResolvedValueOnce({
+      ok,
+      json: async () => payload,
+    });
+  }
+
   const defaultProps = {
     open: true,
+    form: { id: '42' },
     crmProperties: { 
       hubspot: {
         contact: [
@@ -91,6 +63,39 @@ describe('CrmMappingModal', () => {
     expect(screen.getByText('Company Name')).toBeInTheDocument();
     // In our UI, it shows "Type: string" (case depends on getFieldDataType)
     expect(screen.getByText(/Type: string/i)).toBeInTheDocument();
+  });
+
+  it('lets keyboard users scroll the mapping table horizontally with arrow keys', async () => {
+    const user = userEvent.setup();
+
+    render(CrmMappingModal, { props: { ...defaultProps, onsave: vi.fn() } });
+
+    const tableScrollRegion = screen.getByTestId('crm-mapping-table-scroll');
+
+    Object.defineProperty(tableScrollRegion, 'scrollLeft', {
+      configurable: true,
+      writable: true,
+      value: 0,
+    });
+    Object.defineProperty(tableScrollRegion, 'scrollWidth', {
+      configurable: true,
+      value: 1000,
+    });
+    Object.defineProperty(tableScrollRegion, 'clientWidth', {
+      configurable: true,
+      value: 400,
+    });
+
+    expect(tableScrollRegion).toHaveAttribute('tabindex', '0');
+
+    tableScrollRegion.focus();
+    expect(document.activeElement).toBe(tableScrollRegion);
+
+    await user.keyboard('{ArrowRight}');
+    expect(tableScrollRegion.scrollLeft).toBeGreaterThan(0);
+
+    await user.keyboard('{ArrowLeft}');
+    expect(tableScrollRegion.scrollLeft).toBe(0);
   });
 
   it('filters out layout fields (section, subtitle, static_text, separator, logo)', () => {
@@ -176,6 +181,7 @@ describe('CrmMappingModal', () => {
 
     await user.click(screen.getByTestId('auto-map-fields'));
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
+    await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
 
     const savedFields = onsave.mock.calls[0][0].fields;
     expect(savedFields[0].metadata.crm_mapping.hubspot).toEqual(
@@ -219,7 +225,7 @@ describe('CrmMappingModal', () => {
       }
     });
 
-    expect(screen.getByText(/Key mismatch: export key \(company_name\) != company/i)).toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch .*\(company_name\) != company/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /align key/i }));
 
@@ -228,7 +234,7 @@ describe('CrmMappingModal', () => {
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
 
-    expect(onsave).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
 
     const savedFields = onsave.mock.calls[0][0].fields;
 
@@ -298,20 +304,638 @@ describe('CrmMappingModal', () => {
       }
     });
 
-    expect(screen.getByText(/Key mismatch: export key \(company_name\) != company/i)).toBeInTheDocument();
-    expect(screen.getByText(/Key mismatch: export key \(years_old\) != age/i)).toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch .*\(company_name\) != company/i)).toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch .*\(years_old\) != age/i)).toBeInTheDocument();
 
     const alignButtons = screen.getAllByRole('button', { name: /align key/i });
     await user.click(alignButtons[0]);
 
-    expect(screen.queryByText(/Key mismatch: export key \(company_name\) != company/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Key mismatch: export key \(years_old\) != age/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Key mismatch .*\(company_name\) != company/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Key mismatch .*\(years_old\) != age/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
+  await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
 
     const savedFields = onsave.mock.calls[0][0].fields;
 
     expect(savedFields[0].metadata.export_key).toBe('company');
     expect(savedFields[1].metadata.export_key).toBe('years_old');
+  });
+
+  it('shows the AI auto-map button when unmapped fields remain and writable properties are available', () => {
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    expect(screen.getByTestId('ai-auto-map-hubspot')).toBeInTheDocument();
+  });
+
+  it('keeps the AI auto-map button available when the provider only has read-only properties so custom suggestions can still be applied', () => {
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+        crmProperties: {
+          hubspot: {
+            contact: [
+              { name: 'lifecycle_stage', label: 'Lifecycle Stage', type: 'enumeration', read_only: true },
+            ],
+            company: [],
+          },
+        },
+      }
+    });
+
+    expect(screen.getByTestId('ai-auto-map-hubspot')).toBeInTheDocument();
+  });
+
+  it('keeps the AI auto-map button available when all writable provider properties are already mapped so AI can fall back to custom properties', () => {
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+        crmProperties: {
+          hubspot: {
+            contact: [
+              { name: 'company', label: 'Company', type: 'string', read_only: false },
+            ],
+            company: [],
+          },
+        },
+        fields: [
+          {
+            id: 'f1',
+            label: 'Company Name',
+            field_type: 'text',
+            required: false,
+            position: 0,
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'contact',
+                  property_name: 'company',
+                },
+              },
+            },
+          },
+          {
+            id: 'f2',
+            label: 'Company Alias',
+            field_type: 'text',
+            required: false,
+            position: 1,
+            metadata: {},
+          },
+        ],
+      }
+    });
+
+    expect(screen.getByTestId('ai-auto-map-hubspot')).toBeInTheDocument();
+  });
+
+  it('hides the AI auto-map button until the form has been saved', () => {
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        form: {},
+        onsave: vi.fn(),
+      }
+    });
+
+    expect(screen.queryByTestId('ai-auto-map-hubspot')).not.toBeInTheDocument();
+  });
+
+  it('disables the AI auto-map button and shows loading skeletons while fetching suggestions', async () => {
+    const user = userEvent.setup();
+    let resolveRequest: ((value: any) => void) | undefined;
+    requestAiAutoMapMock.mockReturnValueOnce(new Promise((resolve) => {
+      resolveRequest = resolve;
+    }));
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    const button = screen.getByTestId('ai-auto-map-hubspot');
+    await user.click(button);
+
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(screen.getByTestId('ai-loading-id:f1-hubspot')).toBeInTheDocument();
+    expect(screen.getByTestId('ai-loading-id:f2-hubspot')).toBeInTheDocument();
+    expect(screen.getByTestId('ai-progress-hubspot')).toHaveTextContent('Quick KYB is still mapping the remaining fields.');
+
+    resolveRequest?.({ suggestions: {}, unmapped_count: 2, error: null });
+
+    await waitFor(() => expect(button).not.toBeDisabled());
+  });
+
+  it('merges AI suggestions, shows a badge, and saves the mapped property', async () => {
+    const user = userEvent.setup();
+    const onsave = vi.fn();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f1: {
+          object_type: 'contact',
+          property_name: 'company',
+          confidence: 'high',
+          reason: 'Company label strongly matches the CRM company field',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 1,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave,
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    expect(requestAiAutoMapMock).toHaveBeenNthCalledWith(
+      1,
+      '42',
+      'hubspot',
+      expect.any(Array),
+      [],
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'f1', label: 'Company Name', field_type: 'text' }),
+        expect.objectContaining({ id: 'f2', label: 'Is Active', field_type: 'checkbox' }),
+      ]),
+      expect.any(AbortSignal),
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ai-badge-id:f1-hubspot')).toBeInTheDocument());
+    await waitFor(() => expect(requestAiAutoMapMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('Please verify the suggested mappings before saving, as AI can make mistakes.');
+    });
+
+    await user.click(screen.getByRole('button', { name: /save mapping/i }));
+    await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
+
+    const savedFields = onsave.mock.calls[0][0].fields;
+    expect(savedFields[0].metadata.crm_mapping.hubspot).toEqual(
+      expect.objectContaining({
+        type: 'existing',
+        object_type: 'contact',
+        property_name: 'contact::company',
+      }),
+    );
+    expect(savedFields[0].metadata.export_key).toBe('company');
+  });
+
+  it('shows live CRM validation issues after AI auto-map and blocks saving until the mapping is fixed', async () => {
+    const user = userEvent.setup();
+    const onsave = vi.fn();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f1: {
+          object_type: 'contact',
+          property_name: 'phone_number',
+          confidence: 'medium',
+          reason: 'Phone number appears to match the field label',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 1,
+      error: null,
+    });
+    mockValidationResponse({
+      valid: false,
+      issues: [
+        {
+          provider: 'hubspot',
+          field_key: 'id:f1',
+          field_id: 'f1',
+          index: 0,
+          field_label: 'Company Name',
+          object_type: 'contact',
+          property_name: 'phone_number',
+          code: 'missing_property',
+          message: 'Live CRM check: HubSpot contact property "phone_number" no longer exists. Re-map this field or switch it to a custom property.',
+          invalid_options: [],
+          allowed_options: [],
+        },
+      ],
+      messages: ['HubSpot live verification found 1 blocking issue. Fix it before saving or sending test data.'],
+    }, false);
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave,
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('crm-validation-hubspot')).toHaveTextContent('Live CRM verification found 1 blocking issue.');
+    });
+    expect(screen.getByTestId('crm-validation-issue-id:f1-hubspot-missing_property')).toHaveTextContent('phone_number');
+    expect(screen.getByRole('button', { name: /save mapping/i })).toBeDisabled();
+    expect(onsave).not.toHaveBeenCalled();
+  });
+
+  it('ignores stale live validation responses after the modal closes and reopens', async () => {
+    const user = userEvent.setup();
+    let resolveFirstValidation: ((value: any) => void) | undefined;
+
+    fetchMock.mockReturnValueOnce(new Promise((resolve) => {
+      resolveFirstValidation = resolve;
+    }));
+
+    const view = render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    await user.click(screen.getByRole('button', { name: /save mapping/i }));
+    await waitFor(() => expect(screen.getByTestId('crm-live-validation-progress')).toBeInTheDocument());
+
+    await view.rerender({
+      ...defaultProps,
+      open: false,
+      onsave: vi.fn(),
+    });
+    await view.rerender({
+      ...defaultProps,
+      open: true,
+      onsave: vi.fn(),
+    });
+
+    resolveFirstValidation?.({
+      ok: false,
+      json: async () => ({
+        valid: false,
+        issues: [
+          {
+            provider: 'hubspot',
+            field_key: 'id:f1',
+            code: 'missing_property',
+            message: 'Live CRM check: HubSpot contact property "company" no longer exists.',
+          },
+        ],
+        messages: ['HubSpot live verification found 1 blocking issue.'],
+      }),
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('crm-validation-hubspot')).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /save mapping/i })).toBeEnabled();
+  });
+
+  it('shows an inline error message when AI auto-map fails', async () => {
+    const user = userEvent.setup();
+    requestAiAutoMapMock.mockRejectedValueOnce(new Error('ai_auto_map_failed'));
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('AI auto-map failed. Please try again.');
+    });
+  });
+
+  it('applies custom-only AI suggestions as real CRM mappings and saves them', async () => {
+    const user = userEvent.setup();
+    const onsave = vi.fn();
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f1: {
+          object_type: 'company',
+          property_name: null,
+          confidence: 'medium',
+          reason: 'No safe native property matched this field',
+          suggest_custom: true,
+          suggested_custom_name: 'legal_name',
+        },
+      },
+      unmapped_count: 2,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 1,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave,
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('custom-property-id:f1-hubspot')).toHaveTextContent('legal_name');
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('1 field still needs manual mapping');
+    });
+
+    await user.click(screen.getByRole('button', { name: /save mapping/i }));
+    await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
+
+    const savedFields = onsave.mock.calls[0][0].fields;
+    expect(savedFields[0].metadata.crm_mapping.hubspot).toEqual(
+      expect.objectContaining({
+        type: 'custom',
+        object_type: 'company',
+        property_name: 'company::legal_name',
+      }),
+    );
+    expect(savedFields[0].metadata.export_key).toBe('legal_name');
+  });
+
+  it('continues AI auto-map across additional rounds from a single click and finishes with a review notice', async () => {
+    const user = userEvent.setup();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f1: {
+          object_type: 'contact',
+          property_name: 'company',
+          confidence: 'high',
+          reason: 'Company label strongly matches the CRM company field',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f2: {
+          object_type: 'company',
+          property_name: null,
+          confidence: 'medium',
+          reason: 'No safe native property matched this field',
+          suggest_custom: true,
+          suggested_custom_name: 'active_status',
+        },
+      },
+      unmapped_count: 0,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => expect(requestAiAutoMapMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId('ai-badge-id:f1-hubspot')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('custom-property-id:f2-hubspot')).toHaveTextContent('active_status'));
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('AI auto-map finished. Please verify the suggested mappings before saving, as AI can make mistakes.');
+    });
+  });
+
+  it('keeps retrying beyond three rounds while each round still makes progress', async () => {
+    const user = userEvent.setup();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f1: {
+          object_type: 'contact',
+          property_name: 'company',
+          confidence: 'high',
+        },
+      },
+      unmapped_count: 3,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f2: {
+          object_type: 'contact',
+          property_name: 'secondary_company',
+          confidence: 'high',
+        },
+      },
+      unmapped_count: 2,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f3: {
+          object_type: 'contact',
+          property_name: 'tertiary_company',
+          confidence: 'high',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f4: {
+          object_type: 'contact',
+          property_name: 'quaternary_company',
+          confidence: 'high',
+        },
+      },
+      unmapped_count: 0,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+        fields: [
+          { id: 'f1', label: 'Field 1', field_type: 'text', required: false, position: 0, metadata: {} },
+          { id: 'f2', label: 'Field 2', field_type: 'text', required: false, position: 1, metadata: {} },
+          { id: 'f3', label: 'Field 3', field_type: 'text', required: false, position: 2, metadata: {} },
+          { id: 'f4', label: 'Field 4', field_type: 'text', required: false, position: 3, metadata: {} },
+        ],
+        crmProperties: {
+          hubspot: {
+            contact: [
+              { name: 'company', label: 'Company', type: 'string' },
+              { name: 'secondary_company', label: 'Secondary Company', type: 'string' },
+              { name: 'tertiary_company', label: 'Tertiary Company', type: 'string' },
+              { name: 'quaternary_company', label: 'Quaternary Company', type: 'string' },
+            ],
+            company: [],
+          },
+        },
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => expect(requestAiAutoMapMock).toHaveBeenCalledTimes(4));
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('AI auto-map finished. Please verify the suggested mappings before saving, as AI can make mistakes.');
+    });
+  });
+
+  it('stops after the first round when AI makes no progress', async () => {
+    const user = userEvent.setup();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 2,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => expect(requestAiAutoMapMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('2 fields still need manual mapping');
+    });
+  });
+
+  it('recomputes the AI review notice after later mapping changes', async () => {
+    const user = userEvent.setup();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f2: {
+          object_type: 'company',
+          property_name: 'name',
+          confidence: 'high',
+          reason: 'Company name matched the company object.',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 1,
+      error: null,
+    });
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+        fields: [
+          { id: 'f1', label: 'Email', field_type: 'text', required: false, position: 0, metadata: {} },
+          { id: 'f2', label: 'Company Name', field_type: 'text', required: false, position: 1, metadata: {} },
+        ],
+        crmProperties: {
+          hubspot: {
+            contact: [
+              { name: 'email', label: 'Email', type: 'string' },
+            ],
+            company: [
+              { name: 'name', label: 'Company Name', type: 'string' },
+            ],
+          },
+        },
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('1 field still needs manual mapping');
+    });
+
+    await user.click(screen.getByTestId('auto-map-fields'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-review-notice-hubspot')).toHaveTextContent('AI auto-map finished. Please verify the suggested mappings before saving, as AI can make mistakes.');
+    });
+  });
+
+  it('ignores stale AI responses after the modal closes and reopens', async () => {
+    const user = userEvent.setup();
+    let resolveFirstRequest: ((value: any) => void) | undefined;
+    requestAiAutoMapMock.mockReturnValueOnce(new Promise((resolve) => {
+      resolveFirstRequest = resolve;
+    }));
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 2,
+      error: null,
+    });
+
+    const view = render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+    await waitFor(() => expect(screen.getByTestId('ai-loading-id:f1-hubspot')).toBeInTheDocument());
+
+    await view.rerender({
+      ...defaultProps,
+      open: false,
+      onsave: vi.fn(),
+    });
+    await view.rerender({
+      ...defaultProps,
+      open: true,
+      onsave: vi.fn(),
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    resolveFirstRequest?.({
+      suggestions: {
+        f1: {
+          object_type: 'contact',
+          property_name: 'company',
+          confidence: 'high',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('ai-badge-id:f1-hubspot')).not.toBeInTheDocument();
+    });
+    expect(requestAiAutoMapMock).toHaveBeenCalledTimes(2);
   });
 });

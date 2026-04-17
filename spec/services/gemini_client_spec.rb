@@ -50,6 +50,36 @@ RSpec.describe GeminiClient do
     expect(result).to eq('{"name":"Imported Form"}')
   end
 
+  it 'returns text from a successful text-only API response' do
+    captured_body = nil
+
+    stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))
+      .with do |request|
+        captured_body = JSON.parse(request.body)
+        true
+      end
+      .to_return(
+        status: 200,
+        body: {
+          candidates: [
+            {
+              content: {
+                parts: [
+                  { text: '{"field":"email"}' }
+                ]
+              }
+            }
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    result = described_class.generate_text(system_prompt: 'system', user_prompt: 'user')
+
+    expect(result).to eq('{"field":"email"}')
+    expect(captured_body.dig('contents', 0, 'parts')).to eq([ { 'text' => 'user' } ])
+  end
+
   it 'falls back from flash-lite to flash-preview when the first model is overloaded' do
     stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))
       .to_return(status: 503, body: overload_body, headers: { 'Content-Type' => 'application/json' })
@@ -74,6 +104,34 @@ RSpec.describe GeminiClient do
     result = described_class.generate(system_prompt: 'system', user_prompt: 'user', pdf_file: pdf_file)
 
     expect(result).to eq('{"name":"Imported Form"}')
+    expect(a_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))).to have_been_made.once
+    expect(a_request(:post, endpoint_for('gemini-3-flash-preview'))).to have_been_made.once
+  end
+
+  it 'falls back from flash-lite to flash-preview for text-only requests when the first model is overloaded' do
+    stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))
+      .to_return(status: 503, body: overload_body, headers: { 'Content-Type' => 'application/json' })
+
+    stub_request(:post, endpoint_for('gemini-3-flash-preview'))
+      .to_return(
+        status: 200,
+        body: {
+          candidates: [
+            {
+              content: {
+                parts: [
+                  { text: '{"field":"email"}' }
+                ]
+              }
+            }
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    result = described_class.generate_text(system_prompt: 'system', user_prompt: 'user')
+
+    expect(result).to eq('{"field":"email"}')
     expect(a_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))).to have_been_made.once
     expect(a_request(:post, endpoint_for('gemini-3-flash-preview'))).to have_been_made.once
   end
@@ -199,6 +257,14 @@ RSpec.describe GeminiClient do
     }.to raise_error(GeminiClient::ApiError, /timed out/)
   end
 
+  it 'raises ApiError on timeout for text-only mode' do
+    stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview')).to_timeout
+
+    expect {
+      described_class.generate_text(system_prompt: 'system', user_prompt: 'user')
+    }.to raise_error(GeminiClient::ApiError, /timed out/)
+  end
+
   it 'raises ApiError on other transport failures' do
     stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview')).to_raise(EOFError.new('socket closed'))
 
@@ -226,6 +292,19 @@ RSpec.describe GeminiClient do
     expect {
       described_class.generate(system_prompt: 'system', user_prompt: 'user', pdf_file: pdf_file)
     }.to raise_error(GeminiClient::ApiError, /Malformed response from Gemini: unexpected response envelope/)
+  end
+
+  it 'raises ApiError on malformed JSON for text-only mode' do
+    stub_request(:post, endpoint_for('gemini-3.1-flash-lite-preview'))
+      .to_return(
+        status: 200,
+        body: 'not-json',
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    expect {
+      described_class.generate_text(system_prompt: 'system', user_prompt: 'user')
+    }.to raise_error(GeminiClient::ApiError, /Malformed response from Gemini/)
   end
 
   it 'raises ApiError when a success envelope contains non-hash parts' do
