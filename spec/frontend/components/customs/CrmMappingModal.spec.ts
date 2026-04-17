@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 
-const { requestAiAutoMapMock } = vi.hoisted(() => ({
+const { requestAiAutoMapMock, fetchMock } = vi.hoisted(() => ({
   requestAiAutoMapMock: vi.fn(),
+  fetchMock: vi.fn(),
 }));
 
 vi.mock('@/lib/crm/ai-auto-map', () => ({
@@ -15,12 +16,26 @@ import CrmMappingModal from "../../../../app/frontend/components/customs/CrmMapp
 describe('CrmMappingModal', () => {
   beforeEach(() => {
     requestAiAutoMapMock.mockReset();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ valid: true, issues: [], messages: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
   });
 
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
+
+  function mockValidationResponse(payload: Record<string, unknown>, ok = true) {
+    fetchMock.mockResolvedValueOnce({
+      ok,
+      json: async () => payload,
+    });
+  }
 
   const defaultProps = {
     open: true,
@@ -133,6 +148,7 @@ describe('CrmMappingModal', () => {
 
     await user.click(screen.getByTestId('auto-map-fields'));
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
+    await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
 
     const savedFields = onsave.mock.calls[0][0].fields;
     expect(savedFields[0].metadata.crm_mapping.hubspot).toEqual(
@@ -185,7 +201,7 @@ describe('CrmMappingModal', () => {
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
 
-    expect(onsave).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
 
     const savedFields = onsave.mock.calls[0][0].fields;
 
@@ -265,6 +281,7 @@ describe('CrmMappingModal', () => {
     expect(screen.getByText(/Key mismatch: export key \(years_old\) != age/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
+  await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
 
     const savedFields = onsave.mock.calls[0][0].fields;
 
@@ -437,6 +454,7 @@ describe('CrmMappingModal', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
+    await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
 
     const savedFields = onsave.mock.calls[0][0].fields;
     expect(savedFields[0].metadata.crm_mapping.hubspot).toEqual(
@@ -447,6 +465,115 @@ describe('CrmMappingModal', () => {
       }),
     );
     expect(savedFields[0].metadata.export_key).toBe('company');
+  });
+
+  it('shows live CRM validation issues after AI auto-map and blocks saving until the mapping is fixed', async () => {
+    const user = userEvent.setup();
+    const onsave = vi.fn();
+
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {
+        f1: {
+          object_type: 'contact',
+          property_name: 'phone_number',
+          confidence: 'medium',
+          reason: 'Phone number appears to match the field label',
+        },
+      },
+      unmapped_count: 1,
+      error: null,
+    });
+    requestAiAutoMapMock.mockResolvedValueOnce({
+      suggestions: {},
+      unmapped_count: 1,
+      error: null,
+    });
+    mockValidationResponse({
+      valid: false,
+      issues: [
+        {
+          provider: 'hubspot',
+          field_key: 'id:f1',
+          field_id: 'f1',
+          index: 0,
+          field_label: 'Company Name',
+          object_type: 'contact',
+          property_name: 'phone_number',
+          code: 'missing_property',
+          message: 'Live CRM check: HubSpot contact property "phone_number" no longer exists. Re-map this field or switch it to a custom property.',
+          invalid_options: [],
+          allowed_options: [],
+        },
+      ],
+      messages: ['HubSpot live verification found 1 blocking issue. Fix it before saving or sending test data.'],
+    }, false);
+
+    render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave,
+      }
+    });
+
+    await user.click(screen.getByTestId('ai-auto-map-hubspot'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('crm-validation-hubspot')).toHaveTextContent('Live CRM verification found 1 blocking issue.');
+    });
+    expect(screen.getByTestId('crm-validation-issue-id:f1-hubspot-missing_property')).toHaveTextContent('phone_number');
+    expect(screen.getByRole('button', { name: /save mapping/i })).toBeDisabled();
+    expect(onsave).not.toHaveBeenCalled();
+  });
+
+  it('ignores stale live validation responses after the modal closes and reopens', async () => {
+    const user = userEvent.setup();
+    let resolveFirstValidation: ((value: any) => void) | undefined;
+
+    fetchMock.mockReturnValueOnce(new Promise((resolve) => {
+      resolveFirstValidation = resolve;
+    }));
+
+    const view = render(CrmMappingModal, {
+      props: {
+        ...defaultProps,
+        onsave: vi.fn(),
+      }
+    });
+
+    await user.click(screen.getByRole('button', { name: /save mapping/i }));
+    await waitFor(() => expect(screen.getByTestId('crm-live-validation-progress')).toBeInTheDocument());
+
+    await view.rerender({
+      ...defaultProps,
+      open: false,
+      onsave: vi.fn(),
+    });
+    await view.rerender({
+      ...defaultProps,
+      open: true,
+      onsave: vi.fn(),
+    });
+
+    resolveFirstValidation?.({
+      ok: false,
+      json: async () => ({
+        valid: false,
+        issues: [
+          {
+            provider: 'hubspot',
+            field_key: 'id:f1',
+            code: 'missing_property',
+            message: 'Live CRM check: HubSpot contact property "company" no longer exists.',
+          },
+        ],
+        messages: ['HubSpot live verification found 1 blocking issue.'],
+      }),
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('crm-validation-hubspot')).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /save mapping/i })).toBeEnabled();
   });
 
   it('shows an inline error message when AI auto-map fails', async () => {
@@ -507,6 +634,7 @@ describe('CrmMappingModal', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /save mapping/i }));
+    await waitFor(() => expect(onsave).toHaveBeenCalledTimes(1));
 
     const savedFields = onsave.mock.calls[0][0].fields;
     expect(savedFields[0].metadata.crm_mapping.hubspot).toEqual(

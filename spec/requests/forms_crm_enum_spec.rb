@@ -42,6 +42,136 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
     ], "readOnlyValue"=>false, "calculated"=>false
   }
 
+  describe 'POST /forms/:id/validate_crm_mapping' do
+    let(:connection_mock) { instance_double('Crm::Connection', provider: 'hubspot', id: 1) }
+    let(:service_mock) { instance_double('Crm::HubspotService') }
+
+    before do
+      allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([ connection_mock ])
+      allow(Crm::ConnectionManager).to receive(:service_for).with(connection_mock).and_return(service_mock)
+    end
+
+    it 'returns a blocking issue when a mapped existing property no longer exists live in HubSpot' do
+      allow(service_mock).to receive(:fetch_properties).with(force: true).and_return(
+        contact: [
+          { name: 'phone', type: 'string', read_only: false }
+        ],
+        company: []
+      )
+
+      post "/forms/#{form.id}/validate_crm_mapping", params: {
+        fields: [
+          {
+            id: 'field-1',
+            label: 'Phone Number',
+            field_type: 'text',
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'contact',
+                  property_name: 'contact::phone_number'
+                }
+              }
+            }
+          }
+        ]
+      }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+
+      json = JSON.parse(response.body)
+      expect(json['valid']).to be(false)
+      expect(json['messages']).to include(a_string_including('HubSpot live verification found 1 blocking issue'))
+      expect(json['issues']).to include(
+        include(
+          'provider' => 'hubspot',
+          'code' => 'missing_property',
+          'property_name' => 'phone_number'
+        )
+      )
+    end
+
+    it 'returns an option mismatch issue when the form choices do not match live HubSpot enum values' do
+      allow(service_mock).to receive(:fetch_properties).with(force: true).and_return(
+        contact: [],
+        company: [
+          {
+            name: 'business_location_type',
+            type: 'enumeration',
+            field_type: 'select',
+            read_only: false,
+            options: [
+              { label: 'Home Residential', value: 'home_residential' },
+              { label: 'Office Business District', value: 'office_business_district' },
+              { label: 'Storefront', value: 'storefront' }
+            ]
+          }
+        ]
+      )
+
+      post "/forms/#{form.id}/validate_crm_mapping", params: {
+        fields: [
+          {
+            id: 'field-2',
+            label: 'Business Location Type',
+            field_type: 'select',
+            metadata: {
+              options: [ 'Online', 'Storefront' ],
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'company',
+                  property_name: 'company::business_location_type'
+                }
+              }
+            }
+          }
+        ]
+      }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+
+      json = JSON.parse(response.body)
+      issue = json['issues'].find { |entry| entry['code'] == 'option_mismatch' }
+
+      expect(issue).to include(
+        'provider' => 'hubspot',
+        'property_name' => 'business_location_type'
+      )
+      expect(issue['invalid_options']).to eq([ 'Online' ])
+      expect(issue['allowed_options']).to include('home_residential', 'office_business_district', 'storefront')
+    end
+
+    it 'returns service unavailable when live CRM properties cannot be fetched' do
+      allow(service_mock).to receive(:fetch_properties).with(force: true).and_raise(StandardError, 'timeout')
+
+      post "/forms/#{form.id}/validate_crm_mapping", params: {
+        fields: [
+          {
+            id: 'field-3',
+            label: 'Phone Number',
+            field_type: 'text',
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'contact',
+                  property_name: 'contact::phone'
+                }
+              }
+            }
+          }
+        ]
+      }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:service_unavailable)
+
+      json = JSON.parse(response.body)
+      expect(json['error']).to eq('Live CRM verification is temporarily unavailable. Please try again.')
+    end
+  end
+
   describe 'POST /forms/:id/test_crm_mapping' do
     let(:connection_mock) { instance_double('Crm::Connection', provider: 'hubspot', id: 1) }
     let(:service_mock) { instance_double('Crm::HubspotService') }
@@ -205,7 +335,6 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
     end
 
     it 'US-10: custom property with no options falls back to string and job creates string property' do
-      pending "Fix empty properties queuing for strings"
       update_params = {
         form: {
           structure: {
@@ -229,20 +358,145 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
       crm = double('Hubspot::CRM')
       properties = double('Hubspot::Properties')
       core_api = double('Hubspot::CoreApi')
+      hubspot_connection = instance_double('Crm::Connection', provider: 'hubspot')
 
+      allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([ hubspot_connection ])
       allow(Crm::Hubspot::Client).to receive(:new).and_return(hubspot_client)
       allow(hubspot_client).to receive(:sdk).and_return(sdk)
       allow(sdk).to receive(:crm).and_return(crm)
       allow(crm).to receive(:properties).and_return(properties)
       allow(properties).to receive(:core_api).and_return(core_api)
+      allow(core_api).to receive(:create)
 
-      expect(core_api).to receive(:create).with(hash_including(property_create: hash_including(type: 'string', fieldType: 'text', options: [])))
+      expect {
+        patch "/forms/#{form.id}", params: update_params, headers: headers, as: :json
+      }.to have_enqueued_job(CrmPropertyCreationJob).with(user.id, array_including(hash_including(options: [])))
 
-      perform_enqueued_jobs do
-        expect {
-          patch "/forms/#{form.id}", params: update_params, headers: headers, as: :json
-        }.to have_enqueued_job(CrmPropertyCreationJob).with(user.id, array_including(hash_including(options: [])))
-      end
+      job = enqueued_jobs.last
+      CrmPropertyCreationJob.perform_now(
+        job[:args].first,
+        job[:args].second.map { |mapping| mapping.deep_symbolize_keys }
+      )
+
+      expect(core_api).to have_received(:create).with(
+        hash_including(
+          property_create: hash_including(type: 'string', fieldType: 'text')
+        )
+      )
+
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
+  describe 'PATCH /forms/:id (live CRM validation)' do
+    let(:connection_mock) { instance_double('Crm::Connection', provider: 'hubspot', id: 1) }
+    let(:service_mock) { instance_double('Crm::HubspotService') }
+
+    before do
+      allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([ connection_mock ])
+      allow(Crm::ConnectionManager).to receive(:service_for).with(connection_mock).and_return(service_mock)
+    end
+
+    it 'rejects saving a mapping to a live-missing existing HubSpot property' do
+      allow(service_mock).to receive(:fetch_properties).with(force: true).and_return(
+        contact: [
+          { name: 'phone', type: 'string', read_only: false }
+        ],
+        company: []
+      )
+
+      patch "/forms/#{form.id}", params: {
+        form: {
+          name: form.name,
+          structure: {
+            fields: [
+              {
+                label: 'Phone Number',
+                field_type: 'text',
+                metadata: {
+                  crm_mapping: {
+                    hubspot: {
+                      type: 'existing',
+                      object_type: 'contact',
+                      property_name: 'contact::phone_number'
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+
+      json = JSON.parse(response.body)
+      expect(json['errors']).to include(a_string_including('phone_number'))
+      expect(json['errors']).to include(a_string_including('HubSpot live verification found 1 blocking issue'))
+    end
+
+    it 'returns service unavailable on save when live CRM verification cannot complete' do
+      allow(service_mock).to receive(:fetch_properties).with(force: true).and_raise(StandardError, 'timeout')
+
+      patch "/forms/#{form.id}", params: {
+        form: {
+          name: form.name,
+          structure: {
+            fields: [
+              {
+                label: 'Phone Number',
+                field_type: 'text',
+                metadata: {
+                  crm_mapping: {
+                    hubspot: {
+                      type: 'existing',
+                      object_type: 'contact',
+                      property_name: 'contact::phone'
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:service_unavailable)
+
+      json = JSON.parse(response.body)
+      expect(json['errors']).to include('Live CRM verification is temporarily unavailable. Please try again.')
+    end
+
+    it 'does not block mappings for providers without live property validation support' do
+      salesforce_connection = instance_double('Crm::Connection', provider: 'salesforce', id: 2)
+      salesforce_service = instance_double('Crm::SalesforceService')
+
+      allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([ salesforce_connection ])
+      allow(Crm::ConnectionManager).to receive(:service_for).with(salesforce_connection).and_return(salesforce_service)
+      expect(salesforce_service).not_to receive(:fetch_properties)
+
+      patch "/forms/#{form.id}", params: {
+        form: {
+          name: form.name,
+          structure: {
+            fields: [
+              {
+                label: 'Email',
+                field_type: 'text',
+                metadata: {
+                  crm_mapping: {
+                    salesforce: {
+                      type: 'existing',
+                      object_type: 'contact',
+                      property_name: 'contact::email'
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }, headers: headers, as: :json
 
       expect(response).to have_http_status(:ok)
     end

@@ -76,11 +76,51 @@ export interface CrmMappingDraftState {
   optionsOverrides: CrmOptionsOverrides;
 }
 
+export interface CrmMappingValidationIssue {
+  provider: string;
+  field_key: string;
+  field_id?: string | null;
+  index: number;
+  field_label: string;
+  object_type: string;
+  property_name: string;
+  code: string;
+  message: string;
+  invalid_options?: string[];
+  allowed_options?: string[];
+}
+
+export type CrmMappingValidationIssueGroups = Record<string, Record<string, CrmMappingValidationIssue[]>>;
+
 interface DuplicateExportKeyEntry {
   field: CrmMappingField;
   index: number;
   baseKey: string;
   scope: string;
+}
+
+export function groupCrmValidationIssues(
+  issues: CrmMappingValidationIssue[] = [],
+): CrmMappingValidationIssueGroups {
+  return issues.reduce<CrmMappingValidationIssueGroups>((groupedIssues, issue) => {
+    if (!groupedIssues[issue.provider]) {
+      groupedIssues[issue.provider] = {};
+    }
+
+    if (!groupedIssues[issue.provider][issue.field_key]) {
+      groupedIssues[issue.provider][issue.field_key] = [];
+    }
+
+    groupedIssues[issue.provider][issue.field_key].push(issue);
+    return groupedIssues;
+  }, {});
+}
+
+export function countCrmValidationIssuesForProvider(
+  issues: CrmMappingValidationIssueGroups,
+  provider: string,
+): number {
+  return Object.values(issues[provider] || {}).reduce((count, fieldIssues) => count + fieldIssues.length, 0);
 }
 
 export function countAvailableWritableCrmProperties(

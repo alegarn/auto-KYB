@@ -15,7 +15,7 @@
   } from "@/components/customs/form-builder/types"
   import { Field, FieldLabel, FieldContent } from "/components/ui/field/index";
   import type { FormField } from "/components/customs/form-builder/types"
-  import { form_path } from '@/routes';
+  import { form_path, test_crm_mapping_form_path } from '@/routes';
   import Toast from "/components/customs/Toast.svelte"
   import Modal from '@/components/ui/modal.svelte';
   import CrmMappingModal from '@/components/customs/CrmMappingModal.svelte';
@@ -215,10 +215,11 @@
         }))
       };
       
-      const response = await fetch(`/forms/${initial?.id}/test_crm_mapping`, {
+      const response = await fetch(test_crm_mapping_form_path(initial?.id), {
         method: 'POST',
         headers: { 
           'X-CSRF-Token': csrf,
+          'Accept': 'application/json',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
