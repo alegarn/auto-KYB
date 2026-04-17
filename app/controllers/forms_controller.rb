@@ -339,6 +339,17 @@ def duplicate
 
     fields.each_with_index.with_object([]) do |(field, index), custom_mappings|
       metadata = field["metadata"] ||= {}
+      field_type = field["field_type"].to_s
+      options = normalized_custom_mapping_options(field, metadata, field_type)
+      metadata["options"] = options if choice_field_type?(field_type)
+
+      allow_multiple = normalized_custom_mapping_allow_multiple(field, metadata, field_type)
+      if multi_value_choice_field_type?(field_type)
+        metadata["allow_multiple"] = allow_multiple
+      else
+        metadata.delete("allow_multiple")
+      end
+
       crm_mapping = metadata["crm_mapping"]
       next unless crm_mapping.is_a?(Hash)
 
@@ -361,12 +372,42 @@ def duplicate
           label: fallback_label,
           property_name: property_name,
           object_type: object_type,
-          field_type: field["field_type"].to_s,
-          options: Array(metadata["options"]),
-          allow_multiple: ActiveModel::Type::Boolean.new.cast(metadata["allow_multiple"])
+          field_type: field_type,
+          options: options,
+          allow_multiple: allow_multiple
         }
       end
     end.uniq { |mapping| [ mapping[:provider], mapping[:object_type], mapping[:property_name] ] }
+  end
+
+  def normalized_custom_mapping_options(field, metadata, field_type)
+    return [] unless choice_field_type?(field_type)
+
+    if metadata["options"].is_a?(Array)
+      metadata["options"]
+    elsif field["options"].is_a?(Array)
+      field["options"]
+    else
+      []
+    end
+  end
+
+  def normalized_custom_mapping_allow_multiple(field, metadata, field_type)
+    raw_value = if multi_value_choice_field_type?(field_type)
+      metadata.key?("allow_multiple") ? metadata["allow_multiple"] : field["allow_multiple"]
+    else
+      metadata["allow_multiple"]
+    end
+
+    ActiveModel::Type::Boolean.new.cast(raw_value)
+  end
+
+  def choice_field_type?(field_type)
+    %w[select radio checkbox buttons].include?(field_type)
+  end
+
+  def multi_value_choice_field_type?(field_type)
+    %w[checkbox buttons].include?(field_type)
   end
 
   def crm_mapping_validation_result(form_attributes)

@@ -16,6 +16,19 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     sign_in_user(create(:user, :subscribed, plan: :pro, onboarding_completed: true))
   end
 
+  def stub_hubspot_properties(contact:, company:)
+    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties) do |_, object_type:, force: false|
+      case object_type
+      when 'contact'
+        contact
+      when 'company'
+        company
+      else
+        []
+      end
+    end
+  end
+
   it 'renders contact and company properties fetched from CRM' do
     user = sign_in_pro_user
 
@@ -25,12 +38,10 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     form.form_fields.create!(field_type: 'text', label: 'Company Name', position: 1, metadata: { 'crm_mapping' => {} })
     form.form_fields.create!(field_type: 'email', label: 'Client Email', position: 2, metadata: { 'crm_mapping' => {} })
 
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+    stub_hubspot_properties(contact: [
       { 'name' => 'email', 'label' => 'Email', 'type' => 'string', 'read_only' => false },
       { 'name' => 'phone', 'label' => 'Phone', 'type' => 'string', 'read_only' => false }
-    ])
-
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([
+    ], company: [
       { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string', 'read_only' => false },
       { 'name' => 'domain', 'label' => 'Domain', 'type' => 'string', 'read_only' => false }
     ])
@@ -59,11 +70,10 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     field1 = form.form_fields.create!(field_type: 'text', label: 'Field 1', position: 1, metadata: { 'crm_mapping' => {} })
     field2 = form.form_fields.create!(field_type: 'text', label: 'Field 2', position: 2, metadata: { 'crm_mapping' => {} })
 
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+    stub_hubspot_properties(contact: [
       { 'name' => 'email', 'label' => 'Email', 'type' => 'string', 'read_only' => false },
       { 'name' => 'city', 'label' => 'City', 'type' => 'string', 'read_only' => false }
-    ])
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
+    ], company: [])
 
     visit edit_form_path(form)
     find('button', text: /CRM Sync Settings/).click
@@ -99,10 +109,9 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
 
     # A checkbox maps to the single_choice compatibility bucket in the modal.
     # Numeric CRM properties remain incompatible and should surface a warning.
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+    stub_hubspot_properties(contact: [
       { 'name' => 'verified_score', 'label' => 'Verified Score', 'type' => 'number', 'read_only' => false }
-    ])
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
+    ], company: [])
 
     visit edit_form_path(form)
     find('button', text: /CRM Sync Settings/).click
@@ -121,10 +130,9 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     form = user.forms.create!(name: 'Checkbox OK', structure: { 'description' => 'Test' })
     checkbox_field = form.form_fields.create!(field_type: 'checkbox', label: 'Subscribed', position: 1, metadata: { 'crm_mapping' => {} })
 
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+    stub_hubspot_properties(contact: [
       { 'name' => 'subscribed', 'label' => 'Subscribed', 'type' => 'enumeration', 'field_type' => 'booleancheckbox', 'read_only' => false }
-    ])
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
+    ], company: [])
 
     visit edit_form_path(form)
     find('button', text: /CRM Sync Settings/).click
@@ -143,10 +151,9 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     form.form_fields.create!(field_type: 'email', label: 'Email', position: 1, metadata: { 'crm_mapping' => {} })
     form.form_fields.create!(field_type: 'text', label: 'Company Name', position: 2, metadata: { 'crm_mapping' => {} })
 
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+    stub_hubspot_properties(contact: [
       { 'name' => 'email', 'label' => 'Email', 'type' => 'string', 'read_only' => false }
-    ])
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([
+    ], company: [
       { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string', 'read_only' => false }
     ])
 
@@ -172,8 +179,7 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
       metadata: { 'crm_mapping' => {} }
     )
 
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([])
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([
+    stub_hubspot_properties(contact: [], company: [
       { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string', 'read_only' => false }
     ])
 
@@ -222,10 +228,9 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     email_field = form.form_fields.create!(field_type: 'email', label: 'Email', position: 1, metadata: { 'crm_mapping' => {} })
     form.form_fields.create!(field_type: 'text', label: 'Registered legal entity', position: 2, metadata: { 'crm_mapping' => {} })
 
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+    stub_hubspot_properties(contact: [
       { 'name' => 'email', 'label' => 'Email', 'type' => 'string', 'read_only' => false }
-    ])
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([
+    ], company: [
       { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string', 'read_only' => false }
     ])
 
@@ -266,10 +271,9 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     form.form_fields.create!(field_type: 'text', label: 'Company Name', position: 2, metadata: { 'crm_mapping' => { 'hubspot' => { 'type' => 'existing', 'object_type' => 'company', 'property_name' => 'name' } } })
 
     # Properties so modal renders
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+    stub_hubspot_properties(contact: [
       { 'name' => 'email', 'label' => 'Email', 'type' => 'string', 'read_only' => false }
-    ])
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([
+    ], company: [
       { 'name' => 'name', 'label' => 'Company Name', 'type' => 'string', 'read_only' => false }
     ])
 
@@ -309,10 +313,9 @@ RSpec.describe 'CRM Mapping System', type: :system, js: true do
     form = user.forms.create!(name: 'Meta Sync', structure: { 'description' => 'Test' })
     field = form.form_fields.create!(field_type: 'text', label: 'Sync Field', position: 1, metadata: { 'crm_mapping' => {} })
 
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'contact').and_return([
+    stub_hubspot_properties(contact: [
       { 'name' => 'field_name', 'label' => 'Field Label', 'type' => 'string', 'read_only' => false }
-    ])
-    allow_any_instance_of(Crm::Hubspot::PropertiesService).to receive(:list_properties).with(object_type: 'company').and_return([])
+    ], company: [])
 
     visit edit_form_path(form)
     find('button', text: /CRM Sync Settings/).click

@@ -335,7 +335,6 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
     end
 
     it 'US-10: custom property with no options falls back to string and job creates string property' do
-      pending "Fix empty properties queuing for strings"
       update_params = {
         form: {
           structure: {
@@ -359,20 +358,31 @@ RSpec.describe 'Forms CRM Enumeration Mapping', type: :request do
       crm = double('Hubspot::CRM')
       properties = double('Hubspot::Properties')
       core_api = double('Hubspot::CoreApi')
+      hubspot_connection = instance_double('Crm::Connection', provider: 'hubspot')
 
+      allow(Crm::ConnectionManager).to receive(:active_connections_for).with(user).and_return([ hubspot_connection ])
       allow(Crm::Hubspot::Client).to receive(:new).and_return(hubspot_client)
       allow(hubspot_client).to receive(:sdk).and_return(sdk)
       allow(sdk).to receive(:crm).and_return(crm)
       allow(crm).to receive(:properties).and_return(properties)
       allow(properties).to receive(:core_api).and_return(core_api)
+      allow(core_api).to receive(:create)
 
-      expect(core_api).to receive(:create).with(hash_including(property_create: hash_including(type: 'string', fieldType: 'text', options: [])))
+      expect {
+        patch "/forms/#{form.id}", params: update_params, headers: headers, as: :json
+      }.to have_enqueued_job(CrmPropertyCreationJob).with(user.id, array_including(hash_including(options: [])))
 
-      perform_enqueued_jobs do
-        expect {
-          patch "/forms/#{form.id}", params: update_params, headers: headers, as: :json
-        }.to have_enqueued_job(CrmPropertyCreationJob).with(user.id, array_including(hash_including(options: [])))
-      end
+      job = enqueued_jobs.last
+      CrmPropertyCreationJob.perform_now(
+        job[:args].first,
+        job[:args].second.map { |mapping| mapping.deep_symbolize_keys }
+      )
+
+      expect(core_api).to have_received(:create).with(
+        hash_including(
+          property_create: hash_including(type: 'string', fieldType: 'text')
+        )
+      )
 
       expect(response).to have_http_status(:ok)
     end
