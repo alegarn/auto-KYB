@@ -406,22 +406,51 @@ module Crm
 
     def upload_files(files, contact_id: nil, company_id: nil)
       uploader = Crm::Hubspot::FileUploader.new(hubspot_client)
-      files.filter_map do |item|
-        # support both old array of UploadedFile and new array of Hashes [{file: UploadedFile, target: :contact, action: '__note_attachment__'}]
+      contact_file_properties = {}
+      company_file_properties = {}
+
+      results = files.filter_map do |item|
         uploaded_file = item.is_a?(Hash) ? item[:file] : item
-        target = item.is_a?(Hash) ? item[:target] : :contact
+        target = (item.is_a?(Hash) ? item[:target] : :contact).to_sym
         action = item.is_a?(Hash) ? item[:action] : "__note_attachment__"
 
         next unless uploaded_file.file.attached?
 
-        # Currently HubSpot implementation only supports note attachment
-        next unless action == "__note_attachment__"
-
         target_id = target == :company ? company_id : contact_id
         next if target_id.blank?
 
-        uploader.upload(uploaded_file, target_type: target, target_id: target_id)
+        if Crm::ExportPayloadBuilder.pseudo_file_action?(action)
+          # Note attachment: upload file and create HubSpot note linking to target
+          uploader.upload(uploaded_file, target_type: target, target_id: target_id)
+        else
+          # Real CRM property: upload file (no note), then set the property URL
+          result = uploader.upload(uploaded_file, target_type: target, target_id: nil)
+          if result && result[:url]
+            if target == :company
+              company_file_properties[action] = result[:url]
+            else
+              contact_file_properties[action] = result[:url]
+            end
+          end
+          result
+        end
       end
+
+      # Batch-update contact/company with file property URLs
+      set_object_properties("contacts", contact_id, contact_file_properties) if contact_id.present? && contact_file_properties.any?
+      set_object_properties("companies", company_id, company_file_properties) if company_id.present? && company_file_properties.any?
+
+      results
+    end
+
+    def set_object_properties(object_type, object_id, properties)
+      hubspot_client.api_request(
+        method: "PATCH",
+        path: "/crm/v3/objects/#{object_type}/#{object_id}",
+        body: { properties: properties }
+      )
+    rescue StandardError => e
+      Rails.logger.error("[HubSpot] Failed to set #{object_type} file properties on #{object_id}: #{e.message}")
     end
 
   end

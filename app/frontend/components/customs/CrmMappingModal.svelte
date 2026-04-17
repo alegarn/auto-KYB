@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { validate_crm_mapping_form_path } from '@/routes';
   import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select/index.js";
-  import { ChevronsUpDown, Loader2, Search } from "@lucide/svelte";
+  import { ChevronLeft, ChevronRight, ChevronsUpDown, Loader2, Search } from "@lucide/svelte";
   import { cn } from "../../lib/utils";
   import { requestAiAutoMap, type AiSuggestion } from '@/lib/crm/ai-auto-map';
   import { analyzeMappings, autoMapFields, getCrmObjectLabel, getFieldDataType, getProviderFileActions, type CrmExportSummary } from '../../lib/crm-utils';
@@ -47,6 +47,8 @@
     message: string;
   }
 
+  type MappingTableScrollDirection = 'left' | 'right';
+
   let { 
     open = $bindable(false), 
     form = {}, 
@@ -76,7 +78,12 @@
   let hasHydratedForOpen = $state(false);
   let crmValidationSessionToken = 0;
   const aiRequestControllers = new Map<string, AbortController>();
+  const mappingTableContainers = new Map<string, HTMLDivElement>();
   let crmValidationController: AbortController | null = null;
+  let hoveredScrollAreaProvider = $state<string | null>(null);
+  let hoveredScrollCueProvider = $state<string | null>(null);
+  let hoveredScrollCueDirection = $state<MappingTableScrollDirection | null>(null);
+  let hoverScrollFrameId: number | null = null;
   const indexedFields = $derived(fields.map((field, index) => ({ field, index })));
   const dataFields = $derived(indexedFields.filter(({ field }) => !isLayoutField(field.field_type)));
   const fieldIdToStateKey = $derived(buildCrmMappingFieldLookup(dataFields));
@@ -90,6 +97,8 @@
       controller.abort();
     }
     aiRequestControllers.clear();
+    stopHoverScroll();
+    mappingTableContainers.clear();
     crmValidationController?.abort();
     crmValidationController = null;
   });
@@ -108,6 +117,8 @@
       aiErrors = {};
       aiProgress = {};
       aiReviewNoticeVisible = {};
+      stopHoverScroll();
+      mappingTableContainers.clear();
       crmValidationIssues = {};
       crmValidationError = null;
       validatingMappings = false;
@@ -155,6 +166,102 @@
 
   function getCrmValidationIssues(provider: string, fieldKey: string) {
     return crmValidationIssues[provider]?.[fieldKey] || [];
+  }
+
+  function isScrollCueHovered(provider: string, direction: MappingTableScrollDirection) {
+    return hoveredScrollCueProvider === provider && hoveredScrollCueDirection === direction;
+  }
+
+  function isScrollAreaHovered(provider: string) {
+    return hoveredScrollAreaProvider === provider;
+  }
+
+  const hoverScrollStep = 14;
+
+  function stopHoverScroll(provider?: string, clearCue = true) {
+    if (provider && hoveredScrollCueProvider !== provider) return;
+
+    if (hoverScrollFrameId !== null) {
+      cancelAnimationFrame(hoverScrollFrameId);
+      hoverScrollFrameId = null;
+    }
+
+    if (clearCue) {
+      hoveredScrollCueProvider = null;
+      hoveredScrollCueDirection = null;
+    }
+  }
+
+  function runHoverScrollFrame() {
+    if (!hoveredScrollCueProvider || !hoveredScrollCueDirection) {
+      hoverScrollFrameId = null;
+      return;
+    }
+
+    const provider = hoveredScrollCueProvider;
+    const container = mappingTableContainers.get(provider);
+
+    if (!container) {
+      stopHoverScroll();
+      return;
+    }
+
+    const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+    const delta = hoveredScrollCueDirection === 'left' ? -hoverScrollStep : hoverScrollStep;
+    const nextScrollLeft = Math.min(maxScrollLeft, Math.max(0, container.scrollLeft + delta));
+
+    if (nextScrollLeft === container.scrollLeft) {
+      hoverScrollFrameId = null;
+      return;
+    }
+
+    container.scrollLeft = nextScrollLeft;
+    hoverScrollFrameId = requestAnimationFrame(runHoverScrollFrame);
+  }
+
+  function handleScrollCueEnter(provider: string, direction: MappingTableScrollDirection) {
+    hoveredScrollCueProvider = provider;
+    hoveredScrollCueDirection = direction;
+
+    if (hoverScrollFrameId === null) {
+      hoverScrollFrameId = requestAnimationFrame(runHoverScrollFrame);
+    }
+  }
+
+  function handleScrollCueLeave(provider: string) {
+    stopHoverScroll(provider);
+  }
+
+  function handleMappingTableHoverEnter(provider: string) {
+    hoveredScrollAreaProvider = provider;
+  }
+
+  function handleMappingTableHoverLeave(provider: string) {
+    if (hoveredScrollAreaProvider === provider) {
+      hoveredScrollAreaProvider = null;
+    }
+
+    stopHoverScroll(provider);
+  }
+
+  function registerMappingTable(node: HTMLDivElement, provider: string) {
+    let currentProvider = provider;
+
+    mappingTableContainers.set(currentProvider, node);
+
+    return {
+      update(nextProvider: string) {
+        if (nextProvider === currentProvider) return;
+
+        mappingTableContainers.delete(currentProvider);
+        currentProvider = nextProvider;
+        mappingTableContainers.set(currentProvider, node);
+      },
+      destroy() {
+        mappingTableContainers.delete(currentProvider);
+        stopHoverScroll(currentProvider);
+      },
+    };
   }
 
   const horizontalScrollStep = 160;
@@ -656,19 +763,66 @@
               {/if}
               
               {#if properties && ((properties.contact && properties.contact.length > 0) || (properties.company && properties.company.length > 0))}
-                <p id="crm-mapping-table-help" class="sr-only">
-                  Focus this area and use the left and right arrow keys to scroll horizontally through the CRM field mapping table.
+                {@const tableHelpId = `crm-mapping-table-help-${provider}`}
+                <p id={tableHelpId} class="sr-only">
+                  Focus this area and use the left and right arrow keys to scroll horizontally through the CRM field mapping table. Hover the small controls on the left or right edge to move the table in that direction.
                 </p>
+                <div
+                  class="relative"
+                  role="group"
+                  aria-label={`${provider} CRM mapping hover controls`}
+                  data-testid={`crm-mapping-scroll-shell-${provider}`}
+                  onpointerenter={() => handleMappingTableHoverEnter(provider)}
+                  onpointerleave={() => handleMappingTableHoverLeave(provider)}
+                >
+                  <button
+                    type="button"
+                    tabindex="-1"
+                    data-testid={`crm-mapping-scroll-cue-${provider}-left`}
+                    aria-label={`Scroll ${provider} mapping table left`}
+                    onmousedown={(event) => event.preventDefault()}
+                    onpointerenter={() => handleScrollCueEnter(provider, 'left')}
+                    onpointerleave={() => handleScrollCueLeave(provider)}
+                    class={cn(
+                      'pointer-events-none absolute inset-y-4 left-2 z-10 flex w-5 flex-col items-center justify-center rounded-full border border-white/50 bg-white/20 text-gray-500 opacity-0 shadow-sm backdrop-blur-[1px] transition-all duration-150',
+                      isScrollAreaHovered(provider) ? 'pointer-events-auto opacity-100' : '',
+                      isScrollCueHovered(provider, 'left') ? 'border-slate-300/70 bg-white/45 text-gray-800 shadow-md' : 'border-white/40',
+                    )}
+                  >
+                    <ChevronLeft class="h-3 w-3" />
+                    <span class="mt-1 h-5 w-px bg-current opacity-70"></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    tabindex="-1"
+                    data-testid={`crm-mapping-scroll-cue-${provider}-right`}
+                    aria-label={`Scroll ${provider} mapping table right`}
+                    onmousedown={(event) => event.preventDefault()}
+                    onpointerenter={() => handleScrollCueEnter(provider, 'right')}
+                    onpointerleave={() => handleScrollCueLeave(provider)}
+                    class={cn(
+                      'pointer-events-none absolute inset-y-4 right-2 z-10 flex w-5 flex-col items-center justify-center rounded-full border border-white/50 bg-white/20 text-gray-500 opacity-0 shadow-sm backdrop-blur-[1px] transition-all duration-150',
+                      isScrollAreaHovered(provider) ? 'pointer-events-auto opacity-100' : '',
+                      isScrollCueHovered(provider, 'right') ? 'border-slate-300/70 bg-white/45 text-gray-800 shadow-md' : 'border-white/40',
+                    )}
+                  >
+                    <ChevronRight class="h-3 w-3" />
+                    <span class="mt-1 h-5 w-px bg-current opacity-70"></span>
+                  </button>
+
                 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
                 <div
                   data-testid="crm-mapping-table-scroll"
+                  data-scroll-provider={provider}
                   role="region"
                   aria-label="CRM field mapping table"
-                  aria-describedby="crm-mapping-table-help"
+                  aria-describedby={tableHelpId}
                   tabindex="0"
+                  use:registerMappingTable={provider}
                   onkeydown={handleMappingTableKeydown}
-                  class="overflow-x-auto border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
+                  class="overflow-x-auto rounded-lg border px-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white"
                 >
                   <table class="w-full text-left text-sm text-gray-600">
                     <thead class="bg-gray-50 border-b">
@@ -883,7 +1037,7 @@
                               {#if selectedProp && getExportKey(field, index) !== selectedProp.name}
                                 <div class="flex items-center justify-between">
                                   <p class="text-[10px] text-amber-600 font-medium">
-                                    Key mismatch: export key ({getExportKey(field, index) || 'label'}) != {selectedProp.name}
+                                    Key mismatch with local export key ({getExportKey(field, index) || 'label'}) != {selectedProp.name}
                                   </p>
                                   <button 
                                     type="button"
@@ -922,6 +1076,7 @@
                       {/each}
                     </tbody>
                   </table>
+                </div>
                 </div>
               {:else}
                  <p class="text-gray-500 italic">No properties available for {provider}.</p>

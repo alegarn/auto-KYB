@@ -1,7 +1,7 @@
 import type { AiSuggestion } from './crm/ai-auto-map';
 import { isHubSpotCompatible } from './crm/hubspot-compat';
 
-import { areTypesCompatible, fromCrmKey, getFieldIdentityKey, toCrmKey } from './crm-utils';
+import { areTypesCompatible, fromCrmKey, getFieldIdentityKey, isPseudoFileAction, toCrmKey } from './crm-utils';
 
 const LAYOUT_FIELD_TYPES = new Set(['section', 'subtitle', 'static_text', 'separator', 'logo']);
 
@@ -244,6 +244,15 @@ export function getCrmMappingSelectionValue(mapping?: CrmMappingValue | null): s
   return propertyName ? `${mapping.object_type}:${propertyName}` : '';
 }
 
+function shouldAlignExportKeyFromMapping(mapping?: CrmMappingValue | null): boolean {
+  const propertyName = getCrmMappingPropertyName(mapping);
+  return propertyName.length > 0 && !isPseudoFileAction(propertyName);
+}
+
+function shouldAlignExportKeyFromSuggestion(propertyName?: string | null): boolean {
+  return !!propertyName && !isPseudoFileAction(propertyName);
+}
+
 export function hydrateCrmMappingDraft(fields: CrmMappingIndexedField[]): CrmMappings {
   const mappings: CrmMappings = {};
 
@@ -300,6 +309,7 @@ export function buildAiAutoMapRequest(
   const alreadyMapped = Object.values(mappings)
     .map((providerMap) => providerMap?.[provider])
     .filter((mapping): mapping is CrmMappingValue => mapping?.type === 'existing' && !!mapping.property_name)
+    .filter((mapping) => !isPseudoFileAction(getCrmMappingPropertyName(mapping)))
     .map((mapping) => mapping.property_name)
     .filter((propertyName): propertyName is string => propertyName.length > 0);
 
@@ -376,7 +386,7 @@ export function applyCrmExportKeyAlignment(
   fieldKey: string,
   mapping?: CrmMappingValue,
 ): CrmExportKeyOverrides {
-  if (!mapping?.property_name) return exportKeyOverrides;
+  if (!shouldAlignExportKeyFromMapping(mapping)) return exportKeyOverrides;
 
   return {
     ...exportKeyOverrides,
@@ -413,7 +423,7 @@ export function mergeCrmAutoMappedDraft(
     for (const [provider, mapping] of Object.entries(providerMap)) {
       if (!nextMappings[stateKey][provider]) {
         nextMappings[stateKey][provider] = mapping;
-        if (!nextExportKeyOverrides[stateKey] && (mapping as any)?.property_name) {
+        if (!nextExportKeyOverrides[stateKey] && shouldAlignExportKeyFromMapping(mapping as CrmMappingValue)) {
           nextExportKeyOverrides[stateKey] = getCrmMappingPropertyName(mapping as CrmMappingValue);
         }
       }
@@ -466,7 +476,9 @@ export function mergeAiSuggestionsDraft(
       object_type: suggestion.object_type,
       property_name: toCrmKey(suggestion.object_type, suggestion.property_name),
     };
-    nextExportKeyOverrides[stateKey] = suggestion.property_name;
+    if (shouldAlignExportKeyFromSuggestion(suggestion.property_name)) {
+      nextExportKeyOverrides[stateKey] = suggestion.property_name;
+    }
   }
 
   return {

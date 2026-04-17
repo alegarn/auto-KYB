@@ -160,6 +160,34 @@ describe('crm-mapping-modal helpers', () => {
     expect(merged.exportKeyOverrides['id:42']).toBe('name');
   });
 
+  it('keeps pseudo file action suggestions out of export key alignment', () => {
+    const merged = mergeAiSuggestionsDraft(
+      {},
+      {},
+      {
+        '42': {
+          object_type: 'company',
+          property_name: '__note_attachment__',
+          confidence: 'high',
+          reason: 'Company documents should attach to the company timeline',
+        },
+      },
+      'hubspot',
+      { '42': 'id:42' },
+    );
+
+    expect(merged.mappings['id:42'].hubspot).toEqual({
+      type: 'existing',
+      object_type: 'company',
+      property_name: 'company::__note_attachment__',
+    });
+    expect(merged.exportKeyOverrides['id:42']).toBeUndefined();
+
+    const alignedKeys = applyCrmExportKeyAlignment({}, 'id:42', merged.mappings['id:42'].hubspot);
+
+    expect(alignedKeys).toEqual({});
+  });
+
   it('merges custom-only AI suggestions into custom CRM mappings', () => {
     const merged = mergeAiSuggestionsDraft(
       {},
@@ -454,6 +482,75 @@ describe('crm-mapping-modal helpers', () => {
     expect(request.alreadyMapped).toEqual([]);
     expect(request.totalUnmappedCount).toBe(0);
     expect(request.allUnmappedFieldIds).toEqual([]);
+  });
+
+  it('excludes pseudo file actions from the already-mapped AI request payload', () => {
+    const request = buildAiAutoMapRequest(
+      [
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'file',
+            label: 'Certificate of Incorporation',
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'company',
+                  property_name: '__note_attachment__',
+                },
+              },
+            },
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'file',
+            label: 'Proof of Address',
+            metadata: {},
+          },
+          index: 1,
+        },
+      ],
+      hydrateCrmMappingDraft([
+        {
+          field: {
+            id: 'field-1',
+            field_type: 'file',
+            label: 'Certificate of Incorporation',
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'company',
+                  property_name: '__note_attachment__',
+                },
+              },
+            },
+          },
+          index: 0,
+        },
+        {
+          field: {
+            id: 'field-2',
+            field_type: 'file',
+            label: 'Proof of Address',
+            metadata: {},
+          },
+          index: 1,
+        },
+      ]),
+      'hubspot',
+      {
+        'field-1': 'id:field-1',
+        'field-2': 'id:field-2',
+      },
+    );
+
+    expect(request.alreadyMapped).toEqual([]);
+    expect(request.unmappedFields.map((field) => field.id)).toEqual(['field-2']);
   });
 
   it('limits AI requests to a smaller batch while preserving layout context in original order', () => {

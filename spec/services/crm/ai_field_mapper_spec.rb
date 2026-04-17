@@ -29,6 +29,9 @@ RSpec.describe Crm::AiFieldMapper do
   let!(:email_field) do
     create(:form_field, form: form, label: "Work Email", field_type: "email", position: 3, metadata: {})
   end
+  let!(:company_document_field) do
+    create(:form_field, form: form, label: "Certificate of Incorporation", field_type: "file", position: 4, metadata: {})
+  end
   let(:unmapped_fields) do
     [
       { "id" => company_name_field.id.to_s, "label" => company_name_field.label, "field_type" => company_name_field.field_type },
@@ -137,6 +140,41 @@ RSpec.describe Crm::AiFieldMapper do
     expect(GeminiClient).to have_received(:generate_text) do |args|
       expect(args[:system_prompt]).to include("Account")
       expect(args[:user_prompt]).to include("### Account Properties")
+    end
+  end
+
+  it "allows provider file actions as valid suggestions for file fields" do
+    allow(GeminiClient).to receive(:generate_text).and_return(
+      {
+        company_document_field.id.to_s => {
+          object_type: "company",
+          property_name: "__note_attachment__",
+          confidence: "high",
+          reason: "Company incorporation documents should attach to the company timeline"
+        }
+      }.to_json
+    )
+
+    file_result = described_class.new(
+      form: form,
+      connection: connection,
+      unmapped_fields: [ { "id" => company_document_field.id.to_s, "label" => company_document_field.label, "field_type" => company_document_field.field_type } ],
+      already_mapped: [],
+      provider: provider
+    ).call
+
+    expect(file_result.suggestions).to eq(
+      company_document_field.id.to_s => {
+        object_type: "company",
+        property_name: "__note_attachment__",
+        confidence: "high",
+        reason: "Company incorporation documents should attach to the company timeline"
+      }
+    )
+    expect(file_result.unmapped_count).to eq(0)
+    expect(GeminiClient).to have_received(:generate_text) do |args|
+      expect(args[:user_prompt]).to include("## Available File Actions")
+      expect(args[:user_prompt]).to include("__note_attachment__")
     end
   end
 
@@ -257,6 +295,32 @@ RSpec.describe Crm::AiFieldMapper do
         suggested_custom_name: "siren_number"
       }
     )
+  end
+
+  it "rejects custom-property suggestions for file fields when an attachment action is available" do
+    allow(GeminiClient).to receive(:generate_text).and_return(
+      {
+        company_document_field.id.to_s => {
+          object_type: "company",
+          property_name: nil,
+          confidence: "medium",
+          suggest_custom: true,
+          suggested_custom_name: "incorporation_certificate",
+          reason: "Store the uploaded document on a custom company property"
+        }
+      }.to_json
+    )
+
+    file_result = described_class.new(
+      form: form,
+      connection: connection,
+      unmapped_fields: [ { "id" => company_document_field.id.to_s, "label" => company_document_field.label, "field_type" => company_document_field.field_type } ],
+      already_mapped: [],
+      provider: provider
+    ).call
+
+    expect(file_result.suggestions).to eq({})
+    expect(file_result.unmapped_count).to eq(1)
   end
 
   it "filters out already mapped properties before validation" do

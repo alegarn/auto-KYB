@@ -44,10 +44,14 @@
     !!serverError
       || (Array.isArray(serverErrors) ? serverErrors.length > 0 : !!(serverErrors && Object.keys(serverErrors).length > 0))
   )
+  let pendingLocalSave = $state(false)
 
-  // Sync state with props
+  // Sync state with props — skip when a local save is in flight to avoid
+  // deferred-prop resolution overwriting unsaved changes (e.g. export_key
+  // updates from the CRM mapping modal).
   $effect(() => {
     if (hasServerValidationErrors) return
+    if (pendingLocalSave) return
 
     name = initial?.name || "";
     fields = (initial?.form_fields || []).map((f: any, i: number) => ({
@@ -179,7 +183,7 @@
       },
     } as any, {
       preserveState: true,
-      onFinish: () => { submitting = false },
+      onFinish: () => { submitting = false; pendingLocalSave = false },
     })
   }
 
@@ -396,11 +400,12 @@
     bind:open={showCrmMappingModal}
     form={initial}
     {crmProperties}
-    {loadingProperties}
     {fields}
     onsave={({ fields: updatedFields }: { fields: FormField[] }) => {
+      pendingLocalSave = true;
       fields = updatedFields;
       closeCrmMapping();
+      submitForm({ skipUnmappedCrmWarning: true });
     }}
     ontestcrm={sendTestCrmData}
     {testingCrm}
