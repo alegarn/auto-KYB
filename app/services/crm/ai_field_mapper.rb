@@ -14,6 +14,20 @@ module Crm
       "salesforce" => { "contact" => "Lead", "company" => "Account" },
       "zoho" => { "contact" => "Contact", "company" => "Account" }
     }.freeze
+    PROVIDER_FILE_ACTIONS = {
+      "hubspot" => {
+        "contact" => [ { value: "__note_attachment__", label: "Attach uploaded file to Contact via note attachment" } ],
+        "company" => [ { value: "__note_attachment__", label: "Attach uploaded file to Company via note attachment" } ]
+      },
+      "salesforce" => {
+        "contact" => [ { value: "__content_version__", label: "Attach uploaded file to Contact via ContentVersion" } ],
+        "company" => [ { value: "__content_version__", label: "Attach uploaded file to Account via ContentVersion" } ]
+      },
+      "zoho" => {
+        "contact" => [ { value: "__attachment__", label: "Attach uploaded file to Contact" } ],
+        "company" => [ { value: "__attachment__", label: "Attach uploaded file to Account" } ]
+      }
+    }.freeze
     CHOICE_FIELD_TYPES = %w[select radio checkbox buttons].freeze
     LAYOUT_FIELD_TYPES = %w[section subtitle static_text separator logo].freeze
     GENERIC_COMPATIBILITY_MAP = {
@@ -94,14 +108,25 @@ module Crm
     end
 
     def build_prompt_context(properties)
-      [
+      prompt_sections = [
         "## Form Structure",
         render_form_sections,
         "## Fields Needing Suggestions",
         render_unmapped_fields,
-        "## Available CRM Properties",
-        render_available_properties(properties)
-      ].join("\n\n")
+      ]
+
+      if unmapped_fields.any? { |field| file_field?(field) }
+        file_actions = render_available_file_actions
+        if file_actions.present?
+          prompt_sections << "## Available File Actions"
+          prompt_sections << file_actions
+        end
+      end
+
+      prompt_sections << "## Available CRM Properties"
+      prompt_sections << render_available_properties(properties)
+
+      prompt_sections.join("\n\n")
     end
 
     def system_prompt
@@ -116,7 +141,10 @@ module Crm
           - checkbox/buttons (multi) fields -> multi-value enumeration properties
           - number fields -> number/integer/decimal properties
           - date fields -> date/datetime properties
+          - file fields -> file action tokens from the provided file action list, or file/url/string properties when the goal is storing a file reference
         - Use the form structure (sections, titles, helper text) to decide if a field belongs to a #{object_label("contact")} or #{object_label("company")} object.
+        - For file fields, a file action token is a valid property_name even though it is not a normal CRM property.
+        - Do not suggest creating a custom property for a file field when a relevant file action token is available for the correct object.
         - If no reasonable existing match exists, you may suggest creating a custom property.
         - Return JSON only, with no markdown or commentary.
 
@@ -124,7 +152,7 @@ module Crm
         {
           "<field_id>": {
             "object_type": "contact" | "company",
-            "property_name": "<exact property name from the list>" | null,
+            "property_name": "<exact property name from the list or exact file action token from the file action list>" | null,
             "confidence": "high" | "medium",
             "reason": "<brief explanation>",
             "suggest_custom": true | false,
@@ -153,6 +181,7 @@ module Crm
         if ActiveModel::Type::Boolean.new.cast(suggestion["suggest_custom"]) && suggestion["property_name"].nil?
           custom_name = suggestion["suggested_custom_name"].to_s.parameterize(separator: "_").truncate(50)
           next if custom_name.blank?
+          next if file_field?(field) && file_actions_available_for?(object_type)
 
           validated[field["id"]] = compact_suggestion_hash(
             object_type: object_type,
@@ -167,6 +196,16 @@ module Crm
 
         property_name = suggestion["property_name"].to_s
         next if property_name.blank?
+
+        if file_action_suggestion?(field, object_type, property_name)
+          validated[field["id"]] = compact_suggestion_hash(
+            object_type: object_type,
+            property_name: property_name,
+            confidence: normalize_confidence(suggestion["confidence"]),
+            reason: normalize_reason(suggestion["reason"])
+          )
+          next
+        end
 
         property = available_properties[Crm::KeyParser.build(object_type, property_name)]
         next unless property
@@ -244,6 +283,8 @@ module Crm
           next if key.blank?
 
           if Crm::KeyParser.compound?(key)
+            next if pseudo_file_action?(Crm::KeyParser.property_name(key))
+
             compound << key
             next
           end
@@ -251,10 +292,14 @@ module Crm
           if key.include?(":")
             object_type, property_name = key.split(":", 2)
             if %w[contact company].include?(object_type) && property_name.present?
+              next if pseudo_file_action?(property_name)
+
               compound << Crm::KeyParser.build(object_type, property_name)
               next
             end
           end
+
+          next if pseudo_file_action?(key)
 
           raw << key
         end
@@ -264,8 +309,43 @@ module Crm
     end
 
     def already_mapped_property?(object_type, property_name)
+      return false if pseudo_file_action?(property_name)
+
       compound_key = Crm::KeyParser.build(object_type, property_name)
       normalize_already_mapped[:compound].include?(compound_key) || normalize_already_mapped[:raw].include?(property_name)
+    end
+
+    def pseudo_file_action?(property_name)
+      Crm::ExportPayloadBuilder.pseudo_file_action?(property_name)
+    end
+
+    def available_file_actions
+      PROVIDER_FILE_ACTIONS.fetch(provider, {})
+    end
+
+    def render_available_file_actions
+      %w[contact company].filter_map do |object_type|
+        actions = Array(available_file_actions[object_type])
+        next if actions.empty?
+
+        lines = [ "### #{object_label(object_type)} File Actions" ]
+        actions.each do |action|
+          lines << %(- #{action[:value]} (label: "#{action[:label]}") )
+        end
+        lines.join("\n")
+      end.join("\n\n").gsub(/ \)$/, ")")
+    end
+
+    def file_action_suggestion?(field, object_type, property_name)
+      file_field?(field) && Array(available_file_actions[object_type]).any? { |action| action[:value] == property_name }
+    end
+
+    def file_actions_available_for?(object_type)
+      Array(available_file_actions[object_type]).any?
+    end
+
+    def file_field?(field)
+      field_data_type(field) == "file"
     end
 
     def render_form_sections

@@ -82,6 +82,7 @@ module Crm
           next if provider_filter.present? && !provider_filter.include?(provider_name)
           next if mapping_type(mapping) == "custom"
           next if property_name_for(mapping).blank?
+          next if Crm::ExportPayloadBuilder.pseudo_file_action?(property_name_for(mapping))
 
           provider_name
         end
@@ -110,6 +111,7 @@ module Crm
 
       property_name = property_name_for(mapping)
       return nil if property_name.blank?
+      return nil if Crm::ExportPayloadBuilder.pseudo_file_action?(property_name)
 
       object_type = object_type_for(mapping)
       property = provider_properties.dig(object_type, property_name)
