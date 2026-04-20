@@ -121,4 +121,242 @@ RSpec.describe "Forms Update", type: :request do
     expect(response).to have_http_status(:forbidden)
     expect(enqueued_jobs).to be_empty
   end
+
+  it 'allows preserving existing CRM mappings when a user loses CRM entitlement' do
+    user = sign_in_user(create(:user, :subscribed, plan: :pro))
+    session_id = user.sessions.last.id
+    form = FormService.create_form(user, {
+      name: 'CRM Form',
+      structure: {
+        fields: [
+          {
+            label: 'Email',
+            field_type: 'text',
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'contact',
+                  property_name: 'contact::email'
+                }
+              }
+            }
+          }
+        ]
+      }
+    })
+    field = form.form_fields.first
+
+    user.update!(plan: :basic)
+
+    patch "/forms/#{form.id}", params: {
+      form: {
+        name: 'Renamed CRM Form',
+        structure: {
+          fields: [
+            {
+              id: field.id,
+              label: 'Email address',
+              field_type: 'text',
+              position: 1,
+              metadata: {
+                crm_mapping: {
+                  hubspot: {
+                    type: 'existing',
+                    object_type: 'contact',
+                    property_name: 'contact::email'
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }, headers: { 'Cookie' => "session_token=#{session_id}" }, as: :json
+
+    expect(response).to have_http_status(:ok)
+
+    form.reload
+    expect(form.name).to eq('Renamed CRM Form')
+    expect(form.form_fields.first.label).to eq('Email address')
+    expect(form.form_fields.first.metadata.dig('crm_mapping', 'hubspot', 'property_name')).to eq('contact::email')
+  end
+
+  it 'does not enqueue CRM property creation for unchanged custom mappings after entitlement downgrade' do
+    user = sign_in_user(create(:user, :subscribed, plan: :pro))
+    session_id = user.sessions.last.id
+    form = FormService.create_form(user, {
+      name: 'Custom CRM Form',
+      structure: {
+        fields: [
+          {
+            label: 'Department',
+            field_type: 'text',
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'custom',
+                  object_type: 'contact',
+                  property_name: 'contact::department'
+                }
+              }
+            }
+          }
+        ]
+      }
+    })
+    field = form.form_fields.first
+
+    user.update!(plan: :basic)
+
+    expect do
+      patch "/forms/#{form.id}", params: {
+        form: {
+          name: 'Custom CRM Form v2',
+          structure: {
+            fields: [
+              {
+                id: field.id,
+                label: 'Department',
+                field_type: 'text',
+                position: 1,
+                metadata: {
+                  crm_mapping: {
+                    hubspot: {
+                      type: 'custom',
+                      object_type: 'contact',
+                      property_name: 'contact::department'
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }, headers: { 'Cookie' => "session_token=#{session_id}" }, as: :json
+    end.not_to have_enqueued_job(CrmPropertyCreationJob)
+
+    expect(response).to have_http_status(:ok)
+  end
+
+  it 'allows reordering fields without treating unchanged CRM mappings as changed' do
+    user = sign_in_user(create(:user, :subscribed, plan: :pro))
+    session_id = user.sessions.last.id
+    form = FormService.create_form(user, {
+      name: 'Reorder CRM Form',
+      structure: {
+        fields: [
+          {
+            label: 'Email',
+            field_type: 'text',
+            metadata: {
+              crm_mapping: {
+                hubspot: {
+                  type: 'existing',
+                  object_type: 'contact',
+                  property_name: 'contact::email'
+                }
+              }
+            }
+          }
+        ]
+      }
+    })
+    field = form.form_fields.first
+
+    user.update!(plan: :basic)
+
+    patch "/forms/#{form.id}", params: {
+      form: {
+        name: 'Reorder CRM Form',
+        structure: {
+          fields: [
+            {
+              label: 'Notes',
+              field_type: 'text',
+              position: 1,
+              metadata: {}
+            },
+            {
+              id: field.id,
+              label: 'Email',
+              field_type: 'text',
+              position: 2,
+              metadata: {
+                crm_mapping: {
+                  hubspot: {
+                    type: 'existing',
+                    object_type: 'contact',
+                    property_name: 'contact::email'
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }, headers: { 'Cookie' => "session_token=#{session_id}" }, as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(form.reload.form_fields.order(:position).pluck(:label)).to eq([ 'Notes', 'Email' ])
+  end
+
+  it 'returns forbidden when a downgraded user changes a custom mapped field schema' do
+    user = sign_in_user(create(:user, :subscribed, plan: :pro))
+    session_id = user.sessions.last.id
+    form = FormService.create_form(user, {
+      name: 'Schema Change Form',
+      structure: {
+        fields: [
+          {
+            label: 'Department',
+            field_type: 'checkbox',
+            metadata: {
+              options: [ 'Ops', 'Finance' ],
+              allow_multiple: true,
+              crm_mapping: {
+                hubspot: {
+                  type: 'custom',
+                  object_type: 'contact',
+                  property_name: 'contact::department'
+                }
+              }
+            }
+          }
+        ]
+      }
+    })
+    field = form.form_fields.first
+
+    user.update!(plan: :basic)
+
+    patch "/forms/#{form.id}", params: {
+      form: {
+        name: 'Schema Change Form',
+        structure: {
+          fields: [
+            {
+              id: field.id,
+              label: 'Department',
+              field_type: 'checkbox',
+              position: 1,
+              metadata: {
+                options: [ 'Ops', 'Finance', 'Legal' ],
+                allow_multiple: true,
+                crm_mapping: {
+                  hubspot: {
+                    type: 'custom',
+                    object_type: 'contact',
+                    property_name: 'contact::department'
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }, headers: { 'Cookie' => "session_token=#{session_id}" }, as: :json
+
+    expect(response).to have_http_status(:forbidden)
+  end
 end
