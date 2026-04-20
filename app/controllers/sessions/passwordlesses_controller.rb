@@ -14,7 +14,7 @@ class Sessions::PasswordlessesController < ApplicationController
     session_record = @user.sessions.create!
     cookies.signed.permanent[:session_token] = { value: session_record.id, httponly: true }
 
-    destination = @user.onboarding_completed? ? auth_loading_path : auth_setup_settings_path
+    destination = auth_navigation_for(@user).post_login_path
     redirect_to(destination, notice: "Signed in successfully", status: :see_other)
   end
 

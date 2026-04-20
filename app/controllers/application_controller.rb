@@ -15,10 +15,11 @@ class ApplicationController < ActionController::Base
   before_action :set_current_user
   before_action :authenticate
 
-  helper_method :current_user, :current_session_id, :user_props, :default_inertia_props
+  helper_method :current_user, :current_session_id, :user_props, :default_inertia_props, :public_auth_cta_props
 
   inertia_share flash: -> { flash.to_hash },
                session_id: -> { current_session_id },
+               public_auth_cta: -> { public_auth_cta_props },
                crm_transfer_signals: -> { crm_transfer_signals_props },
                onboarding: -> {
                  return nil unless current_user
@@ -79,12 +80,20 @@ class ApplicationController < ActionController::Base
     }
   end
 
+  def public_auth_cta_props
+    auth_navigation_for(current_user).public_auth_cta
+  end
+
   def store_client_form_one_time_password(client_form, password, expires_in: 5.minutes)
-    session[:client_form_one_time_passwords] ||= {}
-    session[:client_form_one_time_passwords][client_form.id.to_s] = {
+    invitation_session_store.store(
+      client_form_id: client_form.id,
       password: password,
-      expires_at: expires_in.from_now.iso8601
-    }
+      expires_in: expires_in
+    )
+  end
+
+  def invitation_session_store
+    @invitation_session_store ||= ClientInvitationSessionStore.new(session)
   end
 
   private
@@ -129,6 +138,14 @@ class ApplicationController < ActionController::Base
 
     def crm_transfer_toast_seen_at
       session[CRM_TRANSFER_TOAST_SEEN_AT_SESSION_KEY]
+    end
+
+    def auth_navigation_for(user)
+      AuthNavigationService.new(user: user, routes: self)
+    end
+
+    def registration_redirect_path_for(user)
+      auth_navigation_for(user).registration_redirect_path
     end
 
     def advance_crm_transfer_toast_marker!(timestamp)

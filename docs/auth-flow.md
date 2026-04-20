@@ -58,6 +58,15 @@ Users can sign in using the method they previously configured:
 ### Account Recovery
 If a user is locked out or the checkout flow was interrupted, they use the **Recovery Link** from their welcome email. This link targets `/registrations/recover` and uses a signed token based on their `stripe_customer_id` to establish a session.
 
+### Public Inertia Auth State
+The root landing page remains publicly accessible, but Rails still shares authenticated session state with Inertia through `ApplicationController#inertia_share`.
+
+- `auth` carries the current user, subscription summary, and feature entitlements when a session exists.
+- `session_id` carries the current session identifier for authenticated pages that need to issue a `DELETE /sessions/:id` logout action.
+- `public_auth_cta` carries the server-owned authenticated header CTA (`label` + `href`) for public pages so Svelte does not hardcode dashboard or setup routing in the landing page.
+- The homepage hero stays auth-agnostic for fast first paint: it always renders the public marketing CTA, and authenticated navigation stays in the delayed public header.
+- `GET /sign_up` remains available for guests and retained canceled users who need to resubscribe, but active or trialing authenticated sessions are redirected server-side to their next authenticated destination.
+
 ## 4. Account Settings & Authentication Updates
 
 Users can change their authentication method at any time via the **Settings** panel under "Sign-in methods".

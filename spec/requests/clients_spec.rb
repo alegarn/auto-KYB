@@ -359,7 +359,7 @@ RSpec.describe "Clients API", type: :request do
       expect(payload.dig("props", "confirm_replace_required")).to eq(true)
     end
 
-    it "redirects to password_reveal when linking a new form creates a credential" do
+    it "redirects to invitation_delivery when linking a new form creates a credential" do
       client = create(:client, user: user)
       form = create(:form, user: user)
 
@@ -369,7 +369,7 @@ RSpec.describe "Clients API", type: :request do
       }
 
       expect(response).to have_http_status(:see_other)
-      expect(response.location).to include("password_reveal")
+      expect(response.location).to include("invitation_delivery")
     end
   end
 

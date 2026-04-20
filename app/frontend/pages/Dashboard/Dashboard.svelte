@@ -5,7 +5,7 @@
   import { Input } from "/components/ui/input";
   import Modal from "/components/ui/modal.svelte";
   import { Skeleton } from "/components/ui/skeleton";
-  import { new_form_path, form_path, new_client_path, client_path, edit_client_path, quickstart_path } from "@/routes";
+  import { forms_path, form_path, new_client_path, client_path, edit_client_path, quickstart_path } from "@/routes";
   import type { DashboardOnboarding } from '@/types/dashboard-onboarding';
   import BookOpenIcon from "@lucide/svelte/icons/book-open";
 
@@ -185,7 +185,7 @@
     <p class="text-sm text-muted-foreground">{user?.email}</p>
   </div>
   <div class="flex flex-col gap-2 sm:flex-row">
-    <Button href={new_form_path()} variant="secondary">New Form</Button>
+    <Button href={forms_path()} variant="secondary">Forms Workspace</Button>
     <Button href={new_client_path()} variant="default">New Client</Button>
   </div>
 </section>
@@ -345,7 +345,7 @@
         {:else if forms.length === 0}
           <div class="rounded-lg border border-dashed border-muted-foreground/30 p-4 text-center">
             <p class="text-sm font-medium">No forms yet</p>
-            <p class="text-sm text-muted-foreground">Create a form to start collecting data.</p>
+            <p class="text-sm text-muted-foreground">Open the forms workspace to create a blank form or import a PDF before you start collecting data.</p>
           </div>
         {:else}
           {#each recentForms as form}

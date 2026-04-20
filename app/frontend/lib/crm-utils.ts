@@ -1,11 +1,17 @@
 export type DataType = 'string' | 'number' | 'boolean' | 'date' | 'file' | 'json' | 'single_choice' | 'multi_choice' | 'unknown';
 
+const LAYOUT_FIELD_TYPES = new Set(['section', 'subtitle', 'static_text', 'separator', 'logo']);
+
 // ── Compound Key Helpers ────────────────────────────────────────────
 // A compound key encodes both CRM object type and raw property name
 // into a single string: "company::address", "contact::email", etc.
 // This ensures disambiguation is never lost across save/load/export.
 
 export const CRM_KEY_SEP = '::';
+
+export function getFieldIdentityKey(field: { id?: string | number | null }, index: number): string {
+  return field.id !== undefined && field.id !== null ? String(field.id) : `draft:${index}`;
+}
 
 const CRM_OBJECT_LABELS: Record<string, Record<string, string>> = {
   hubspot: {
@@ -339,8 +345,9 @@ export function autoMapFields(
   const newMappings: Record<string, Record<string, any>> = {};
 
   fields.forEach((field, index) => {
-    const rawFieldId = field?.id;
-    const fieldId = (rawFieldId && typeof rawFieldId === 'string') ? rawFieldId : `draft:${index}`;
+    if (LAYOUT_FIELD_TYPES.has(String(field?.field_type || ''))) return;
+
+    const fieldId = getFieldIdentityKey(field || {}, index);
 
     const fieldLabel = String(field.label || fieldId || '').toLowerCase();
     const fieldLabelNorm = normalizeForMatch(field.label || fieldId || '');
@@ -481,6 +488,16 @@ export function autoMapFields(
   });
 
   return newMappings;
+}
+
+const PSEUDO_FILE_ACTIONS = new Set([
+  '__note_attachment__',
+  '__content_version__',
+  '__attachment__',
+]);
+
+export function isPseudoFileAction(propertyName?: string | null): boolean {
+  return PSEUDO_FILE_ACTIONS.has(String(propertyName || ''));
 }
 
 export type FileMappingAction = {

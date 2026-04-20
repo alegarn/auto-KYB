@@ -117,7 +117,7 @@ class ClientsController < ApplicationController
         )
 
         store_client_form_one_time_password(result[:client_form], result[:password])
-        redirect_to password_reveal_client_form_path(result[:client_form]), status: :see_other
+        redirect_to client_form_invitation_delivery_path(result[:client_form]), status: :see_other
         return
       end
 
@@ -177,7 +177,7 @@ class ClientsController < ApplicationController
     case result.action
     when :password_reveal
       store_client_form_one_time_password(result.client_form, result.password)
-      redirect_to password_reveal_client_form_path(result.client_form), status: :see_other
+      redirect_to client_form_invitation_delivery_path(result.client_form), status: :see_other
     when :confirm_replace
       render inertia: "Clients/Edit", props: edit_inertia_props(
         confirm_replace_required: true,

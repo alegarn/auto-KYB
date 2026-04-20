@@ -4,6 +4,11 @@ class RegistrationsController < ApplicationController
   before_action :skip_authorization
 
   def new
+    if (redirect_path = registration_redirect_path_for(current_user))
+      redirect_to redirect_path, status: :see_other
+      return
+    end
+
     @user = User.new
     render inertia: "registrations/new", props: {
       user: @user,

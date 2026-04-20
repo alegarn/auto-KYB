@@ -1,0 +1,307 @@
+export const FORM_BUILDER_REFERENCE = {
+  universal: {
+    required_keys: ["label", "field_type", "required", "position", "metadata"],
+    edit_only_keys: ["id"],
+    mapping_keys: ["export_key", "crm_mapping"],
+    notes: [
+      "metadata is the canonical container for field-specific configuration.",
+      "The controller still permits top-level options and allow_multiple, but FormService only persists metadata, so keep choice configuration inside metadata.",
+    ],
+  },
+  metadata_catalog: {
+    shared: {
+      description: {
+        type: "string",
+        used_in_builder: true,
+        used_in_live_form: true,
+        notes: "Rendered as helper text for section, subtitle, and static text fields; stored on input fields for later use.",
+      },
+      instruction: {
+        type: "string",
+        used_in_builder: false,
+        used_in_live_form: false,
+        notes: "Declared in the generic metadata type but not currently surfaced in the builder or renderer.",
+      },
+      export_key: {
+        type: "string",
+        used_in_builder: true,
+        used_in_live_form: false,
+        notes: "Used by export and CRM mapping tools; ignored for layout fields.",
+      },
+      crm_mapping: {
+        type: "Record<string, CrmMapping>",
+        used_in_builder: true,
+        used_in_live_form: false,
+        notes: "Provider-scoped CRM mapping configuration used by export and validation logic.",
+        shape: {
+          provider_key: "string",
+          mapping: {
+            type: "'existing' | 'custom'?",
+            property_name: "string?",
+            object_type: "string?",
+          },
+        },
+      },
+    },
+    input: {
+      placeholder: {
+        type: "string",
+        used_in_builder: true,
+        used_in_live_form: true,
+        notes: "Rendered by text, number, email, and textarea fields only.",
+      },
+      validation: {
+        type: "object",
+        used_in_builder: true,
+        used_in_live_form: false,
+        notes: "Builder-only for now; not enforced by the live renderer.",
+        shape: {
+          min_length: "number?",
+          max_length: "number?",
+          pattern: "string?",
+          min: "number?",
+          max: "number?",
+        },
+      },
+    },
+    choice: {
+      options: {
+        type: "string[]",
+        used_in_builder: true,
+        used_in_live_form: true,
+        notes: "Used by select, radio, checkbox, and buttons fields.",
+      },
+      allow_multiple: {
+        type: "boolean",
+        used_in_builder: true,
+        used_in_live_form: true,
+        notes: "Only meaningful for checkbox and buttons.",
+      },
+    },
+    file: {
+      file: {
+        type: "object",
+        used_in_builder: true,
+        used_in_live_form: true,
+        shape: {
+          allowed_types: "string[]?",
+          max_size_kb: "number?",
+        },
+      },
+    },
+    table: {
+      columns: {
+        type: "TableColumn[]",
+        used_in_builder: true,
+        used_in_live_form: true,
+        notes: "Live renderer reads metadata.columns directly.",
+      },
+      table: {
+        type: "object",
+        used_in_builder: true,
+        used_in_live_form: false,
+        notes: "Builder-seeded richer config; currently not edited directly in the UI.",
+        shape: {
+          columns: "TableColumn[]",
+          min_rows: "number?",
+          max_rows: "number?",
+          default_row_count: "number?",
+          allow_add_rows: "boolean?",
+        },
+      },
+    },
+    layout: {
+      section: {
+        type: "object",
+        used_in_builder: true,
+        used_in_live_form: true,
+        shape: {
+          collapsible: "boolean?",
+          default_expanded: "boolean?",
+          border_style: 'none | subtle | prominent',
+        },
+      },
+      separator: {
+        type: "object",
+        used_in_builder: true,
+        used_in_live_form: true,
+        shape: {
+          thickness: 'thin | medium | thick',
+          color: "string?",
+          margin: 'small | medium | large',
+        },
+      },
+      logo: {
+        type: "object",
+        used_in_builder: true,
+        used_in_live_form: true,
+        shape: {
+          image_url: "string?",
+          width: "number?",
+          height: "number?",
+          alignment: 'left | center | right',
+        },
+      },
+      text_content: {
+        type: "string",
+        used_in_builder: true,
+        used_in_live_form: true,
+        notes: "Used by static_text; live renderer falls back to description when blank.",
+      },
+    },
+  },
+  form_settings: {
+    primary_color: {
+      used_in_builder: true,
+      used_in_live_form: true,
+      notes: "Accent color and submit button color.",
+    },
+    form_background_color: {
+      used_in_builder: true,
+      used_in_live_form: true,
+      notes: "Background color for the form surface.",
+    },
+    header_background_color: {
+      used_in_builder: true,
+      used_in_live_form: true,
+      notes: "Optional header strip background.",
+    },
+    logo_url: {
+      used_in_builder: false,
+      used_in_live_form: false,
+      notes: "Declared in the type but not currently consumed by the form screens.",
+    },
+  },
+  field_types: {
+    text: {
+      category: "Input",
+      builder_controls: ["placeholder", "description", "validation.min_length", "validation.max_length", "validation.pattern"],
+      live_metadata: ["placeholder"],
+      defaults: {},
+      notes: ["Validation is currently builder-only and is not enforced by the live renderer."],
+    },
+    number: {
+      category: "Input",
+      builder_controls: ["placeholder", "description", "validation.min", "validation.max"],
+      live_metadata: ["placeholder"],
+      defaults: {},
+      notes: ["Validation is currently builder-only and is not enforced by the live renderer."],
+    },
+    email: {
+      category: "Input",
+      builder_controls: ["placeholder", "description", "validation.min_length", "validation.max_length", "validation.pattern"],
+      live_metadata: ["placeholder"],
+      defaults: {},
+      notes: ["Validation is currently builder-only and is not enforced by the live renderer."],
+    },
+    date: {
+      category: "Input",
+      builder_controls: ["description"],
+      live_metadata: [],
+      defaults: {},
+      notes: ["The builder does not currently expose date-specific validation or placeholder controls."],
+    },
+    textarea: {
+      category: "Input",
+      builder_controls: ["placeholder", "description", "validation.min_length", "validation.max_length", "validation.pattern"],
+      live_metadata: ["placeholder"],
+      defaults: {},
+      notes: ["Validation is currently builder-only and is not enforced by the live renderer."],
+    },
+    select: {
+      category: "Choice",
+      builder_controls: ["options[]", "description"],
+      live_metadata: ["options[]"],
+      defaults: { options: ["Option 1", "Option 2"] },
+      notes: ["Single choice by default."],
+    },
+    radio: {
+      category: "Choice",
+      builder_controls: ["options[]", "description"],
+      live_metadata: ["options[]"],
+      defaults: { options: ["Option 1", "Option 2"] },
+      notes: ["Single choice by default."],
+    },
+    checkbox: {
+      category: "Choice",
+      builder_controls: ["options[]", "allow_multiple", "description"],
+      live_metadata: ["options[]", "allow_multiple"],
+      defaults: { options: ["Option 1"], allow_multiple: false },
+      notes: ["allow_multiple toggles between a single value and multi-select behavior."],
+    },
+    buttons: {
+      category: "Choice (UI)",
+      builder_controls: ["options[]", "allow_multiple", "description"],
+      live_metadata: ["options[]", "allow_multiple"],
+      defaults: { options: ["Option 1", "Option 2"], allow_multiple: false },
+      notes: ["UI button group; choice data is stored like checkbox/select metadata."],
+    },
+    file: {
+      category: "Data",
+      builder_controls: ["file.max_size_kb", "file.allowed_types[]"],
+      live_metadata: ["file.max_size_kb", "file.allowed_types[]"],
+      defaults: { file: { max_size_kb: 5120, allowed_types: [".pdf", ".png", ".jpg", ".jpeg"] } },
+      notes: ["The live uploader also enforces the backend file constraints."],
+    },
+    table: {
+      category: "Data",
+      builder_controls: ["columns[].key", "columns[].label", "columns[].type"],
+      live_metadata: ["columns[]"],
+      defaults: {
+        columns: [{ key: "col_1", label: "Column 1", type: "text" }],
+        table: {
+          columns: [{ key: "col_1", label: "Column 1", type: "text" }],
+          min_rows: 1,
+          max_rows: 10,
+          default_row_count: 1,
+          allow_add_rows: true,
+        },
+      },
+      notes: ["metadata.columns is the live source of truth; metadata.table exists as a richer config object but is not currently edited by the builder."],
+    },
+    section: {
+      category: "Layout",
+      builder_controls: ["description", "section.border_style"],
+      live_metadata: ["description", "section.border_style"],
+      defaults: { section: { collapsible: false, default_expanded: true, border_style: "subtle" } },
+      notes: ["section.collapsible and section.default_expanded are declared but not currently exposed in the builder UI."],
+    },
+    subtitle: {
+      category: "Layout",
+      builder_controls: ["description"],
+      live_metadata: ["description"],
+      defaults: {},
+      notes: [],
+    },
+    static_text: {
+      category: "Layout",
+      builder_controls: ["text_content"],
+      live_metadata: ["text_content", "description"],
+      defaults: { text_content: "Enter your text content here." },
+      notes: ["The live renderer falls back to description when text_content is blank."],
+    },
+    separator: {
+      category: "Layout",
+      builder_controls: ["separator.thickness", "separator.margin"],
+      live_metadata: ["separator.thickness", "separator.margin"],
+      defaults: { separator: { thickness: "thin", margin: "medium" } },
+      notes: ["separator.color is declared but not currently surfaced in the builder UI."],
+    },
+    logo: {
+      category: "Layout",
+      builder_controls: ["logo.image_url", "logo.width", "logo.height", "logo.alignment"],
+      live_metadata: ["logo.image_url", "logo.width", "logo.height", "logo.alignment"],
+      defaults: { logo: { alignment: "center", width: 200 } },
+      notes: [],
+    },
+  },
+  legacy_field_types: {
+    button: {
+      category: "Legacy",
+      builder_controls: [],
+      live_metadata: [],
+      defaults: {},
+      notes: ["Allowed by the Rails model validation but not exposed in the palette or renderer."],
+    },
+  },
+} as const;

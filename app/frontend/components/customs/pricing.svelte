@@ -9,12 +9,14 @@
     CardFooter,
   } from "/components/ui/card";
   import Check from "@lucide/svelte/icons/check";
+  import Loader2 from "@lucide/svelte/icons/loader-2";
   import { router } from "@inertiajs/svelte";
   import { sign_up_path } from '@/routes';
 
   let pricingList = {
     basic: [
       "Personalized KYC/KYB form builder",
+      "PDF conversion to interactive forms",
       "Unique registration link for leads",
       "Required vs validated field flags",
       "Partial updates allowed",
@@ -24,7 +26,10 @@
     pro: [
       "Everything in Basic",
       "CRM exports: HubSpot, Salesforce",
-    ],
+      "Automatic data export",
+      "Automatic CRM field mapping suggestions",
+      "Export files directly to your CRM",
+      ],
     premium: [
       "Everything in Pro",
       "Client pre-onboard company research",
@@ -33,8 +38,10 @@
   };
 
   const { customer_email = undefined } = $props();
+  let loadingPlan: string | null = $state(null);
 
   const handleSubscribe = async (plan: string) => {
+    loadingPlan = plan;
     try {
       const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
       const headers: Record<string, string> = {
@@ -53,8 +60,13 @@
       if (data.url) {
         window.location.href = data.url;
       }
+      // if there's no redirect url we clear the loading state so UI recovers
+      else {
+        loadingPlan = null;
+      }
     } catch (e) {
       console.error("Failed to create checkout session", e);
+      loadingPlan = null;
       router.visit(sign_up_path());
     }
   };
@@ -95,38 +107,42 @@
         </CardContent>
 
         <CardFooter class="mt-auto">
-          <Button variant="outline" class="w-full" onclick={() => handleSubscribe('basic')}>
+          <Button variant="outline" class="w-full" disabled={loadingPlan === 'basic'} onclick={() => handleSubscribe('basic')}>
+            {#if loadingPlan === 'basic'}
+              <Loader2 class="size-3 animate-spin mr-2 inline-block" />
+            {/if}
             Get Started
           </Button>
         </CardFooter>
       </Card>
 
       <Card class="relative flex flex-col">
-        <div class="flex flex-col flex-1">
-          <CardHeader>
-            <CardTitle class="font-medium">Pro</CardTitle>
-            <span class="my-3 block text-2xl font-semibold">$499 / mo</span>
-            <CardDescription class="text-sm">Per editor</CardDescription>
-          </CardHeader>
+        <CardHeader>
+          <CardTitle class="font-medium">Pro</CardTitle>
+          <span class="my-3 block text-2xl font-semibold">$499 / mo</span>
+          <CardDescription class="text-sm">Per editor</CardDescription>
+        </CardHeader>
 
-          <CardContent class="space-y-4">
-            <hr class="border-dashed" />
-            <ul class="list-outside space-y-3 text-sm">
-              {#each pricingList.pro as item}
-                <li class="flex items-center gap-2">
-                  <Check class="size-3" />
-                  {item}
-                </li>
-              {/each}
-            </ul>
-          </CardContent>
+        <CardContent class="space-y-4">
+          <hr class="border-dashed" />
+          <ul class="list-outside space-y-3 text-sm">
+            {#each pricingList.pro as item}
+              <li class="flex items-center gap-2">
+                <Check class="size-3" />
+                {item}
+              </li>
+            {/each}
+          </ul>
+        </CardContent>
 
-          <CardFooter class="mt-auto">
-            <Button class="w-full" onclick={() => handleSubscribe('pro')}>
-              Get Started
-            </Button>
-          </CardFooter>
-        </div>
+        <CardFooter class="mt-auto">
+          <Button class="w-full" disabled={loadingPlan === 'pro'} onclick={() => handleSubscribe('pro')}>
+            {#if loadingPlan === 'pro'}
+              <Loader2 class="size-3 animate-spin mr-2 inline-block" />
+            {/if}
+            Get Started
+          </Button>
+        </CardFooter>
       </Card>
 
       <Card class="relative flex flex-col opacity-80">

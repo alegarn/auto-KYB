@@ -1,6 +1,10 @@
 class FormsController < ApplicationController
 
+  CRM_PROPERTY_SUPPORTED_PROVIDERS = %w[hubspot].freeze
+  LIVE_CRM_VALIDATION_UNAVAILABLE_ERROR = "Live CRM verification is temporarily unavailable. Please try again.".freeze
+
   before_action :authorize_subscription
+  before_action :authorize_crm_access!, only: [ :test_crm_mapping, :validate_crm_mapping ]
 
   def index
     forms = current_user ? FormSerializer.collection(current_user.forms.order(created_at: :desc)) : []
@@ -25,8 +29,38 @@ class FormsController < ApplicationController
   end
 
   def create
-    FormService.create_form(current_user, form_params.to_h)
+    current_params = form_params.to_h.deep_stringify_keys
+    custom_mappings = normalize_custom_crm_mappings!(current_params)
+    authorize_crm_access! if crm_mapping_requested?(current_params)
+
+    validation_result = crm_mapping_validation_result(current_params)
+    if validation_result&.valid? == false
+      error_messages = crm_mapping_validation_errors(validation_result)
+      if request.format.json?
+        render json: { errors: error_messages }, status: :unprocessable_entity
+      else
+        render inertia: "forms/new", props: form_editor_props(
+          errors: error_messages
+        ), status: :unprocessable_entity
+      end
+      return
+    end
+
+    FormService.create_form(current_user, current_params)
+    CrmPropertyCreationJob.perform_later(current_user.id, custom_mappings) if custom_mappings.any?
+
     redirect_to forms_path, status: :see_other
+  rescue Crm::MappingValidator::PropertyFetchError => e
+    Rails.logger.warn("[FormsController#create] #{e.message}")
+
+    error_messages = [ LIVE_CRM_VALIDATION_UNAVAILABLE_ERROR ]
+    if request.format.json?
+      render json: { errors: error_messages }, status: :service_unavailable
+    else
+      render inertia: "forms/new", props: form_editor_props(
+        errors: error_messages
+      ), status: :unprocessable_entity
+    end
   rescue FormService::DuplicateExportKeysError => e
     error_messages = [ "Export mapping keys must be unique. Duplicate keys: #{e.duplicate_keys.join(', ')}" ]
     if request.format.json?
@@ -63,7 +97,7 @@ class FormsController < ApplicationController
 
   def test_crm_mapping
     form = current_user.forms.find(params[:id])
-    form_fields = params[:fields] || form.structure&.dig("fields") || []
+    form_fields = submitted_crm_mapping_fields(form)
 
     connections = Crm::ConnectionManager.active_connections_for(current_user)
     if connections.empty?
@@ -110,6 +144,22 @@ class FormsController < ApplicationController
     end
   end
 
+  def validate_crm_mapping
+    form = current_user.forms.find(params[:id])
+    validation_result = Crm::MappingValidator.new(
+      user: current_user,
+      fields: submitted_crm_mapping_fields(form)
+    ).call
+
+    render json: validation_result.as_json, status: validation_result.valid? ? :ok : :unprocessable_entity
+  rescue Crm::MappingValidator::PropertyFetchError => e
+    Rails.logger.warn("[FormsController#validate_crm_mapping] #{e.message}")
+
+    render json: {
+      error: LIVE_CRM_VALIDATION_UNAVAILABLE_ERROR
+    }, status: :service_unavailable
+  end
+
 def duplicate
     form = current_user.forms.find(params[:id])
     FormService.duplicate_form(current_user, form)
@@ -132,39 +182,29 @@ def duplicate
     form = current_user.forms.find(params[:id])
 
     # Store the parameters locally so we can mutate them
-    current_params = form_params.to_h
+    current_params = form_params.to_h.deep_stringify_keys
+    custom_mappings = normalize_custom_crm_mappings!(current_params)
+    crm_mapping_changed = crm_mapping_requested?(current_params, existing_form: form)
+    authorize_crm_access! if crm_mapping_changed
 
-    # Check for requested custom CRM properties
-    custom_mappings = []
-    (current_params.dig(:structure, :fields) || current_params.dig("structure", "fields") || []).each do |f|
-      crm_mapping = (f[:metadata] || f["metadata"])&.dig("crm_mapping") || {}
-      crm_mapping.each do |provider, mapping|
-        if mapping["type"] == "custom"
-          # Generate a safe property name if blank
-          raw_prop_name = mapping["property_name"].presence
-          # Strip compound key prefix if present, then fall back to label
-          raw_prop_name = Crm::KeyParser.property_name(raw_prop_name) if raw_prop_name.present? && Crm::KeyParser.compound?(raw_prop_name)
-          prop_name = raw_prop_name.presence || (f["label"] || f[:label]).to_s.downcase.gsub(/[^a-z0-9_]/, "_")
-          obj_type = mapping["object_type"] || "contact"
-          # Store compound key as property_name for disambiguation
-          mapping["property_name"] = Crm::KeyParser.build(obj_type, prop_name)
-          custom_mappings << {
-            provider: provider,
-            label: (f["label"] || f[:label]),
-            property_name: prop_name,
-            object_type: obj_type,
-            field_type: (f["field_type"] || f[:field_type]).to_s,
-            options: f["options"] || f[:options] || [],
-            allow_multiple: f["allow_multiple"] || f[:allow_multiple]
-          }
-        end
+    validation_result = crm_mapping_validation_result(current_params)
+    if validation_result&.valid? == false
+      error_messages = crm_mapping_validation_errors(validation_result)
+      if request.format.json?
+        render json: { errors: error_messages }, status: :unprocessable_entity
+      else
+        render inertia: "forms/edit", props: form_editor_props(
+          form: FormDetailSerializer.new(form).as_json,
+          errors: error_messages
+        ), status: :unprocessable_entity
       end
+      return
     end
 
     # Call update_form exactly once with the potentially mutated parameters
     FormService.update_form(current_user, form, current_params)
 
-    if custom_mappings.any?
+    if custom_mappings.any? && crm_mapping_changed
       CrmPropertyCreationJob.perform_later(current_user.id, custom_mappings)
     end
 
@@ -191,6 +231,18 @@ def duplicate
         }
       }
     }, status: :see_other
+  rescue Crm::MappingValidator::PropertyFetchError => e
+    Rails.logger.warn("[FormsController#update] #{e.message}")
+
+    error_messages = [ LIVE_CRM_VALIDATION_UNAVAILABLE_ERROR ]
+    if request.format.json?
+      render json: { errors: error_messages }, status: :service_unavailable
+    else
+      render inertia: "forms/edit", props: form_editor_props(
+        form: form ? FormDetailSerializer.new(form).as_json : nil,
+        errors: error_messages
+      ), status: :unprocessable_entity
+    end
   rescue FormService::DuplicateExportKeysError => e
     error_messages = [ "Export mapping keys must be unique. Duplicate keys: #{e.duplicate_keys.join(', ')}" ]
     if request.format.json?
@@ -238,6 +290,8 @@ def duplicate
   end
 
   def crm_properties
+    return {} unless current_user && Crm::Entitlement.new(current_user).allowed?
+
     connections = Crm::ConnectionManager.active_connections_for(current_user)
     properties = {}
 
@@ -245,8 +299,8 @@ def duplicate
       begin
         service = Crm::Hubspot::PropertiesService.new(current_user)
         properties[:hubspot] = {
-          contact: service.list_properties(object_type: 'contact'),
-          company: service.list_properties(object_type: 'company')
+          contact: service.list_properties(object_type: "contact"),
+          company: service.list_properties(object_type: "company")
         }
       rescue StandardError => e
         Rails.logger.error("[FormsController#crm_properties] #{e.message}")
@@ -260,13 +314,17 @@ def duplicate
   def active_crm_providers
     return [] unless Crm::Entitlement.new(current_user).allowed?
 
-    current_user.crm_connections.active.distinct.pluck(:provider)
+    current_user.crm_connections.active.distinct.pluck(:provider).select do |provider|
+      CRM_PROPERTY_SUPPORTED_PROVIDERS.include?(provider)
+    end
   end
 
   def form_editor_props(extra_props = {})
+    providers = active_crm_providers
+
     default_inertia_props.merge(
-      activeCrmProviders: active_crm_providers,
-      crmProperties: InertiaRails.defer { crm_properties }
+      activeCrmProviders: providers,
+      crmProperties: providers.any? ? InertiaRails.defer { crm_properties } : {}
     ).merge(extra_props)
   end
 
@@ -276,9 +334,167 @@ def duplicate
       :description,
       structure: {
         settings: {},
-        fields: [ :id, :label, :field_type, :required, :position, :allow_multiple, { options: [] }, { metadata: {} } ]
+        fields: permitted_field_attributes
       }
     )
+  end
+
+  def normalize_custom_crm_mappings!(form_attributes)
+    fields = form_attributes.dig("structure", "fields") || []
+
+    fields.each_with_index.with_object([]) do |(field, index), custom_mappings|
+      metadata = field["metadata"] ||= {}
+      field_type = field["field_type"].to_s
+      options = normalized_custom_mapping_options(field, metadata, field_type)
+      metadata["options"] = options if choice_field_type?(field_type)
+
+      allow_multiple = normalized_custom_mapping_allow_multiple(field, metadata, field_type)
+      if multi_value_choice_field_type?(field_type)
+        metadata["allow_multiple"] = allow_multiple
+      else
+        metadata.delete("allow_multiple")
+      end
+
+      crm_mapping = metadata["crm_mapping"]
+      next unless crm_mapping.is_a?(Hash)
+
+      crm_mapping.each do |provider, mapping|
+        next unless mapping.is_a?(Hash)
+        next unless mapping["type"] == "custom"
+
+        object_type = mapping["object_type"].to_s.presence || "contact"
+        raw_property_name = mapping["property_name"].to_s.presence
+        raw_property_name = Crm::KeyParser.property_name(raw_property_name) if raw_property_name.present? && Crm::KeyParser.compound?(raw_property_name)
+
+        fallback_label = field["label"].to_s.presence || "field_#{index + 1}"
+        property_name = raw_property_name.presence || fallback_label.parameterize(separator: "_")
+
+        mapping["object_type"] = object_type
+        mapping["property_name"] = Crm::KeyParser.build(object_type, property_name)
+
+        custom_mappings << {
+          provider: provider.to_s,
+          label: fallback_label,
+          property_name: property_name,
+          object_type: object_type,
+          field_type: field_type,
+          options: options,
+          allow_multiple: allow_multiple
+        }
+      end
+    end.uniq { |mapping| [ mapping[:provider], mapping[:object_type], mapping[:property_name] ] }
+  end
+
+  def normalized_custom_mapping_options(field, metadata, field_type)
+    return [] unless choice_field_type?(field_type)
+
+    if metadata["options"].is_a?(Array)
+      metadata["options"]
+    elsif field["options"].is_a?(Array)
+      field["options"]
+    else
+      []
+    end
+  end
+
+  def normalized_custom_mapping_allow_multiple(field, metadata, field_type)
+    raw_value = if multi_value_choice_field_type?(field_type)
+      metadata.key?("allow_multiple") ? metadata["allow_multiple"] : field["allow_multiple"]
+    else
+      metadata["allow_multiple"]
+    end
+
+    ActiveModel::Type::Boolean.new.cast(raw_value)
+  end
+
+  def choice_field_type?(field_type)
+    %w[select radio checkbox buttons].include?(field_type)
+  end
+
+  def multi_value_choice_field_type?(field_type)
+    %w[checkbox buttons].include?(field_type)
+  end
+
+  def crm_mapping_validation_result(form_attributes)
+    return nil unless Crm::Entitlement.new(current_user).allowed?
+
+    fields = form_attributes.dig("structure", "fields") || []
+    return nil if fields.blank?
+
+    Crm::MappingValidator.new(user: current_user, fields: fields).call
+  end
+
+  def crm_mapping_validation_errors(validation_result)
+    (validation_result.messages + validation_result.issues.map(&:message)).uniq
+  end
+
+  def submitted_crm_mapping_fields(form)
+    raw_fields = if params.key?(:fields)
+      submitted_crm_mapping_fields_params
+    else
+      form.structure&.dig("fields") || []
+    end
+
+    Array(raw_fields).map do |field|
+      if field.respond_to?(:to_h)
+        field.to_h
+      else
+        field
+      end
+    end
+  end
+
+  def submitted_crm_mapping_fields_params
+    params.permit(fields: permitted_field_attributes).fetch(:fields, [])
+  end
+
+  def permitted_field_attributes
+    [ :id, :label, :field_type, :required, :position, :allow_multiple, { options: [] }, { metadata: {} } ]
+  end
+
+  def crm_mapping_requested?(form_attributes, existing_form: nil)
+    submitted_mappings = normalized_crm_mapping_payload(form_attributes.dig("structure", "fields"))
+    return submitted_mappings.any? unless existing_form
+
+    existing_mappings = normalized_existing_crm_mapping_payload(existing_form)
+    submitted_mappings != existing_mappings
+  end
+
+  def normalized_crm_mapping_payload(fields)
+    Array(fields).filter_map do |field|
+      field_hash = if field.respond_to?(:to_h)
+        field.to_h
+      else
+        field
+      end
+
+      field_hash = field_hash.deep_stringify_keys
+      crm_mapping = field_hash.dig("metadata", "crm_mapping")
+      next unless crm_mapping.is_a?(Hash) && crm_mapping.any?
+
+      {
+        "field_key" => field_hash["id"].presence || "draft:#{field_hash["position"]}",
+        "field_type" => field_hash["field_type"],
+        "options" => Array(field_hash.dig("metadata", "options")),
+        "allow_multiple" => field_hash.dig("metadata", "allow_multiple") || field_hash["allow_multiple"],
+        "crm_mapping" => crm_mapping.deep_stringify_keys
+      }
+    end.sort_by { |field| field["field_key"].to_s }
+  end
+
+  def normalized_existing_crm_mapping_payload(form)
+    form.form_fields.order(:position).filter_map do |field|
+      crm_mapping = field.metadata&.dig("crm_mapping")
+      next unless crm_mapping.is_a?(Hash) && crm_mapping.any?
+
+      {
+        "field_key" => field.id.to_s,
+        "field_type" => field.field_type,
+        "options" => Array(field.metadata&.dig("options")),
+        "allow_multiple" => field.metadata&.dig("allow_multiple"),
+        "crm_mapping" => crm_mapping.deep_stringify_keys
+      }
+    end.sort_by { |field| field["field_key"].to_s }
   end
 
 end

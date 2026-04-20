@@ -35,10 +35,32 @@ Rack::Attack.throttle("client_portal/uploads/client", limit: 10, period: 60.seco
   cookie_value.presence
 end
 
-Rack::Attack.throttled_responder = lambda do |_request|
+form_imports_discriminator = lambda do |req|
+  session_token = req.cookies["session_token"].presence || "anonymous"
+  "#{req.ip}:#{session_token}"
+end
+
+Rack::Attack.throttle("form_imports/preview", limit: 5, period: 60.seconds) do |req|
+  next unless req.post?
+  next unless req.path.match?(%r{\A/form_imports(?:\.[^/]+)?\z})
+
+  form_imports_discriminator.call(req)
+end
+
+Rack::Attack.throttle("form_imports/confirm", limit: 5, period: 60.seconds) do |req|
+  next unless req.post?
+  next unless req.path.match?(%r{\A/form_imports/confirm(?:\.[^/]+)?\z})
+
+  form_imports_discriminator.call(req)
+end
+
+Rack::Attack.throttled_responder = lambda do |request|
+  json_request = request.get_header("HTTP_ACCEPT").to_s.include?("application/json")
+  error_payload = { error: "Too many requests. Please try again later." }
+
   [
     429,
-    { "Content-Type" => "application/json" },
-    [ { error: "Too many requests. Please try again later." }.to_json ]
+    { "Content-Type" => json_request ? "application/json" : "text/plain" },
+    [ json_request ? error_payload.to_json : error_payload.fetch(:error) ]
   ]
 end

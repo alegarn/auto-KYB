@@ -20,20 +20,23 @@ RSpec.describe 'Settings CRM preferences', type: :system, js: true do
 
     visit settings_path
 
+    # CRM sync behavior section is collapsed by default — expand it first
     expect(page).to have_content('CRM sync behavior')
-    expect(page).to have_content('Validated portal submissions sync automatically.')
-    expect(page).to have_selector('button[role="switch"][aria-checked="true"]')
+    find('[role="button"]', text: 'CRM sync behavior').click
 
-    find('button[role="switch"]', wait: Capybara.default_max_wait_time).click
+    expect(page).to have_content('Validated portal submissions sync automatically.')
+    expect(page).to have_selector('button[aria-label="Toggle automatic CRM sync"][aria-checked="true"]')
+
+    find('button[aria-label="Toggle automatic CRM sync"]').click
 
     expect(page).to have_content('Portal submissions stay local until you trigger a manual CRM update.')
-    expect(page).to have_selector('button[role="switch"][aria-checked="false"]')
+    expect(page).to have_selector('button[aria-label="Toggle automatic CRM sync"][aria-checked="false"]')
     expect(user.reload.crm_auto_sync_on_portal_submit).to be(false)
 
-    find('button[role="switch"]', wait: Capybara.default_max_wait_time).click
+    find('button[aria-label="Toggle automatic CRM sync"]').click
 
     expect(page).to have_content('Validated portal submissions sync automatically.')
-    expect(page).to have_selector('button[role="switch"][aria-checked="true"]')
+    expect(page).to have_selector('button[aria-label="Toggle automatic CRM sync"][aria-checked="true"]')
     expect(user.reload.crm_auto_sync_on_portal_submit).to be(true)
   end
 end
