@@ -40,6 +40,7 @@ describe('CrmMappingModal', () => {
   const defaultProps = {
     open: true,
     form: { id: '42' },
+    activeCrmProviders: ['hubspot'],
     crmProperties: { 
       hubspot: {
         contact: [

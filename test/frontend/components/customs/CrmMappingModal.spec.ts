@@ -16,6 +16,7 @@ function buildProps() {
   return {
     open: true,
     showTestAction: false,
+    activeCrmProviders: ['hubspot'],
     onsave: vi.fn(),
     ontestcrm: vi.fn(),
     fields: [

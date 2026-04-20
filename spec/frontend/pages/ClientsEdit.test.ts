@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { mockPageProps, resetPageProps, updatePageProps } from '../../../test/frontend/mocks/inertia';
+vi.mock('@/routes', () => ({
+  client_path: (id: string | number) => `/clients/${id}`,
+}));
 import ClientsEdit from '@/pages/Clients/Edit.svelte';
 
 const mockFetch = vi.fn();
@@ -52,6 +56,13 @@ describe('Clients/Edit page CRM rendering', () => {
   };
 
   beforeEach(() => {
+    resetPageProps();
+    updatePageProps({
+      props: {
+        ...mockPageProps.props,
+        auth: { features: { crm: { allowed: true } } },
+      },
+    });
     mockFetch.mockReset();
     localStorageState.clear();
     window.localStorage.clear();
@@ -85,9 +96,11 @@ describe('Clients/Edit page CRM rendering', () => {
     await waitFor(() => {
       expect(getByText('CRM Integration')).toBeInTheDocument();
       expect(getByText(/This client is not linked to your CRM\./i)).toBeInTheDocument();
+      expect(getByText('Create new contact in CRM')).toBeInTheDocument();
+      expect(getByText('Link existing CRM contact')).toBeInTheDocument();
     });
 
-    expect(queryByText('CRM Data are linked')).not.toBeInTheDocument();
+    expect(queryByText('Linked to HubSpot')).not.toBeInTheDocument();
     expect(mockFetch).toHaveBeenCalledWith('/clients/client_123/crm_match_suggestions');
   });
 
@@ -99,10 +112,8 @@ describe('Clients/Edit page CRM rendering', () => {
       }
     });
 
-    await waitFor(() => {
-      expect(getByText('CRM Data are linked')).toBeInTheDocument();
-      expect(getByText('Complete with CRM data')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Linked to your CRM')).toBeInTheDocument();
+    expect(getByText('Complete with CRM data')).toBeInTheDocument();
 
     expect(queryByText('CRM Integration')).not.toBeInTheDocument();
     expect(queryByText(/This client is not linked to your CRM\./i)).not.toBeInTheDocument();
@@ -129,7 +140,7 @@ describe('Clients/Edit page CRM rendering', () => {
       expect(getByText(/Saving this client updates the linked CRM profile automatically\./i)).toBeInTheDocument();
     });
 
-    expect(getByText(/Linked to HubSpot\. Fetching data is manual, but saving this page automatically pushes profile and company changes back to the CRM\./i)).toBeInTheDocument();
+    expect(getByText(/Use “Complete with CRM data” when you want to pull fresh values from HubSpot/i)).toBeInTheDocument();
 
     await fireEvent.click(getByText('Understood'));
 
@@ -138,7 +149,8 @@ describe('Clients/Edit page CRM rendering', () => {
     });
 
     expect(window.localStorage.getItem('quick-kyb.crm-linked-edit-notice.v1')).toBe('dismissed');
-    expect(getByText(/Linked to HubSpot\. Fetching data is manual, but saving this page automatically pushes profile and company changes back to the CRM\./i)).toBeInTheDocument();
+    expect(await screen.findByText('Linked to HubSpot')).toBeInTheDocument();
+    expect(getByText('Complete with CRM data')).toBeInTheDocument();
   });
 
   it('does not reopen the linked CRM notice after it has already been dismissed in this browser', async () => {
@@ -159,7 +171,8 @@ describe('Clients/Edit page CRM rendering', () => {
     });
 
     await waitFor(() => {
-      expect(getByText(/Linked to HubSpot\. Fetching data is manual, but saving this page automatically pushes profile and company changes back to the CRM\./i)).toBeInTheDocument();
+      expect(getByText('Linked to HubSpot')).toBeInTheDocument();
+      expect(getByText('Complete with CRM data')).toBeInTheDocument();
     });
 
     expect(queryByText('CRM-linked client')).not.toBeInTheDocument();

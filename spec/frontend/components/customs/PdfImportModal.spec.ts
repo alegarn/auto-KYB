@@ -56,8 +56,9 @@ describe('PdfImportModal.svelte', () => {
     vi.mocked(router.visit).mockClear();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    await new Promise((resolve) => setTimeout(resolve, 30));
     vi.unstubAllGlobals();
   });
 
@@ -83,7 +84,7 @@ describe('PdfImportModal.svelte', () => {
 
     expect(screen.getByTestId('pdf-import-uploading-state')).toBeInTheDocument();
     expect(screen.getByText('Analyzing your PDF...')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Analyzing your PDF. Upload in progress.');
+    expect(screen.getByRole('status')).toHaveTextContent('This usually takes a few seconds.');
 
     resolveFetch?.(new Response(JSON.stringify(buildUploadResponse()), { status: 200 }));
 

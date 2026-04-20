@@ -16,7 +16,7 @@ beforeEach(() => {
 test('Registrations new mounts and shows account heading', () => {
   const component: any = mount(RegistrationsNew as any, { props: { ...mockPageProps.props } })
 
-  expect(document.body.innerHTML).toContain('Create a Quick KYB Account')
+  expect(document.body.innerHTML).toContain('Choose your plan before creating your account')
 
   unmount(component)
 })
