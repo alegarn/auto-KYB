@@ -184,7 +184,8 @@ def duplicate
     # Store the parameters locally so we can mutate them
     current_params = form_params.to_h.deep_stringify_keys
     custom_mappings = normalize_custom_crm_mappings!(current_params)
-    authorize_crm_access! if crm_mapping_requested?(current_params)
+    crm_mapping_changed = crm_mapping_requested?(current_params, existing_form: form)
+    authorize_crm_access! if crm_mapping_changed
 
     validation_result = crm_mapping_validation_result(current_params)
     if validation_result&.valid? == false
@@ -203,7 +204,7 @@ def duplicate
     # Call update_form exactly once with the potentially mutated parameters
     FormService.update_form(current_user, form, current_params)
 
-    if custom_mappings.any?
+    if custom_mappings.any? && crm_mapping_changed
       CrmPropertyCreationJob.perform_later(current_user.id, custom_mappings)
     end
 
@@ -289,6 +290,8 @@ def duplicate
   end
 
   def crm_properties
+    return {} unless current_user && Crm::Entitlement.new(current_user).allowed?
+
     connections = Crm::ConnectionManager.active_connections_for(current_user)
     properties = {}
 
@@ -317,9 +320,11 @@ def duplicate
   end
 
   def form_editor_props(extra_props = {})
+    providers = active_crm_providers
+
     default_inertia_props.merge(
-      activeCrmProviders: active_crm_providers,
-      crmProperties: InertiaRails.defer { crm_properties }
+      activeCrmProviders: providers,
+      crmProperties: providers.any? ? InertiaRails.defer { crm_properties } : {}
     ).merge(extra_props)
   end
 
@@ -447,10 +452,49 @@ def duplicate
     [ :id, :label, :field_type, :required, :position, :allow_multiple, { options: [] }, { metadata: {} } ]
   end
 
-  def crm_mapping_requested?(form_attributes)
-    Array(form_attributes.dig("structure", "fields")).any? do |field|
-      field.dig("metadata", "crm_mapping").is_a?(Hash) && field.dig("metadata", "crm_mapping").any?
-    end
+  def crm_mapping_requested?(form_attributes, existing_form: nil)
+    submitted_mappings = normalized_crm_mapping_payload(form_attributes.dig("structure", "fields"))
+    return submitted_mappings.any? unless existing_form
+
+    existing_mappings = normalized_existing_crm_mapping_payload(existing_form)
+    submitted_mappings != existing_mappings
+  end
+
+  def normalized_crm_mapping_payload(fields)
+    Array(fields).filter_map do |field|
+      field_hash = if field.respond_to?(:to_h)
+        field.to_h
+      else
+        field
+      end
+
+      field_hash = field_hash.deep_stringify_keys
+      crm_mapping = field_hash.dig("metadata", "crm_mapping")
+      next unless crm_mapping.is_a?(Hash) && crm_mapping.any?
+
+      {
+        "field_key" => field_hash["id"].presence || "draft:#{field_hash["position"]}",
+        "field_type" => field_hash["field_type"],
+        "options" => Array(field_hash.dig("metadata", "options")),
+        "allow_multiple" => field_hash.dig("metadata", "allow_multiple") || field_hash["allow_multiple"],
+        "crm_mapping" => crm_mapping.deep_stringify_keys
+      }
+    end.sort_by { |field| field["field_key"].to_s }
+  end
+
+  def normalized_existing_crm_mapping_payload(form)
+    form.form_fields.order(:position).filter_map do |field|
+      crm_mapping = field.metadata&.dig("crm_mapping")
+      next unless crm_mapping.is_a?(Hash) && crm_mapping.any?
+
+      {
+        "field_key" => field.id.to_s,
+        "field_type" => field.field_type,
+        "options" => Array(field.metadata&.dig("options")),
+        "allow_multiple" => field.metadata&.dig("allow_multiple"),
+        "crm_mapping" => crm_mapping.deep_stringify_keys
+      }
+    end.sort_by { |field| field["field_key"].to_s }
   end
 
 end

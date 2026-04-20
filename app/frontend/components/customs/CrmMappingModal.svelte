@@ -27,10 +27,16 @@
     message: string;
   }
 
+  interface CrmProviderProperties {
+    contact?: Array<Record<string, unknown>>;
+    company?: Array<Record<string, unknown>>;
+  }
+
   let { 
     open = $bindable(false), 
     form = {}, 
     crmProperties = {}, 
+    activeCrmProviders = [],
     loadingProperties = false, 
     fields = [],
     onsave,
@@ -53,6 +59,15 @@
   let aiLoadingFieldKeys = $derived.by(() => aiWorkflow.loadingFieldKeys);
   const hasActiveAiRun = $derived.by(() => aiWorkflow.hasActiveRun);
   const hasBlockingCrmValidationIssues = $derived.by(() => Object.values(validationWorkflow.issues).some((providerIssues) => Object.values(providerIssues).some((issues) => issues.length > 0)));
+  const hasActiveCrmProviders = $derived(activeCrmProviders.length > 0);
+  const hasLoadedCrmProperties = $derived(Object.keys(crmProperties).length > 0);
+  const hasAvailableCrmProperties = $derived.by(() => Object.values(crmProperties).some((providerProperties) => {
+    const properties = providerProperties as CrmProviderProperties;
+    return (properties.contact?.length ?? 0) > 0 || (properties.company?.length ?? 0) > 0;
+  }));
+  const showCrmPropertiesLoader = $derived(open && hasActiveCrmProviders && loadingProperties);
+  const showNoActiveCrmConnection = $derived(!showCrmPropertiesLoader && !hasActiveCrmProviders);
+  const showCrmPropertiesUnavailable = $derived(!showCrmPropertiesLoader && hasActiveCrmProviders && hasLoadedCrmProperties && !hasAvailableCrmProperties);
 
   onDestroy(() => {
     aiWorkflow.reset();
@@ -108,6 +123,8 @@
   }
 
   function handleAutoMap() {
+    if (!hasAvailableCrmProperties) return;
+
     const autoMapped = autoMapFields(fields, crmProperties, (field, prop, provider) => isCrmPropertyCompatible(field, prop, provider));
     const merged = mergeCrmAutoMappedDraft(mappings, exportKeyOverrides, autoMapped, fieldIdToStateKey);
     mappings = merged.mappings;
@@ -143,7 +160,7 @@
   }
 
   async function handleAiAutoMap(provider: string) {
-    if (!form?.id || hasActiveAiRun) return;
+    if (!form?.id || hasActiveAiRun || !hasAvailableCrmProperties) return;
 
     resetCrmValidationState();
 
@@ -166,6 +183,8 @@
   }
 
   async function handleSave() {
+    if (!hasAvailableCrmProperties) return;
+
     const serializedFields = serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides);
     const isValid = await verifyMappingsWithCrm(serializedFields);
     if (!isValid) return;
@@ -175,6 +194,8 @@
   }
 
   async function handleTest() {
+    if (!hasAvailableCrmProperties) return;
+
     const serializedFields = serializeCrmMappingFields(fields, mappings, exportKeyOverrides, optionsOverrides);
     const isValid = await verifyMappingsWithCrm(serializedFields);
     if (!isValid) return;
@@ -228,7 +249,7 @@
             data-testid="auto-map-fields"
             class="text-sm px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded border border-indigo-200 disabled:cursor-not-allowed disabled:opacity-60" 
             onclick={handleAutoMap}
-            disabled={hasActiveAiRun || validationWorkflow.validating}
+            disabled={hasActiveAiRun || validationWorkflow.validating || !hasAvailableCrmProperties}
           >
             Auto-Map Fields
           </button>
@@ -242,14 +263,18 @@
 
       <!-- Body -->
       <div class="p-6 overflow-y-auto flex-1">
-        {#if loadingProperties}
+        {#if showCrmPropertiesLoader}
           <div class="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
             <Loader2 class="h-8 w-8 animate-spin text-indigo-500" />
             <p class="text-sm font-medium">Fetching CRM properties...</p>
           </div>
-        {:else if Object.keys(crmProperties).length === 0}
+        {:else if showNoActiveCrmConnection}
           <div class="p-4 bg-yellow-50 text-yellow-800 rounded-md">
-            No active CRM connection found. Please connect your HubSpot or Salesforce account in settings.
+            No active CRM connection found. Please connect a supported CRM account in settings.
+          </div>
+        {:else if showCrmPropertiesUnavailable}
+          <div role="alert" class="p-4 bg-amber-50 text-amber-800 rounded-md">
+            Quick KYB could not load your connected CRM properties right now. Please refresh the page and try again.
           </div>
         {:else}
           {#if validationWorkflow.validating}
@@ -324,7 +349,7 @@
           <button 
             onclick={handleTest}
             class="px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 font-medium disabled:opacity-50"
-            disabled={testingCrm || validationWorkflow.validating || hasBlockingCrmValidationIssues || Object.keys(crmProperties).length === 0 || hasActiveAiRun}
+            disabled={testingCrm || validationWorkflow.validating || hasBlockingCrmValidationIssues || !hasAvailableCrmProperties || hasActiveAiRun}
           >
             {testingCrm ? 'Sending Test...' : 'Send Test Data'}
           </button>
@@ -339,7 +364,7 @@
         <button 
           onclick={handleSave}
           class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
-          disabled={hasActiveAiRun || validationWorkflow.validating || hasBlockingCrmValidationIssues || Object.keys(crmProperties).length === 0}
+          disabled={hasActiveAiRun || validationWorkflow.validating || hasBlockingCrmValidationIssues || !hasAvailableCrmProperties}
         >
           Save Mapping
         </button>

@@ -338,6 +338,7 @@
   bind:open={showCrmMappingModal}
   form={{}}
   {crmProperties}
+  activeCrmProviders={activeCrmProviders}
   {loadingProperties}
   {fields}
   showTestAction={false}

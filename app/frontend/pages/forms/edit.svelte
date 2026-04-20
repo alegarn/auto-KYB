@@ -142,23 +142,23 @@
     submitForm();
   }
 
-  function submitForm(options: { skipUnmappedCrmWarning?: boolean } = {}) {
+  function submitForm(options: { skipUnmappedCrmWarning?: boolean } = {}): boolean {
     clientError = ""
     if (!name.trim()) {
       clientError = "Name is required"
-      return
+      return false
     }
 
     if (!mappingValid) {
       clientError = "Not all fields are unique for export mapping."
       showMappingWarning = true
-      return
+      return false
     }
 
     if (!options.skipUnmappedCrmWarning && singleCrmProvider && hasUnmappedCrmFields) {
       showUnmappedCrmWarning = true
       showUnmappedCrmWarningModal = true
-      return
+      return false
     }
 
     showMappingWarning = false
@@ -185,6 +185,8 @@
       preserveState: true,
       onFinish: () => { submitting = false; pendingLocalSave = false },
     })
+
+    return true
   }
 
   function cancel() {
@@ -400,12 +402,13 @@
     bind:open={showCrmMappingModal}
     form={initial}
     {crmProperties}
+    activeCrmProviders={activeCrmProviders}
+    {loadingProperties}
     {fields}
     onsave={({ fields: updatedFields }: { fields: FormField[] }) => {
-      pendingLocalSave = true;
       fields = updatedFields;
       closeCrmMapping();
-      submitForm({ skipUnmappedCrmWarning: true });
+      pendingLocalSave = submitForm({ skipUnmappedCrmWarning: true });
     }}
     ontestcrm={sendTestCrmData}
     {testingCrm}
