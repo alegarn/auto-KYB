@@ -3,11 +3,10 @@ import { fireEvent, render } from '@testing-library/svelte';
 import { router } from '@inertiajs/svelte';
 import CrmTransfersIndex from '@/pages/CrmTransfers/Index.svelte';
 
-vi.mock('@inertiajs/svelte', () => ({
-  router: {
-    get: vi.fn(),
-    post: vi.fn(),
-  },
+vi.mock('@/routes', () => ({
+  crm_transfers_path: () => '/crm_transfers',
+  retry_crm_transfer_path: (transferId: string) => `/crm_transfers/${transferId}/retry`,
+  dashboard_path: () => '/dashboard',
 }));
 
 describe('CrmTransfers/Index', () => {
@@ -96,8 +95,8 @@ describe('CrmTransfers/Index', () => {
       },
     });
 
-    expect(getByText('Queued')).toBeInTheDocument();
-    expect(getByText('Processing')).toBeInTheDocument();
+    expect(getByText('Queued', { selector: 'span' })).toBeInTheDocument();
+    expect(getByText('Processing', { selector: 'span' })).toBeInTheDocument();
   });
 
   it('renders retry for retryable failed transfers and posts back through Inertia', async () => {
