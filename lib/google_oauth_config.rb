@@ -1,4 +1,4 @@
-module GoogleOauthConfig
+module GoogleOAuthConfig
   CALLBACK_PATH = "/auth/google_oauth2/callback".freeze
   LOCAL_BASE_URL = "http://localhost:3100".freeze
 

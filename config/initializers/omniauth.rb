@@ -6,7 +6,7 @@ Rails.application.config.middleware.use OmniAuth::Builder do
 
   provider :google_oauth2, google_client_id, google_client_secret,
     {
-      redirect_uri: GoogleOauthConfig.redirect_uri
+      redirect_uri: GoogleOAuthConfig.redirect_uri
     }
 end
 OmniAuth.config.allowed_request_methods = %i[post]

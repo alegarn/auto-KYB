@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe GoogleOauthConfig do
+RSpec.describe GoogleOAuthConfig do
   describe ".redirect_uri" do
     let(:credentials) do
       {
