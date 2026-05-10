@@ -61,7 +61,7 @@ class SessionsController < ApplicationController
       start_user_session!(user)
       redirect_to auth_navigation_for(user).post_login_path, notice: "Signed in successfully", status: :see_other
     else
-      oauth_failure_redirect
+      oauth_failure_redirect(@oauth_failure_alert)
     end
   rescue ActiveRecord::RecordInvalid
     oauth_failure_redirect
@@ -89,7 +89,10 @@ class SessionsController < ApplicationController
 
     def find_or_link_user_by_email(provider:, uid:, email:)
       user = User.find_by(email: email)
-      return nil unless user
+      unless user
+        @oauth_failure_alert = "Google sign-in is only available after you create your account. Use Create account first if you have not subscribed yet."
+        return nil
+      end
 
       return nil if user.provider.present? && (user.provider != provider || user.uid != uid)
       return nil unless user.eligible_for_sign_in?
@@ -127,8 +130,8 @@ class SessionsController < ApplicationController
       params[:email].to_s.strip.downcase
     end
 
-    def oauth_failure_redirect
-      redirect_to sign_in_path, alert: "We could not sign you in with Google"
+    def oauth_failure_redirect(alert_message = nil)
+      redirect_to sign_in_path, alert: alert_message || "We could not sign you in with Google"
     end
 
     def current_user

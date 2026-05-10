@@ -33,15 +33,12 @@
 <section
   class="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent"
 >
-  <Form
-    action={sign_in_path()}
-    method="post"
+  <div
     class="bg-muted m-auto h-fit w-full max-w-sm overflow-hidden rounded-[calc(var(--radius)+.125rem)] border shadow-md shadow-zinc-950/5 dark:[--color-muted:var(--color-zinc-900)]"
   >
-    {#snippet children({ errors, processing }: { errors: Record<string, string>, processing: boolean })}
-      <div
-        class="bg-card -m-px rounded-[calc(var(--radius)+.125rem)] border p-8 pb-6"
-      >
+    <div
+      class="bg-card -m-px rounded-[calc(var(--radius)+.125rem)] border p-8 pb-6"
+    >
       <div class="text-center">
         <a href={root_path()} aria-label="go home" class="mx-auto block w-fit">
           <img
@@ -56,19 +53,25 @@
         <p class="text-sm">Welcome back! Sign in to continue</p>
       </div>
 
-      <div class="mt-6 space-y-6">
-        <div class="space-y-2">
-          <Label for="email" class="block text-sm">Email</Label>
-          <Input type="email" required name="email" id="email" />
-          {#if errors.email}
-            <p class="text-sm text-red-500">{errors.email}</p>
-          {/if}
-        </div>
+      <Form
+        action={sign_in_path()}
+        method="post"
+        class="mt-6 space-y-6"
+      >
+        {#snippet children({ errors, processing }: { errors: Record<string, string>, processing: boolean })}
+          <div class="space-y-2">
+            <Label for="email" class="block text-sm">Email</Label>
+            <Input type="email" required name="email" id="email" />
+            {#if errors.email}
+              <p class="text-sm text-red-500">{errors.email}</p>
+            {/if}
+          </div>
 
-        <Button class="w-full" type="submit" disabled={processing}>
-          {processing ? 'Sending...' : 'Email me a sign-in link'}
-        </Button>
-      </div>
+          <Button class="w-full" type="submit" disabled={processing}>
+            {processing ? 'Sending...' : 'Email me a sign-in link'}
+          </Button>
+        {/snippet}
+      </Form>
 
       <div class="my-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         <hr class="border-dashed" />
@@ -114,6 +117,5 @@
         <Button href={sign_up_path()} variant="link" class="px-2">Create account</Button>
       </p>
     </div>
-    {/snippet}
-  </Form>
+  </div>
 </section>

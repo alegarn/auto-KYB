@@ -13,7 +13,9 @@ Rails.application.configure do
     policy.img_src :self, :https, :data, :blob
     policy.object_src :none
     policy.frame_ancestors :none
-    policy.form_action :self
+    # Chrome enforces form-action across OAuth redirect chains, so same-origin
+    # OmniAuth POSTs still need the provider authorize host to be allowlisted.
+    policy.form_action :self, "https://accounts.google.com"
     policy.script_src :self, :https
     policy.style_src :self, :https
 
