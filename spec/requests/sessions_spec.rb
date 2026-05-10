@@ -11,6 +11,13 @@ RSpec.describe "Sessions", type: :request do
       get sign_in_path
       expect(response).to have_http_status(:ok)
     end
+
+    it "allows Google OAuth redirects in the form-action CSP" do
+      get sign_in_path
+
+      expect(response.headers["Content-Security-Policy"])
+        .to include("form-action 'self' https://accounts.google.com")
+    end
   end
 
   # ─────────────────────────────────────────────────────────────
@@ -184,6 +191,14 @@ RSpec.describe "Sessions", type: :request do
         }.not_to change(User, :count)
 
         expect(response).to redirect_to(sign_in_path)
+      end
+
+      it "shows a create-account-first alert" do
+        get "/auth/#{provider}/callback"
+
+        expect(flash[:alert]).to eq(
+          "Google sign-in is only available after you create your account. Use Create account first if you have not subscribed yet."
+        )
       end
     end
 
