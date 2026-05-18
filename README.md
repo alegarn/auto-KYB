@@ -1,228 +1,90 @@
-# quick-kyb
+# ⚡ Quick KYB
 
-Quick KYB is a client onboarding tool built for payment providers. The application uses Ruby on Rails with a Svelte + Vite frontend (integrated
-via Inertia/Vite). It provides the scaffolding for a modern web app combining
-Ruby on Rails back-end conventions with a fast Svelte frontend.
+> Streamlined merchant onboarding for payment providers.
 
-This README contains the minimal steps to get the project running locally,
-project layout highlights, and quick commands for development and testing.
+Quick KYB accelerates the merchant onboarding process for payment providers. Traditionally, collecting "Know Your Business" (KYB) data involves fragmented PDFs and manual data entry. Quick KYB transforms this experience by allowing providers to generate personalized digital forms, automate data collection, and sync validated merchant profiles directly into their CRM. It bridges the gap between client document submission and back-office data readiness.
 
-Prerequisites
---
-- Ruby 3.x (use mise/rvm as preferred)
-- Rails 8.1+ (bundled via `Gemfile`)
-- npm
-- PostgreSQL (or the DB configured in `config/database.yml`)
+[About](#-about) • [Key Features](#-key-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Architecture](#-architecture) • [Documentation](#-documentation)
 
-Quickstart (development)
---
-1. Install Ruby gems and JavaScript dependencies:
+---
 
-```bash
-bundle install
-npm install
-```
+## 📖 About
 
-2. Create and prepare the database:
+Quick KYB is designed for payment providers who need to onboard merchants quickly and accurately. It offers a seamless transition from legacy PDF-based processes to digital, CRM-integrated workflows.
 
-```bash
-bin/rails db:create db:migrate db:seed
-```
+## ✨ Key Features
 
-3. Run the app (concurrently starts Rails and Vite if `bin/dev` exists):
+*   **📄 PDF-to-Form Engine**: Instantly convert existing onboarding PDFs into interactive, web-native forms.
+*   **🔗 Smart CRM Linkage**: Premium users can connect HubSpot directly; our engine automatically maps form responses to custom CRM fields.
+*   **📦 Flexible Data Export**: Export merchant data in JSON/CSV formats, ready for any internal ingestion pipeline.
+*   **⚡ Modern Frontend**: Powered by **Svelte 5** and **Inertia.js** for a reactive, single-page application experience within a Rails environment.
+*   **🏢 Client Portal**: A dedicated space for merchants to securely fill, save, and submit their onboarding progress.
 
-```bash
-bin/dev
-# or if you prefer just Rails: bin/rails server
-```
+## 🛠 Tech Stack
 
-4. Visit http://localhost:3000 (or the port printed by the server).
+*   **Backend:** [Ruby on Rails 8.1](https://rubyonrails.org/) (Solid Cable, Solid Cache, Solid Queue)
+*   **Frontend:** [Svelte 5](https://svelte.dev/), [Inertia.js](https://inertiajs.com/), [Vite](https://vitejs.dev/), [Tailwind CSS](https://tailwindcss.com/)
+*   **Database:** PostgreSQL
+*   **Integrations:** HubSpot API, Stripe
 
-Project structure (high level)
---
-- `app/` — Rails application code (models, controllers, views, jobs, mailers)
-- `frontend/` — Svelte frontend sources, Vite entrypoints, components and types
-- `config/` — Rails configuration, environment files and initializers
-- `bin/` — useful scripts (e.g., `bin/dev`, `bin/rails`)
-- `Procfile.dev`, `Dockerfile` — development and containerization helpers
+## 🚀 Getting Started
 
-Common tasks
---
-- Run tests:
+### Prerequisites
 
-```bash
-bin/rails test
-```
+- **Ruby**: 3.4.8 (see `.ruby-version`)
+- **Rails**: 8.1+
+- **Node.js**: 20+ (for Vite and Svelte 5)
+- **PostgreSQL**
 
-- Run RuboCop (if present):
+### Installation
 
-```bash
-bundle exec rubocop
-```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/your-repo/quick-kyb.git
+   cd quick-kyb
+   ```
 
-- Start only the frontend dev server (inside `frontend` if you prefer):
+2. **Setup dependencies:**
+   ```bash
+   bundle install
+   npm install
+   ```
 
-```bash
-cd frontend
-yarn dev
-```
+3. **Prepare the database:**
+   ```bash
+   bin/rails db:prepare db:seed
+   ```
 
-Notes & tips
---
-- The repo integrates Vite + Svelte under `frontend/`; Svelte components live
-	in `frontend/pages` and `frontend/components`.
-- Environment and secrets: use Rails credentials (`bin/rails credentials:edit`) or
-	# quick-kyb
+4. **Run the development server:**
+   ```bash
+   bin/setup
+   ```
+   Visit [http://localhost:3100](http://localhost:3100) to see the app in action.
 
-	Quick KYB is a client onboarding tool built for payment providers. The
-	application uses Ruby on Rails with a Svelte + Vite frontend (integrated via
-	Inertia/Vite). It provides scaffolding for a modern web app combining Rails
-	back-end conventions with a fast Svelte frontend.
+## 📁 Architecture
 
-	This README contains the minimal steps to get the project running locally,
-	project layout highlights, and quick commands for development and testing.
+The project follows a hybrid monolith approach using **Inertia.js** to bridge Rails and Svelte.
 
-	Prerequisites
-	--
-	- Ruby: 3.4.8 (see `.ruby-version`)
-	- Rails: ~> 8.1 (declared in `Gemfile`)
-	- Node.js: Recommended 18+ (Vite and modern Svelte tooling work best on Node 18+)
-	- npm (or Yarn/PNPM if you prefer)
-	- PostgreSQL (or the DB configured in `config/database.yml`)
+- `app/frontend/`: Contains all Svelte 5 components, pages, and frontend logic.
+- `app/models/`: ActiveRecord models for merchants, forms, and CRM mappings.
+- `app/services/`: Core logic for CRM synchronization and PDF processing.
+- `app/controllers/`: Rails controllers handling routing and Inertia rendering.
 
-	Quickstart (development)
-	--
-	1. Install Ruby gems and JavaScript dependencies:
+## 📚 Documentation
 
-	```bash
-	bundle install
-	npm install
-	```
+Detailed documentation can be found in the [docs/](docs/) directory:
 
-	2. Create and prepare the database:
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [HubSpot Integration](docs/hubspot.md)
+- [KYB/KYC Flow](docs/kyb-kyc.md)
+- [Frontend Guide](docs/frontend/)
 
-	```bash
-	bin/rails db:create db:migrate db:seed
-	```
+## 🗺 Roadmap
 
-	3. Run the app (recommended):
+- [ ] Salesforce & Zoho CRM Integrations
+- [X] AI-powered field extraction from uploaded documents
+- [ ] Fully automatic merchant onboarding
 
-	`bin/dev` is provided to orchestrate the Rails and frontend dev servers together. It prefers `overmind` or `hivemind` if installed, otherwise it will install and use `foreman`.
+## 📄 License
 
-	```bash
-	bin/dev
-	# or run services individually:
-	# Start Rails only: bin/rails server
-	# Start Vite frontend only: bin/vite dev
-	# or bin/setup to setup and start the app
-	```
-
-	`Procfile.dev` defines the concurrent processes used by `bin/dev`:
-
-	- `vite: bin/vite dev`
-	- `web: bin/rails s`
-
-	4. Visit http://localhost:3000 (or the port printed by the server).
-
-	Project structure (high level)
-	--
-	- `app/` — Rails application code (models, controllers, views, jobs, mailers)
-	- `frontend/` — Svelte frontend sources, Vite entrypoints, components and types
-	- `config/` — Rails configuration, environment files and initializers
-	- `bin/` — useful scripts (e.g., `bin/dev`, `bin/rails`, `bin/vite`)
-	- `Procfile.dev`, `Dockerfile` — development and containerization helpers
-
-	Database configuration
-	--
-	This project uses PostgreSQL by default. See `config/database.yml` for
-	database names and connection options. By default:
-
-	- Development DB: `quick_kyb_development`
-	- Test DB: `quick_kyb_test`
-	- Production DB: `quick_kyb_production` (configured to read password from env vars)
-
-	Environment variables
-	--
-	- `DATABASE_URL` — optional full database connection URL (overrides `config/database.yml`)
-	- `QUICK_KYB_DATABASE_PASSWORD` — used in `config/database.yml` for production
-	- `PORT` — `bin/dev` and `bin/rails` respect `PORT` (defaults to 3000)
-
-	Common tasks
-	--
-	- Install deps: `bundle install && npm install`
-	- Create DB & migrate: `bin/rails db:create db:migrate db:seed`
-	- Run all dev services: `bin/dev`
-	- Rails only: `bin/rails server`
-	- Vite frontend only: `bin/vite dev`
-
-	Frontend (npm scripts)
-	--
-	From the repository root you can run frontend tooling using `npm`:
-
-	- `npm run check` — run `svelte-check` and `tsc` type checks
-	- `npm run lint` — ESLint for `app/frontend`
-	- `npm run lint:fix` — run eslint with `--fix`
-	- `npm run format` — run Prettier check
-	- `npm run format:fix` — fix formatting with Prettier
-	- `npm run test:unit` — run Vitest unit tests
-	- `npm run test:unit:ui` — run Vitest with UI
-	- `npm run test:unit:coverage` — run Vitest and produce coverage
-	- `npm run storybook` — start Storybook on port 6006
-	- `npm run build-storybook` — build Storybook static site
-
-	Testing and linting
-	--
-	- Rails tests: `bin/rails test` (or use `rspec` if configured)
-	- Frontend unit tests: `npm run test:unit`
-	- System / E2E tests: see `spec/` and test-related gems in the `Gemfile`
-
-	Docker & deployment
-	--
-	There is a `Dockerfile` and a `Procfile.dev` for local development orchestration. For containerized deployments, review `Dockerfile` and any platform-specific deployment scripts (e.g., `kamal` integration referenced in the `Gemfile`).
-
-	Notes & tips
-	--
-	- The repo integrates Vite + Svelte under `frontend/`; Svelte components live in `frontend/pages` and `frontend/components`.
-	- `bin/dev` prefers `overmind` or `hivemind` and falls back to `foreman` (it will attempt to install `foreman` if missing).
-	- Use Rails credentials for secrets: `bin/rails credentials:edit`.
-	- Recommended Node version: 18+ for best compatibility with Vite and modern Svelte tooling.
-
-	Contributing
-	--
-	- Open an issue or submit a pull request. Keep changes small and focused.
-
-	Further improvements (suggested)
-	--
-	- Add a `Makefile` or more robust `bin/dev` orchestration for local setup
-	- Add explicit CI examples and recommended exact development runtime versions
-	- Add a `LICENSE` if publishing the repo
-
-	Files changed
-	--
-	- Updated the top-level README with setup and usage instructions, exact Ruby version, and developer-friendly commands for running services, tests, and linters.
-
-	App goal
-	--
-	This project demonstrates a simple merchant onboarding flow for a payment company.
-
-	Use case (merchant onboarding):
-
-	- **Input:** Put the onboard forms online with a login component so merchants can submit their business and contact information.
-	- **Output:** Export collected information via email or an API so it can be imported into a CRM or downstream system.
-	- **Unique / value:** Verify submitted information by checking public sources (e.g., business registries, public profiles) to reduce manual review and improve trustworthiness of onboarding data.
-
-	**CRM Integration**
-
-	- **Connect**: Supports OAuth2 connections with Zoho, Salesforce, and HubSpot from the CRM settings page.
-	- **Automatic export**: Client data (form responses and permitted file attachments) can be exported automatically to all active CRM connections when a client validates a form in the portal.
-	- **Manual export**: Export a single client or batch of clients to one or more connected CRMs (choose contact vs lead where the provider differentiates).
-	- **Import from CRM**: Browse and import chosen leads/contacts (CRM naming) including company data into the application as clients; support re-sync/update flows.
-	- **Test & map**: Preview field mappings and send test records (placeholder test data) to verify mapping and file attachment behavior before sending real client data.
-	- **Per-CRM status and history**: Track transfer status per CRM, see detailed errors for partial failures (for example file upload issues), and retry failed transfers.
-	- **Data retention**: Transferred data can be cleaned from application storage after a configurable retention period (default: 1 day) while remaining in the CRM.
-
-	The repository includes example frontend pages and components (forms, hero, pricing, footer) that illustrate how to wire UI inputs to back-end export and verification flows. Use these as a starting point to integrate real APIs or connect to your CRM.
-
-	License
-	--
-	- No license specified. Add a `LICENSE` file if you intend to publish.
+Private repository. All rights reserved.
